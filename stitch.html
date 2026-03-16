@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FinOps Demo - Perfil de Usuario y Seguridad</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tak-yellow": "#FACC15",
+                        "zinc-950": "#09090b",
+                        "zinc-900": "#18181b",
+                        "zinc-800": "#27272a",
+                        "zinc-700": "#3f3f46",
+                        "zinc-400": "#a1a1aa",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body { 
+                @apply font-display bg-zinc-950 text-zinc-100;
+                min-height: 100vh;
+            }
+        }
+        .sidebar-active {
+            @apply border-r-4 border-tak-yellow bg-zinc-900 text-tak-yellow lg:border-r-4 lg:border-b-0;
+        }
+        .bottom-nav-active {
+            @apply text-tak-yellow border-t-2 border-tak-yellow bg-zinc-900/50;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #3f3f46;
+            border-radius: 10px;
+        }.toggle-checkbox:checked {
+            @apply right-0 bg-tak-yellow border-tak-yellow;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            @apply bg-tak-yellow/20 border-tak-yellow/30;
+        }
+    </style>
+</head>
+<body class="antialiased pb-24 lg:pb-0">
+<aside class="hidden lg:flex fixed left-0 top-0 h-full w-[280px] bg-zinc-900 border-r border-zinc-800 z-50 flex-col">
+<div class="p-8">
+<div class="flex items-center gap-3">
+<div class="size-10 bg-tak-yellow flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(250,204,21,0.3)]">
+<span class="material-symbols-outlined text-zinc-950 font-bold">query_stats</span>
+</div>
+<div>
+<span class="font-bold text-xl tracking-tight text-white block leading-none">FinOps Demo</span>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">FinOps Executive</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2">
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Panel de Control</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="text-sm font-medium">Consola Técnica</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-sm font-medium">Asistente IA</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="text-sm font-medium">Historial</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 sidebar-active font-semibold transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-sm">Perfil y Seguridad</span>
+</a>
+</nav>
+<div class="p-6 mt-auto border-t border-zinc-800 bg-zinc-950/30">
+<div class="flex items-center gap-3">
+<img alt="Perfil" class="size-10 rounded-full object-cover ring-2 ring-zinc-800 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaFXmTxKfsVUIF3W-A57l045j72Zt10Q0v9QfFeaYTFBrC-xbwKBj4rfYMM_gb4H6N8pMC1pXEN7And7SmmKhcRR-X60m4Qp4F-_j8pYEiPtIJK1pkUtwkHP9bbvbiY6Uo15mPDQcOzGoN6xPy5OoGOtl6cc9ktDy7EHd7iEo8Hp_jUSP-fnxdrbo0hK9DLZULG32P422f5U0FA4nP9rJR18ESuLRsiPo6QMBnKU1BZDJse5uUil1ezbN-ADg5kA-2qmDuS7L0odA"/>
+<div class="overflow-hidden">
+<p class="text-sm font-bold text-zinc-100 truncate">Andrés Rivera</p>
+<p class="text-xs text-zinc-500 truncate">Admin de Cloud</p>
+</div>
+</div>
+</div>
+</aside>
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800 z-50 flex items-center justify-around h-16 px-2">
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Panel</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">terminal</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Consola</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">smart_toy</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">IA</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full bottom-nav-active" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Perfil</span>
+</a>
+</nav>
+<div class="lg:ml-[280px] min-h-screen">
+<header class="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 px-4 lg:px-10 py-3 lg:py-4 flex items-center justify-between">
+<div class="flex items-center gap-4 lg:gap-8 flex-1">
+<div class="lg:hidden size-8 bg-tak-yellow flex items-center justify-center rounded shadow-sm">
+<span class="material-symbols-outlined text-zinc-950 text-xl font-bold">query_stats</span>
+</div>
+<h1 class="text-lg font-bold text-white uppercase tracking-tight hidden lg:block">Perfil de Usuario y Seguridad</h1>
+</div>
+<div class="flex items-center gap-3 lg:gap-6 ml-4">
+<button class="relative p-1.5 text-zinc-400 hover:text-tak-yellow transition-colors">
+<span class="material-symbols-outlined text-2xl">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-zinc-950"></span>
+</button>
+<div class="hidden sm:block h-8 w-px bg-zinc-800"></div>
+<div class="hidden sm:flex flex-col items-end">
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Cuenta Activa</span>
+<span class="text-xs font-bold text-tak-yellow">TAK - Prod Principal</span>
+</div>
+</div>
+</header>
+<main class="p-4 lg:p-10 max-w-[1000px] mx-auto space-y-8">
+<section class="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 shadow-2xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-tak-yellow/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-tak-yellow/10 transition-all"></div>
+<div class="flex flex-col md:flex-row items-center md:items-start gap-8">
+<div class="relative">
+<img alt="Avatar" class="size-32 rounded-3xl object-cover border-2 border-zinc-800 shadow-2xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaFXmTxKfsVUIF3W-A57l045j72Zt10Q0v9QfFeaYTFBrC-xbwKBj4rfYMM_gb4H6N8pMC1pXEN7And7SmmKhcRR-X60m4Qp4F-_j8pYEiPtIJK1pkUtwkHP9bbvbiY6Uo15mPDQcOzGoN6xPy5OoGOtl6cc9ktDy7EHd7iEo8Hp_jUSP-fnxdrbo0hK9DLZULG32P422f5U0FA4nP9rJR18ESuLRsiPo6QMBnKU1BZDJse5uUil1ezbN-ADg5kA-2qmDuS7L0odA"/>
+<button class="absolute -bottom-2 -right-2 size-10 bg-tak-yellow text-zinc-950 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-xl font-bold">photo_camera</span>
+</button>
+</div>
+<div class="flex-1 text-center md:text-left space-y-4">
+<div>
+<span class="inline-block bg-tak-yellow/10 text-tak-yellow text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest mb-2">Administrador del Sistema</span>
+<h2 class="text-3xl font-black text-white">Andrés Rivera</h2>
+<p class="text-zinc-500 font-medium">Admin de Cloud &amp; FinOps Lead</p>
+</div>
+<div class="flex flex-wrap justify-center md:justify-start gap-6">
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-tak-yellow">mail</span>
+<span class="text-sm">[correo omitido]</span>
+</div>
+<div class="flex items-center gap-2 text-zinc-400">
+<span class="material-symbols-outlined text-tak-yellow">location_on</span>
+<span class="text-sm">Bogotá, Colombia</span>
+</div>
+</div>
+</div>
+<div class="w-full md:w-auto flex flex-col gap-3">
+<button class="w-full px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black rounded-xl transition-colors uppercase tracking-widest flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">edit</span>
+                            Editar Perfil
+                        </button>
+</div>
+</div>
+</section>
+<section class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
+<div class="p-6 border-b border-zinc-800 flex items-center gap-3">
+<span class="material-symbols-outlined text-tak-yellow">security</span>
+<h3 class="text-lg font-bold text-white">Seguridad y Acceso</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center justify-between">
+<div class="space-y-0.5">
+<p class="text-sm font-bold text-zinc-100 uppercase tracking-tight">Autenticación 2FA</p>
+<p class="text-xs text-zinc-500">Añade una capa extra de seguridad.</p>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer" id="toggle-2fa" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-800 border border-zinc-700 cursor-pointer" for="toggle-2fa"></label>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="space-y-0.5">
+<p class="text-sm font-bold text-zinc-100 uppercase tracking-tight">Notificaciones Críticas</p>
+<p class="text-xs text-zinc-500">Alertas inmediatas de sobrecostos.</p>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer" id="toggle-notif" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-800 border border-zinc-700 cursor-pointer" for="toggle-notif"></label>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="space-y-0.5">
+<p class="text-sm font-bold text-zinc-100 uppercase tracking-tight">Sesión Persistente</p>
+<p class="text-xs text-zinc-500">Mantener sesión activa por 30 días.</p>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox right-0 absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer" id="toggle-session" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-800 border border-zinc-700 cursor-pointer" for="toggle-session"></label>
+</div>
+</div>
+<div class="pt-4 space-y-3">
+<button class="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-black rounded-xl transition-all uppercase tracking-widest border border-zinc-700 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">lock_reset</span>
+                                Cambiar Contraseña
+                            </button>
+<button class="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-black rounded-xl transition-all uppercase tracking-widest border border-red-500/20 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">logout</span>
+                                Cerrar Sesión
+                            </button>
+</div>
+</div>
+</div>
+<div class="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
+<div class="p-6 border-b border-zinc-800 flex items-center gap-3">
+<span class="material-symbols-outlined text-tak-yellow">history</span>
+<h3 class="text-lg font-bold text-white">Sesiones Activas</h3>
+</div>
+<div class="p-6 space-y-5">
+<div class="flex items-start gap-4 p-4 bg-zinc-950 rounded-2xl border border-zinc-800/50">
+<div class="size-10 bg-tak-yellow/10 flex items-center justify-center rounded-xl shrink-0">
+<span class="material-symbols-outlined text-tak-yellow">laptop_mac</span>
+</div>
+<div class="flex-1">
+<p class="text-xs font-bold text-white">MacBook Pro - Bogotá, CO</p>
+<p class="text-[10px] text-zinc-500 mt-1 uppercase">Chrome • En línea ahora</p>
+</div>
+<span class="size-2 rounded-full bg-green-500 animate-pulse mt-1"></span>
+</div>
+<div class="flex items-start gap-4 p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800/30">
+<div class="size-10 bg-zinc-800 flex items-center justify-center rounded-xl shrink-0">
+<span class="material-symbols-outlined text-zinc-400">smartphone</span>
+</div>
+<div class="flex-1">
+<p class="text-xs font-bold text-zinc-400">iPhone 15 - Bogotá, CO</p>
+<p class="text-[10px] text-zinc-500 mt-1 uppercase">App TAK • Hace 2 horas</p>
+</div>
+</div>
+<div class="pt-2">
+<button class="text-xs font-bold text-tak-yellow/80 hover:text-tak-yellow transition-colors uppercase tracking-widest flex items-center gap-1">
+                                Ver todo el historial de acceso
+                                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+
+</body></html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Historial y Configuración - FinOps Demo</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tak-yellow": "#FFD700",
+                        "dark-bg": "#09090b", // zinc-950
+                        "dark-card": "#18181b", // zinc-900
+                        "dark-border": "#27272a", // zinc-800
+                        "dark-text-muted": "#a1a1aa", // zinc-400
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-dark-bg text-zinc-100 antialiased;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            @apply bg-zinc-800 rounded-full;
+        }
+        .toggle-yellow:checked + .toggle-bg {
+            background-color: #FFD700;
+        }
+        .toggle-yellow:checked + .toggle-bg .toggle-dot {
+            transform: translateX(1.5rem);
+        }
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col md:flex-row h-screen overflow-hidden dark">
+<aside class="hidden md:flex w-72 bg-dark-card border-r border-dark-border flex-col shrink-0">
+<div class="p-8">
+<div class="flex items-center gap-3 mb-12">
+<div class="bg-tak-yellow p-2 rounded-lg">
+<span class="material-symbols-outlined text-black font-bold">cloud_sync</span>
+</div>
+<div>
+<h1 class="text-sm font-bold tracking-tight text-white">FinOps Demo</h1>
+<p class="text-[10px] text-tak-yellow uppercase font-bold tracking-widest">FinOps Console</p>
+</div>
+</div>
+<nav class="space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 text-dark-text-muted hover:bg-zinc-800 hover:text-white rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-dark-text-muted hover:bg-zinc-800 hover:text-white rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-xl">terminal</span>
+<span class="text-sm font-medium">Consola</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-zinc-800 text-tak-yellow rounded-xl border border-dark-border" href="#">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1">history</span>
+<span class="text-sm font-bold">Historial</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-dark-text-muted hover:bg-zinc-800 hover:text-white rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-xl">smart_toy</span>
+<span class="text-sm font-medium">Chat AI</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-dark-text-muted hover:bg-zinc-800 hover:text-white rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-6 border-t border-dark-border bg-zinc-900/50">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-full bg-zinc-800 flex items-center justify-center border border-dark-border overflow-hidden">
+<span class="material-symbols-outlined text-tak-yellow">person</span>
+</div>
+<div>
+<p class="text-xs font-bold text-white">Admin TAK</p>
+<p class="text-[10px] text-dark-text-muted">Plan Enterprise</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto custom-scrollbar pb-32 md:pb-8">
+<div class="max-w-6xl mx-auto p-5 md:p-10 space-y-8 md:space-y-12">
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="px-2 py-0.5 rounded bg-tak-yellow/10 text-tak-yellow text-[10px] font-bold uppercase tracking-wider">Modo Seguro</span>
+</div>
+<h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight">Historial y Configuración</h2>
+<p class="text-dark-text-muted mt-1 text-sm">Control de auditoría y parámetros del motor de optimización.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 md:flex-none px-6 py-2.5 bg-tak-yellow text-black rounded-xl text-sm font-bold hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-tak-yellow/10">
+<span class="material-symbols-outlined text-lg">download</span>
+                        Descargar Reporte
+                    </button>
+<button class="size-10 flex items-center justify-center border border-dark-border rounded-xl text-dark-text-muted hover:bg-zinc-800">
+<span class="material-symbols-outlined">sync</span>
+</button>
+</div>
+</header>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-dark-card border border-dark-border p-4 rounded-2xl">
+<p class="text-[10px] font-bold text-dark-text-muted uppercase tracking-widest mb-1">Acciones Mes</p>
+<p class="text-xl font-bold text-white">124</p>
+</div>
+<div class="bg-dark-card border border-dark-border p-4 rounded-2xl">
+<p class="text-[10px] font-bold text-dark-text-muted uppercase tracking-widest mb-1">Ahorro Total</p>
+<p class="text-xl font-bold text-tak-yellow">$12.4k</p>
+</div>
+<div class="bg-dark-card border border-dark-border p-4 rounded-2xl">
+<p class="text-[10px] font-bold text-dark-text-muted uppercase tracking-widest mb-1">Integraciones</p>
+<p class="text-xl font-bold text-white">Active</p>
+</div>
+<div class="bg-dark-card border border-dark-border p-4 rounded-2xl">
+<p class="text-[10px] font-bold text-dark-text-muted uppercase tracking-widest mb-1">Salud API</p>
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-tak-yellow animate-pulse"></span>
+<p class="text-xl font-bold text-white">99.9%</p>
+</div>
+</div>
+</div>
+<section>
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+<h3 class="text-lg font-bold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-tak-yellow">history_edu</span>
+                        Registro de Auditoría
+                    </h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 bg-zinc-800 border border-dark-border rounded-lg text-[10px] font-bold text-dark-text-muted uppercase tracking-wider flex items-center gap-2">
+                            Filtros
+                            <span class="material-symbols-outlined text-sm">filter_list</span>
+</button>
+</div>
+</div>
+<div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden shadow-2xl">
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse min-w-[800px]">
+<thead>
+<tr class="bg-zinc-900/50 border-b border-dark-border">
+<th class="px-6 py-4 text-[10px] font-bold text-dark-text-muted uppercase tracking-widest">Timestamp</th>
+<th class="px-6 py-4 text-[10px] font-bold text-dark-text-muted uppercase tracking-widest">Recurso Cloud</th>
+<th class="px-6 py-4 text-[10px] font-bold text-dark-text-muted uppercase tracking-widest">Operación</th>
+<th class="px-6 py-4 text-[10px] font-bold text-dark-text-muted uppercase tracking-widest">Autor</th>
+<th class="px-6 py-4 text-[10px] font-bold text-dark-text-muted uppercase tracking-widest text-right">Impacto Econ.</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-dark-border">
+<tr class="hover:bg-zinc-800/50 transition-colors group">
+<td class="px-6 py-4">
+<p class="text-sm text-zinc-300">24 Oct, 2023</p>
+<p class="text-[10px] text-zinc-500">14:20:05</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-zinc-500 text-sm">database</span>
+<span class="font-semibold text-zinc-100">db-prod-01</span>
+<span class="text-[10px] px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400">RDS</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight">Downsizing</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="size-6 rounded-full bg-zinc-700"></div>
+<span class="text-sm text-zinc-300">C. Rodriguez</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-tak-yellow text-right">+$450.00</td>
+</tr>
+<tr class="hover:bg-zinc-800/50 transition-colors">
+<td class="px-6 py-4">
+<p class="text-sm text-zinc-300">22 Oct, 2023</p>
+<p class="text-[10px] text-zinc-500">09:15:32</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-zinc-500 text-sm">folder_zip</span>
+<span class="font-semibold text-zinc-100">media-assets</span>
+<span class="text-[10px] px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400">S3</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight">Lifecycle</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="size-6 rounded-full bg-zinc-700"></div>
+<span class="text-sm text-zinc-300">M. Gomez</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-tak-yellow text-right">+$120.50</td>
+</tr>
+<tr class="hover:bg-zinc-800/50 transition-colors">
+<td class="px-6 py-4">
+<p class="text-sm text-zinc-300">19 Oct, 2023</p>
+<p class="text-[10px] text-zinc-500">23:59:01</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-zinc-500 text-sm">dns</span>
+<span class="font-semibold text-zinc-100">web-farm-01</span>
+<span class="text-[10px] px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400">EC2</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-tak-yellow/10 text-tak-yellow border border-tak-yellow/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight">Auto-scaling</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tak-yellow text-sm">robot_2</span>
+<span class="text-sm text-zinc-300 italic">TAK Bot (AI)</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-tak-yellow text-right">+$890.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-zinc-900/30 border-t border-dark-border flex justify-center">
+<button class="text-[10px] font-bold text-dark-text-muted uppercase tracking-widest hover:text-white transition-colors">Ver historial completo</button>
+</div>
+</div>
+</section>
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-tak-yellow">settings_input_component</span>
+                        Configuración e Integraciones
+                    </h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="p-6 bg-dark-card border border-dark-border rounded-2xl flex flex-col justify-between hover:border-zinc-700 transition-all shadow-lg">
+<div class="flex justify-between items-start mb-6">
+<div class="size-12 bg-zinc-800 rounded-xl flex items-center justify-center text-tak-yellow">
+<span class="material-symbols-outlined text-3xl">api</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-yellow" type="checkbox"/>
+<div class="w-12 h-6 bg-zinc-700 rounded-full peer-focus:outline-none transition-colors toggle-bg relative">
+<div class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform toggle-dot shadow-sm"></div>
+</div>
+</label>
+</div>
+<div>
+<h4 class="text-base font-bold text-white">AWS Cost Explorer</h4>
+<p class="text-xs text-dark-text-muted mt-2 leading-relaxed">Sincronización de costos en tiempo real para análisis predictivo.</p>
+<div class="mt-4 flex items-center gap-2">
+<span class="size-1.5 rounded-full bg-tak-yellow"></span>
+<span class="text-[10px] font-bold text-tak-yellow uppercase tracking-widest">Conectado</span>
+</div>
+</div>
+</div>
+<div class="p-6 bg-dark-card border border-dark-border rounded-2xl flex flex-col justify-between hover:border-zinc-700 transition-all shadow-lg">
+<div class="flex justify-between items-start mb-6">
+<div class="size-12 bg-zinc-800 rounded-xl flex items-center justify-center text-tak-yellow">
+<span class="material-symbols-outlined text-3xl">hub</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer toggle-yellow" type="checkbox"/>
+<div class="w-12 h-6 bg-zinc-700 rounded-full peer-focus:outline-none transition-colors toggle-bg relative">
+<div class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform toggle-dot shadow-sm"></div>
+</div>
+</label>
+</div>
+<div>
+<h4 class="text-base font-bold text-white">Orquestación Central</h4>
+<p class="text-xs text-dark-text-muted mt-2 leading-relaxed">Automatización de flujos de trabajo y aprobaciones vía n8n.</p>
+<div class="mt-4 flex items-center gap-2">
+<span class="size-1.5 rounded-full bg-tak-yellow"></span>
+<span class="text-[10px] font-bold text-tak-yellow uppercase tracking-widest">En Ejecución</span>
+</div>
+</div>
+</div>
+<div class="p-6 bg-dark-card border border-dark-border rounded-2xl flex flex-col justify-between hover:border-zinc-700 transition-all shadow-lg">
+<div class="flex justify-between items-start mb-6">
+<div class="size-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-500">
+<span class="material-symbols-outlined text-3xl">chat</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer toggle-yellow" type="checkbox"/>
+<div class="w-12 h-6 bg-zinc-700 rounded-full peer-focus:outline-none transition-colors toggle-bg relative">
+<div class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform toggle-dot shadow-sm"></div>
+</div>
+</label>
+</div>
+<div>
+<h4 class="text-base font-bold text-white">Alertas WhatsApp</h4>
+<p class="text-xs text-dark-text-muted mt-2 leading-relaxed">Notificaciones de anomalías directamente a tu equipo móvil.</p>
+<div class="mt-4 flex items-center gap-2">
+<span class="size-1.5 rounded-full bg-zinc-600"></span>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Inactivo</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-dark-card/90 backdrop-blur-xl border-t border-dark-border px-6 pt-3 pb-6 safe-bottom flex justify-between items-center z-50">
+<a class="flex flex-col items-center gap-1 text-dark-text-muted hover:text-tak-yellow transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[10px] font-bold tracking-tight">Panel</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-dark-text-muted hover:text-tak-yellow transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">terminal</span>
+<span class="text-[10px] font-bold tracking-tight">Consola</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-tak-yellow" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1">history</span>
+<span class="text-[10px] font-bold tracking-tight">Historial</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-dark-text-muted hover:text-tak-yellow transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">smart_toy</span>
+<span class="text-[10px] font-bold tracking-tight">Chat AI</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-dark-text-muted hover:text-tak-yellow transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<span class="text-[10px] font-bold tracking-tight">Config</span>
+</a>
+</nav>
+
+</body></html>

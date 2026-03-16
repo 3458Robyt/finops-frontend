@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FinOps Demo - Panel de Control Ejecutivo (Modo Oscuro)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tak-yellow": "#FACC15", // yellow-400
+                        "zinc-950": "#09090b",
+                        "zinc-900": "#18181b",
+                        "zinc-800": "#27272a",
+                        "zinc-700": "#3f3f46",
+                        "zinc-400": "#a1a1aa",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body { 
+                @apply font-display bg-zinc-950 text-zinc-100;
+                min-height: 100vh;
+            }
+        }
+        .sidebar-active {
+            @apply border-r-4 border-tak-yellow bg-zinc-900 text-tak-yellow lg:border-r-4 lg:border-b-0;
+        }
+        .bottom-nav-active {
+            @apply text-tak-yellow border-t-2 border-tak-yellow bg-zinc-900/50;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #3f3f46;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased pb-20 lg:pb-0">
+<aside class="hidden lg:flex fixed left-0 top-0 h-full w-[280px] bg-zinc-900 border-r border-zinc-800 z-50 flex-col">
+<div class="p-8">
+<div class="flex items-center gap-3">
+<div class="size-10 bg-tak-yellow flex items-center justify-center rounded-lg shadow-[0_0_15px_rgba(250,204,21,0.3)]">
+<span class="material-symbols-outlined text-zinc-950 font-bold">query_stats</span>
+</div>
+<div>
+<span class="font-bold text-xl tracking-tight text-white block leading-none">FinOps Demo</span>
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">FinOps Executive</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2">
+<a class="flex items-center gap-4 px-4 py-3 sidebar-active font-semibold transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm">Panel de Control</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="text-sm font-medium">Consola Técnica</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-sm font-medium">Asistente IA</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="text-sm font-medium">Historial</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+</nav>
+<div class="p-6 mt-auto border-t border-zinc-800 bg-zinc-950/30">
+<div class="flex items-center gap-3">
+<img alt="Perfil" class="size-10 rounded-full object-cover ring-2 ring-zinc-800 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKddfn8Fi6vCdiATAJUrWf9IMwjMU4XYdTPCXmNK31gXoT9fh3O9qEZ5u01Jv7mNNE7O9-44OXNLr8MTo1Lq_BpTGghRkzNctgHpWcRy8b4fmVj-xpH4ZnjOJxzcDtvqLiQ-yC5pGMqY5W6I2Uwg1s5-dPB8AiIma9I8WG7nEdBoNbbmJQ5X8E0bIVdyDP6wqSKhcc4J4RUUIa2TS_J1I3-6fteOrap-4rR7Kb696yXhl8HKEuqahrtyqP0COECvOF81bAWRtWwHU"/>
+<div class="overflow-hidden">
+<p class="text-sm font-bold text-zinc-100 truncate">Director Ejecutivo</p>
+<p class="text-xs text-zinc-500 truncate">Finanzas Globales</p>
+</div>
+</div>
+</div>
+</aside>
+<nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800 z-50 flex items-center justify-around h-16 px-2">
+<a class="flex flex-col items-center justify-center flex-1 h-full bottom-nav-active" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Panel</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">terminal</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Consola</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">smart_toy</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">IA</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">history</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Historial</span>
+</a>
+<a class="flex flex-col items-center justify-center flex-1 h-full text-zinc-500" href="#">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<span class="text-[10px] font-bold uppercase mt-0.5">Ajustes</span>
+</a>
+</nav>
+<div class="lg:ml-[280px] min-h-screen">
+<header class="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 px-4 lg:px-10 py-4 lg:py-5 flex items-center justify-between">
+<div class="flex items-center gap-4 lg:gap-8">
+<div class="lg:hidden size-8 bg-tak-yellow flex items-center justify-center rounded shadow-sm">
+<span class="material-symbols-outlined text-zinc-950 text-xl font-bold">query_stats</span>
+</div>
+<div class="flex items-center gap-3 group cursor-pointer bg-zinc-900 px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg border border-zinc-800 transition-all hover:border-tak-yellow">
+<img alt="Cloud Provider" class="size-4 lg:size-5 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt3tI3Q9bpcPNlcgdyiKQUNgm27oVmdUHeyWC3VBn7p7tvFFQHHas4M9uFdPV-tDwuPpuKwggliBWld87lXksdFQ7EN5lFKHtW3we1ODNdakvkw4Bro5ePzxIc7TZMIN1uz-EWaFlhwGwH1ky1zuvvFuskTJyjYOUoky8hsgRM0dEWn-U8aSMrAk--shmmPo57KkXfcHVDvT8zSgVmSZhQdfZZPPkmHoFC4zLb0FUTS-Lkk54EfpF_7pH4Lrba7SDcYYchij4KLTU"/>
+<span class="text-xs lg:text-sm font-bold text-zinc-200 tracking-tight uppercase">AWS Infrastructure</span>
+<span class="material-symbols-outlined text-zinc-500 group-hover:text-tak-yellow text-sm lg:text-base">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4 lg:gap-6">
+<button class="relative p-1.5 text-zinc-400 hover:text-tak-yellow transition-colors">
+<span class="material-symbols-outlined text-2xl">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-zinc-950"></span>
+</button>
+<div class="hidden sm:block h-8 w-px bg-zinc-800"></div>
+<div class="hidden sm:flex flex-col items-end">
+<span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Estado</span>
+<span class="text-xs font-bold text-green-500 flex items-center gap-1">
+<span class="size-1.5 rounded-full bg-green-500 animate-pulse"></span> Sistema Operativo
+                    </span>
+</div>
+</div>
+</header>
+<main class="p-4 lg:p-10 max-w-[1600px] mx-auto space-y-6 lg:space-y-8">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+<div class="bg-zinc-900 rounded-2xl p-6 shadow-xl border border-zinc-800">
+<div class="flex justify-between items-start mb-6">
+<div class="space-y-1">
+<h3 class="text-zinc-500 text-xs font-bold uppercase tracking-wider">Gasto vs Presupuesto</h3>
+<p class="text-2xl lg:text-3xl font-bold text-white">$45.200 <span class="text-sm font-normal text-zinc-500">/ $60k</span></p>
+</div>
+<div class="bg-tak-yellow/10 text-tak-yellow px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border border-tak-yellow/20">
+                            75% Ejecutado
+                        </div>
+</div>
+<div class="w-full bg-zinc-800 h-3 rounded-full overflow-hidden">
+<div class="bg-tak-yellow h-full rounded-full shadow-[0_0_8px_rgba(250,204,21,0.5)]" style="width: 75%"></div>
+</div>
+<div class="flex justify-between mt-4">
+<p class="text-xs font-medium text-zinc-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm text-green-500 font-bold">arrow_downward</span>
+                            12.4% vs Mes Anterior
+                        </p>
+</div>
+</div>
+<div class="bg-zinc-900 rounded-2xl p-6 shadow-xl border border-zinc-800 flex items-center gap-5 lg:gap-6">
+<div class="size-12 lg:size-14 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20 shrink-0">
+<span class="material-symbols-outlined text-red-500 text-2xl lg:text-3xl">delete_sweep</span>
+</div>
+<div>
+<h3 class="text-zinc-500 text-xs font-bold uppercase tracking-wider">Desperdicio Identificado</h3>
+<p class="text-2xl lg:text-3xl font-bold text-white">$8.420</p>
+<span class="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-red-500/20">Acción Requerida</span>
+</div>
+</div>
+<div class="bg-zinc-900 rounded-2xl p-6 shadow-xl border border-zinc-800 flex items-center gap-5 lg:gap-6 md:col-span-2 lg:col-span-1">
+<div class="size-12 lg:size-14 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/20 shrink-0">
+<span class="material-symbols-outlined text-green-500 text-2xl lg:text-3xl">account_balance_wallet</span>
+</div>
+<div>
+<h3 class="text-zinc-500 text-xs font-bold uppercase tracking-wider">ROI de Ahorro Neto</h3>
+<p class="text-2xl lg:text-3xl font-bold text-white">24.8%</p>
+<span class="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-green-500/20">+2.4% este Q</span>
+</div>
+</div>
+</div>
+<section class="bg-zinc-900 rounded-2xl p-4 lg:p-8 shadow-xl border border-zinc-800 overflow-hidden">
+<div class="flex flex-col lg:flex-row justify-between items-start gap-4 mb-6 lg:mb-10">
+<div>
+<h2 class="text-lg lg:text-xl font-bold text-white">Consumo Histórico vs Proyección Optimizada</h2>
+<p class="text-xs lg:text-sm text-zinc-500 mt-1">Comparativa de costos reales frente a recomendaciones FinOps de FinOps Demo.</p>
+</div>
+<div class="flex gap-4 lg:gap-6 bg-zinc-950 p-2 lg:p-3 rounded-xl border border-zinc-800 w-full lg:w-auto overflow-x-auto">
+<div class="flex items-center gap-2 shrink-0">
+<span class="size-2.5 lg:size-3 rounded-full border-2 border-zinc-700"></span>
+<span class="text-[10px] lg:text-xs font-bold text-zinc-500 uppercase tracking-tighter">Histórico (AS-IS)</span>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="size-2.5 lg:size-3 rounded-full bg-tak-yellow shadow-[0_0_5px_rgba(250,204,21,0.5)]"></span>
+<span class="text-[10px] lg:text-xs font-bold text-white uppercase tracking-tighter">Proyectado (TO-BE)</span>
+</div>
+</div>
+</div>
+<div class="relative h-[200px] lg:h-[350px] w-full">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 300">
+<line stroke="#27272a" stroke-width="1" x1="0" x2="1000" y1="50" y2="50"></line>
+<line stroke="#27272a" stroke-width="1" x1="0" x2="1000" y1="150" y2="150"></line>
+<line stroke="#27272a" stroke-width="1" x1="0" x2="1000" y1="250" y2="250"></line>
+<path d="M0,240 Q150,220 300,230 T600,200 T1000,180" fill="none" stroke="#3f3f46" stroke-dasharray="8" stroke-width="2"></path>
+<path d="M0,240 Q150,220 300,230 T600,160 T1000,110" fill="none" stroke="#FACC15" stroke-width="4"></path>
+<path d="M0,240 Q150,220 300,230 T600,160 T1000,110 L1000,300 L0,300 Z" fill="url(#chart-gradient)" opacity="0.15"></path>
+<defs>
+<linearGradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#FACC15"></stop>
+<stop offset="100%" stop-color="#FACC15" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<circle cx="600" cy="160" fill="#FACC15" r="5" stroke="#18181b" stroke-width="2"></circle>
+</svg>
+<div class="absolute top-[40%] left-[60%] -translate-x-1/2 bg-tak-yellow text-zinc-950 px-3 py-1.5 rounded-lg text-[9px] lg:text-[11px] font-black shadow-[0_0_15px_rgba(250,204,21,0.4)] border border-yellow-200/50 whitespace-nowrap uppercase">
+                        Implementación FinOps
+                    </div>
+</div>
+<div class="flex justify-between mt-6 lg:mt-8 text-[9px] lg:text-[11px] font-black text-zinc-600 uppercase tracking-widest px-2 lg:px-4">
+<span>Ene</span>
+<span class="hidden sm:inline">Mar</span>
+<span>May</span>
+<span class="text-tak-yellow font-black border-b-2 border-tak-yellow pb-1">Jul (Actual)</span>
+<span class="hidden sm:inline">Sep</span>
+<span>Nov</span>
+</div>
+</section>
+<section class="space-y-4 lg:space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 lg:gap-3">
+<span class="material-symbols-outlined text-tak-yellow text-2xl lg:text-3xl font-bold">auto_awesome</span>
+<h2 class="text-lg lg:text-xl font-bold text-white tracking-tight">Recomendaciones IA</h2>
+</div>
+<button class="text-[10px] lg:text-xs font-bold text-zinc-500 hover:text-tak-yellow transition-colors uppercase tracking-widest">Ver Catálogo Completo</button>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+<div class="bg-zinc-900 border border-zinc-800 hover:border-tak-yellow/50 transition-all group rounded-2xl p-5 lg:p-6 shadow-xl">
+<div class="flex flex-col sm:flex-row gap-4 lg:gap-5">
+<div class="size-12 lg:size-14 rounded-2xl bg-zinc-950 flex items-center justify-center shrink-0 border border-zinc-800 group-hover:bg-tak-yellow/10 group-hover:border-tak-yellow/30 transition-colors">
+<span class="material-symbols-outlined text-zinc-500 group-hover:text-tak-yellow transition-colors text-2xl lg:text-3xl">power_settings_new</span>
+</div>
+<div class="flex-1">
+<div class="flex flex-col sm:flex-row justify-between items-start gap-2">
+<h4 class="text-sm lg:text-base font-bold text-zinc-100 group-hover:text-white transition-colors">Automatización Encendido/Apagado</h4>
+<span class="bg-green-500/10 text-green-400 text-[10px] font-black px-2 py-0.5 lg:py-1 rounded uppercase whitespace-nowrap border border-green-500/20">Ahorro: $1,240/m</span>
+</div>
+<p class="text-zinc-500 text-xs lg:text-sm mt-2 leading-relaxed">Detección de inactividad prolongada en instancias EC2 durante fines de semana. Programar parada automática en ambientes de desarrollo.</p>
+<div class="flex gap-2 lg:gap-3 mt-4 lg:mt-6">
+<button class="flex-1 py-2 lg:py-3 bg-tak-yellow text-zinc-950 text-[10px] lg:text-xs font-black rounded-lg lg:rounded-xl hover:bg-yellow-300 transition-colors shadow-lg shadow-tak-yellow/10 uppercase tracking-wider">Aprobar</button>
+<button class="flex-1 py-2 lg:py-3 bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] lg:text-xs font-bold rounded-lg lg:rounded-xl hover:bg-zinc-700 transition-colors uppercase tracking-wider">Rechazar</button>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-zinc-900 border border-zinc-800 hover:border-tak-yellow/50 transition-all group rounded-2xl p-5 lg:p-6 shadow-xl">
+<div class="flex flex-col sm:flex-row gap-4 lg:gap-5">
+<div class="size-12 lg:size-14 rounded-2xl bg-zinc-950 flex items-center justify-center shrink-0 border border-zinc-800 group-hover:bg-tak-yellow/10 group-hover:border-tak-yellow/30 transition-colors">
+<span class="material-symbols-outlined text-zinc-500 group-hover:text-tak-yellow transition-colors text-2xl lg:text-3xl">storage</span>
+</div>
+<div class="flex-1">
+<div class="flex flex-col sm:flex-row justify-between items-start gap-2">
+<h4 class="text-sm lg:text-base font-bold text-zinc-100 group-hover:text-white transition-colors">Optimización de Almacenamiento</h4>
+<span class="bg-green-500/10 text-green-400 text-[10px] font-black px-2 py-0.5 lg:py-1 rounded uppercase whitespace-nowrap border border-green-500/20">Ahorro: $450/m</span>
+</div>
+<p class="text-zinc-500 text-xs lg:text-sm mt-2 leading-relaxed">Mover 12.4TB de buckets S3 a la clase Glacier. Datos sin solicitudes de lectura en los últimos 90 días naturales.</p>
+<div class="flex gap-2 lg:gap-3 mt-4 lg:mt-6">
+<button class="flex-1 py-2 lg:py-3 bg-tak-yellow text-zinc-950 text-[10px] lg:text-xs font-black rounded-lg lg:rounded-xl hover:bg-yellow-300 transition-colors shadow-lg shadow-tak-yellow/10 uppercase tracking-wider">Aprobar</button>
+<button class="flex-1 py-2 lg:py-3 bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] lg:text-xs font-bold rounded-lg lg:rounded-xl hover:bg-zinc-700 transition-colors uppercase tracking-wider">Rechazar</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+
+</body></html>
