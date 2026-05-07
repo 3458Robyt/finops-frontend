@@ -1,16 +1,35 @@
 import { useState, type FormEvent } from 'react';
 import type { Role } from '../App';
 
-export default function Login({ onLogin }: { onLogin: (role: Role) => void }) {
+const demoEmails: Record<Role, string> = {
+  admin: '[correo omitido]',
+  client: 'ejecutivo@cliente.com',
+};
+
+export default function Login({ onLogin }: { onLogin: (email: string, password: string) => Promise<void> }) {
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>('admin');
+  const [email, setEmail] = useState(demoEmails.admin);
+  const [password, setPassword] = useState('[demo password removed]');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleRoleChange = (role: Role) => {
+    setSelectedRole(role);
+    setEmail(demoEmails[role]);
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      onLogin(selectedRole);
-    }, 800);
+    setError(null);
+
+    try {
+      await onLogin(email, password);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : 'No fue posible iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,7 +52,7 @@ export default function Login({ onLogin }: { onLogin: (role: Role) => void }) {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">badge</span>
               <select 
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as Role)}
+                onChange={(e) => handleRoleChange(e.target.value as Role)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 pl-10 pr-10 text-white focus:outline-none focus:border-tak-yellow focus:ring-1 focus:ring-tak-yellow transition-all appearance-none cursor-pointer"
               >
                 <option value="admin">Administrador FinOps (TAK)</option>
@@ -47,10 +66,10 @@ export default function Login({ onLogin }: { onLogin: (role: Role) => void }) {
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Usuario / Email</label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">person</span>
-              <input 
-                type="text" 
-                defaultValue={selectedRole === 'admin' ? "[correo omitido]" : "ejecutivo@cliente.com"}
-                key={selectedRole}
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-tak-yellow focus:ring-1 focus:ring-tak-yellow transition-all" 
                 required 
               />
@@ -63,7 +82,8 @@ export default function Login({ onLogin }: { onLogin: (role: Role) => void }) {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">lock</span>
               <input 
                 type="password" 
-                defaultValue="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-tak-yellow focus:ring-1 focus:ring-tak-yellow transition-all" 
                 required 
               />
@@ -82,6 +102,12 @@ export default function Login({ onLogin }: { onLogin: (role: Role) => void }) {
             </label>
             <a href="#" className="text-xs text-tak-yellow hover:underline">¿Olvidaste tu contraseña?</a>
           </div>
+
+          {error !== null && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">
+              {error}
+            </div>
+          )}
 
           <button 
             type="submit" 

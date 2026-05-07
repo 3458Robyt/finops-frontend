@@ -1,9 +1,25 @@
 
+type Role = 'admin' | 'client';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile';
 
-export default function BottomNav({ currentView, onViewChange, currentRole }: any) {
+interface NavItem {
+  id: NavView;
+  icon: string;
+  label: string;
+  roles: readonly Role[];
+}
+
+interface BottomNavProps {
+  currentView: CurrentView;
+  onViewChange: (view: NavView) => void;
+  currentRole: Role;
+}
+
+export default function BottomNav({ currentView, onViewChange, currentRole }: BottomNavProps) {
   if (currentView === 'login') return null;
 
-  const allNavItems = [
+  const allNavItems: readonly NavItem[] = [
     { id: 'dashboard', icon: 'dashboard', label: 'Panel', roles: ['admin', 'client'] },
     { id: 'console', icon: 'terminal', label: 'Consola', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'IA', roles: ['admin', 'client'] },

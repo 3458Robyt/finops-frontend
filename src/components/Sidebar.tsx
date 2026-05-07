@@ -1,9 +1,25 @@
 
+type Role = 'admin' | 'client';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile';
 
-export default function Sidebar({ currentView, onViewChange, currentRole }: any) {
+interface NavItem {
+  id: Exclude<NavView, 'profile'>;
+  icon: string;
+  label: string;
+  roles: readonly Role[];
+}
+
+interface SidebarProps {
+  currentView: CurrentView;
+  onViewChange: (view: NavView) => void;
+  currentRole: Role;
+}
+
+export default function Sidebar({ currentView, onViewChange, currentRole }: SidebarProps) {
   if (currentView === 'login') return null;
 
-  const allNavItems = [
+  const allNavItems: readonly NavItem[] = [
     { id: 'dashboard', icon: 'dashboard', label: 'Panel de Control', roles: ['admin', 'client'] },
     { id: 'console', icon: 'terminal', label: 'Consola Técnica', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },

@@ -9,35 +9,49 @@ import ResourceDetail from './views/ResourceDetail';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
+import { login, mapApiRoleToAppRole, type AuthSession, type AppRole } from './services/api';
 
 type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
 type Account = 'prod' | 'dev';
-export type Role = 'admin' | 'client';
+export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
   const [activeAccount, setActiveAccount] = useState<Account>('prod');
-  const [currentRole, setCurrentRole] = useState<Role>('admin');
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
 
-  if (currentView === 'login') {
-    return <Login onLogin={(role: Role) => {
-      setCurrentRole(role);
-      setCurrentView(role === 'admin' ? 'console' : 'dashboard');
-    }} />;
+  const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
+
+  const handleLogin = async (email: string, password: string) => {
+    const session = await login(email, password);
+    const role = mapApiRoleToAppRole(session.user.role);
+
+    setAuthSession(session);
+    setCurrentView(role === 'admin' ? 'console' : 'dashboard');
+  };
+
+  const handleLogout = () => {
+    setAuthSession(null);
+    setCurrentView('login');
+    setSelectedResourceType(null);
+  };
+
+  if (currentView === 'login' || authSession === null) {
+    return <Login onLogin={handleLogin} />;
   }
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard account={activeAccount} />;
-      case 'console': return <Console account={activeAccount} onResourceSelect={(id) => {
+      case 'dashboard': return <Dashboard account={activeAccount} token={authSession.accessToken} />;
+      case 'console': return <Console account={activeAccount} token={authSession.accessToken} onResourceSelect={(id) => {
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
-      case 'resource_detail': return <ResourceDetail resourceId={selectedResourceType || 'prod-app-server'} onBack={() => setCurrentView('console')} />;
-      case 'chat': return <Chat />;
-      case 'history': return <History />;
-      case 'profile': return <Profile onLogout={() => setCurrentView('login')} currentRole={currentRole} />;
-      default: return <Dashboard account={activeAccount} />;
+      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} currentRole={currentRole} onBack={() => setCurrentView('console')} />;
+      case 'chat': return <Chat token={authSession.accessToken} />;
+      case 'history': return <History token={authSession.accessToken} />;
+      case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} />;
+      default: return <Dashboard account={activeAccount} token={authSession.accessToken} />;
     }
   };
 

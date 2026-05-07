@@ -1,5 +1,10 @@
 import { useState } from 'react';
 
+interface ToggleProps {
+  checked: boolean;
+  onChange: () => void;
+}
+
 export default function Profile({ onLogout, currentRole }: { onLogout: () => void, currentRole: 'admin' | 'client' }) {
   const [twoFactor, setTwoFactor] = useState(true);
   const [notifications, setNotifications] = useState(true);
@@ -139,7 +144,7 @@ export default function Profile({ onLogout, currentRole }: { onLogout: () => voi
   );
 }
 
-function Toggle({ checked, onChange }: any) {
+function Toggle({ checked, onChange }: ToggleProps) {
   return (
     <div className="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in mt-1">
       <input 

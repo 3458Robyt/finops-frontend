@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+public/screenshot-*.png
+public/logo-preview.html
+public/logo-rendered.png
+render-logo.js
+render-sections.js
 
 # Editor directories and files
 .vscode/*
