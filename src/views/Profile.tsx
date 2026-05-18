@@ -77,8 +77,8 @@ export default function Profile({ onLogout, currentRole }: { onLogout: () => voi
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Alertas Críticas</p>
-                  <p className="text-xs text-zinc-500 mt-1">SMS para anomalías severas.</p>
+                  <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Recordatorios de ahorro</p>
+                  <p className="text-xs text-zinc-500 mt-1">Avisos in-app sobre oportunidades y ahorro no capturado.</p>
                 </div>
                 <Toggle checked={notifications} onChange={() => setNotifications(!notifications)} />
               </div>

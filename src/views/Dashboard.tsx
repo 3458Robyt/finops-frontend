@@ -2,17 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   fetchAdoptionKpis,
-  fetchAnalyticsAnomalies,
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsForecast,
+  fetchAnalyticsOpportunities,
   fetchAnalyticsUnitEconomics,
   fetchCosts,
   fetchRecommendations,
   fetchSavingsKpis,
   recomputeAnalytics,
   type AdoptionKpisResponse,
-  type CostAnomaly,
   type CostMetric,
+  type CostOpportunity,
   type CostsResponse,
   type Recommendation,
   type SavingsKpisResponse,
@@ -53,7 +53,7 @@ const dashboardCostWindowDays = 900;
 export default function Dashboard({ account, token }: DashboardProps) {
   const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
-  const [anomalies, setAnomalies] = useState<readonly CostAnomaly[]>([]);
+  const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
   const [unitEconomics, setUnitEconomics] = useState<readonly MonthlyUsagePoint[]>([]);
   const [savingsKpis, setSavingsKpis] = useState<SavingsKpisResponse['savings'] | null>(null);
@@ -68,25 +68,25 @@ export default function Dashboard({ account, token }: DashboardProps) {
     Promise.all([
       fetchCosts(token, buildDashboardCostRange()),
       fetchRecommendations(token),
-      fetchAnalyticsAnomalies(token),
+      fetchAnalyticsOpportunities(token),
       fetchAnalyticsForecast(token),
       fetchAnalyticsEfficiencyInsights(token),
       fetchAnalyticsUnitEconomics(token),
       fetchSavingsKpis(token),
       fetchAdoptionKpis(token),
     ])
-      .then(([costResponse, recommendationResponse, anomalyResponse, forecastResponse, insightsResponse, unitEconomicsResponse, savingsResponse, adoptionResponse]) => {
+      .then(([costResponse, recommendationResponse, opportunityResponse, forecastResponse, insightsResponse, unitEconomicsResponse, savingsResponse, adoptionResponse]) => {
         if (active) {
           setCosts(costResponse);
           setRecommendations(recommendationResponse.recommendations);
-          setAnomalies(anomalyResponse.anomalies);
+          setOpportunities(opportunityResponse.opportunities);
           setUsageInsights(insightsResponse.insights);
           setUnitEconomics(unitEconomicsResponse.unitEconomics);
           setSavingsKpis(savingsResponse.savings);
           setAdoptionKpis(adoptionResponse.adoption);
         }
 
-        if (anomalyResponse.anomalies.length === 0 && forecastResponse.forecasts.length === 0) {
+        if (opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
           return recomputeAnalytics(token);
         }
 
@@ -94,7 +94,7 @@ export default function Dashboard({ account, token }: DashboardProps) {
       })
       .then((analyticsResponse) => {
         if (active && analyticsResponse !== null) {
-          setAnomalies(analyticsResponse.anomalies);
+          setOpportunities(analyticsResponse.anomalies);
           setUsageInsights(analyticsResponse.usageInsights);
         }
       })
@@ -132,9 +132,10 @@ export default function Dashboard({ account, token }: DashboardProps) {
   const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * (isProd ? 0.14 : 0.09));
   const observedSavings = savingsKpis?.observedMonthlySavings ?? 0;
   const roi = totalCost > 0 ? roundCurrency((observedSavings / totalCost) * 100) : 0;
-  const openAnomalies = anomalies.filter((anomaly) => anomaly.status === 'OPEN').length;
+  const openOpportunities = opportunities.filter((opportunity) => opportunity.status === 'OPEN').length;
   const acceptanceRate = adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0;
   const topUnitEconomics = unitEconomics.slice(0, 3);
+  const missedSavingsAmount = savingsKpis?.missedSavingsAmount ?? 0;
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -175,9 +176,9 @@ export default function Dashboard({ account, token }: DashboardProps) {
             <span className="material-symbols-outlined text-red-500 text-2xl lg:text-3xl">delete_sweep</span>
           </div>
           <div>
-            <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Anomalias abiertas</h3>
+            <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Oportunidades abiertas</h3>
             <p className="text-2xl lg:text-3xl font-bold text-white">
-              {loading ? '...' : openAnomalies}
+              {loading ? '...' : openOpportunities}
             </p>
             <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-red-500/20">
               {currencyFormatter.format(identifiedWaste)} ahorro estimado
@@ -198,6 +199,29 @@ export default function Dashboard({ account, token }: DashboardProps) {
           </div>
         </div>
       </div>
+
+      {missedSavingsAmount > 0 && (
+        <div className="bg-tak-yellow/10 border border-tak-yellow/20 rounded-3xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="size-11 rounded-xl bg-tak-yellow/10 border border-tak-yellow/20 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-tak-yellow">savings</span>
+            </div>
+            <div>
+              <p className="text-sm lg:text-base font-black text-white">
+                Sabias que te podrias haber ahorrado {currencyFormatter.format(missedSavingsAmount)} si hubieras aplicado las recomendaciones pendientes?
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Calculado desde la fecha de generacion de cada recomendacion y su ahorro mensual estimado.
+              </p>
+            </div>
+          </div>
+          {savingsKpis?.topMissedSavingsRecommendation !== undefined && (
+            <span className="text-[10px] font-black uppercase tracking-widest text-tak-yellow bg-zinc-950 border border-zinc-800 px-3 py-2 rounded-xl">
+              Mayor impacto: {savingsKpis.topMissedSavingsRecommendation.title}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">

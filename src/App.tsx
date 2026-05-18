@@ -6,12 +6,13 @@ import Chat from './views/Chat';
 import History from './views/History';
 import Profile from './views/Profile';
 import ResourceDetail from './views/ResourceDetail';
+import AgentSettings from './views/AgentSettings';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import { login, mapApiRoleToAppRole, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
 type Account = 'prod' | 'dev';
 export type Role = AppRole;
 function App() {
@@ -50,6 +51,7 @@ function App() {
       case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} currentRole={currentRole} onBack={() => setCurrentView('console')} />;
       case 'chat': return <Chat token={authSession.accessToken} />;
       case 'history': return <History token={authSession.accessToken} />;
+      case 'agent_settings': return <AgentSettings token={authSession.accessToken} />;
       case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} />;
       default: return <Dashboard account={activeAccount} token={authSession.accessToken} />;
     }
@@ -65,6 +67,7 @@ function App() {
           currentView={currentView} 
           activeAccount={activeAccount} 
           onAccountChange={setActiveAccount} 
+          token={authSession.accessToken}
         />
         <main className="flex-1 p-4 lg:p-10 pb-24 lg:pb-10 custom-scrollbar overflow-x-hidden">
           {renderView()}

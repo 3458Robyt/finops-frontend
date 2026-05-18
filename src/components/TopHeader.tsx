@@ -1,11 +1,20 @@
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  dismissNotification,
+  fetchNotifications,
+  markNotificationRead,
+  type InAppNotification,
+} from '../services/api';
+
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
 type Account = 'prod' | 'dev';
 
 interface TopHeaderProps {
   currentView: CurrentView;
   activeAccount: Account;
   onAccountChange: (account: Account) => void;
+  token: string;
 }
 
 const viewTitles: Partial<Record<CurrentView, string>> = {
@@ -14,9 +23,90 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   chat: 'Asistente Inteligente',
   history: 'Historial de Optimizaciones',
   profile: 'Perfil de Usuario y Seguridad',
+  agent_settings: 'Gobierno del Agente IA',
 };
 
-export default function TopHeader({ currentView, activeAccount, onAccountChange }: TopHeaderProps) {
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+
+export default function TopHeader({ currentView, activeAccount, onAccountChange, token }: TopHeaderProps) {
+  const [notifications, setNotifications] = useState<readonly InAppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const visibleUnreadCount = useMemo(
+    () => Math.min(unreadCount, 9),
+    [unreadCount],
+  );
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+
+    fetchNotifications(token)
+      .then((response) => {
+        if (active) {
+          setNotifications(response.notifications);
+          setUnreadCount(response.meta.unreadCount);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (containerRef.current !== null && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const handleMarkRead = async (notification: InAppNotification) => {
+    if (!notification.persisted) {
+      return;
+    }
+
+    await markNotificationRead(token, notification.id);
+    setNotifications((current) => current.map((item) => (
+      item.id === notification.id ? { ...item, status: 'READ' } : item
+    )));
+    setUnreadCount((current) => Math.max(current - 1, 0));
+  };
+
+  const handleDismiss = async (notification: InAppNotification) => {
+    if (!notification.persisted) {
+      return;
+    }
+
+    await dismissNotification(token, notification.id);
+    setNotifications((current) => current.filter((item) => item.id !== notification.id));
+    if (notification.status === 'UNREAD') {
+      setUnreadCount((current) => Math.max(current - 1, 0));
+    }
+  };
+
   if (currentView === 'login') return null;
 
   return (
@@ -48,10 +138,73 @@ export default function TopHeader({ currentView, activeAccount, onAccountChange 
 
         <div className="h-8 w-px bg-zinc-800 hidden sm:block"></div>
 
-        <button className="relative p-1.5 text-zinc-400 hover:text-tak-yellow transition-colors bg-zinc-900 rounded-full border border-zinc-800">
-          <span className="material-symbols-outlined text-xl">notifications</span>
-          <span className="absolute top-1 right-1 size-2.5 bg-red-500 rounded-full border-2 border-zinc-900"></span>
-        </button>
+        <div ref={containerRef} className="relative">
+          <button
+            onClick={() => setOpen((current) => !current)}
+            className="relative p-1.5 text-zinc-400 hover:text-tak-yellow transition-colors bg-zinc-900 rounded-full border border-zinc-800"
+            aria-label="Abrir notificaciones"
+          >
+            <span className="material-symbols-outlined text-xl">notifications</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 rounded-full border-2 border-zinc-900 text-[10px] font-black text-white flex items-center justify-center">
+                {visibleUnreadCount}{unreadCount > 9 ? '+' : ''}
+              </span>
+            )}
+          </button>
+
+          {open && (
+            <div className="absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-white">Recordatorios de ahorro</p>
+                  <p className="text-[11px] text-zinc-500">Base in-app, sin automatizacion diaria todavia</p>
+                </div>
+                <span className="material-symbols-outlined text-tak-yellow text-lg">savings</span>
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+                {loading ? (
+                  <p className="px-4 py-6 text-sm font-bold text-zinc-500">Cargando recordatorios...</p>
+                ) : notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-sm font-bold text-zinc-500">Sin recordatorios de ahorro por ahora.</p>
+                ) : notifications.map((notification) => (
+                  <div key={notification.id} className="border-b border-zinc-800 last:border-b-0 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-zinc-100">{notification.title}</p>
+                        <p className="text-xs leading-relaxed text-zinc-400 mt-1">{notification.message}</p>
+                      </div>
+                      <span className={`shrink-0 rounded px-2 py-1 text-[10px] font-black uppercase ${notification.persisted ? 'bg-zinc-900 text-zinc-400 border border-zinc-800' : 'bg-tak-yellow/10 text-tak-yellow border border-tak-yellow/20'}`}>
+                        {notification.persisted ? notification.status : 'preview'}
+                      </span>
+                    </div>
+                    {notification.missedSavingsAmount !== undefined && (
+                      <p className="mt-3 text-[11px] font-black uppercase tracking-widest text-tak-yellow">
+                        Ahorro no capturado: {currencyFormatter.format(notification.missedSavingsAmount)}
+                      </p>
+                    )}
+                    {notification.persisted && (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => void handleMarkRead(notification)}
+                          className="rounded-lg border border-zinc-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-zinc-900"
+                        >
+                          Leido
+                        </button>
+                        <button
+                          onClick={() => void handleDismiss(notification)}
+                          className="rounded-lg border border-zinc-800 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-zinc-900"
+                        >
+                          Descartar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

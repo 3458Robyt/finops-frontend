@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  fetchAnalyticsAnomalies,
   fetchAnalyticsEfficiencyInsights,
+  fetchAnalyticsOpportunities,
   fetchRecommendations,
   recomputeAnalytics,
-  type CostAnomaly,
+  type CostOpportunity,
   type Recommendation,
   type UsageInsight,
 } from '../services/api';
@@ -32,7 +32,7 @@ const severityWeight: Record<Recommendation['severity'], number> = {
 
 export default function Console({ account, token, onResourceSelect }: ConsoleProps) {
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
-  const [anomalies, setAnomalies] = useState<readonly CostAnomaly[]>([]);
+  const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,17 +42,17 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
 
     Promise.all([
       fetchRecommendations(token),
-      fetchAnalyticsAnomalies(token),
+      fetchAnalyticsOpportunities(token),
       fetchAnalyticsEfficiencyInsights(token),
     ])
-      .then(([response, anomalyResponse, usageInsightResponse]) => {
+      .then(([response, opportunityResponse, usageInsightResponse]) => {
         if (active) {
           setRecommendations(response.recommendations);
-          setAnomalies(anomalyResponse.anomalies);
+          setOpportunities(opportunityResponse.opportunities);
           setUsageInsights(usageInsightResponse.insights);
         }
 
-        if (anomalyResponse.anomalies.length === 0) {
+        if (opportunityResponse.opportunities.length === 0) {
           return recomputeAnalytics(token);
         }
 
@@ -60,7 +60,7 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
       })
       .then((analyticsResponse) => {
         if (active && analyticsResponse !== null) {
-          setAnomalies(analyticsResponse.anomalies);
+          setOpportunities(analyticsResponse.anomalies);
           setUsageInsights(analyticsResponse.usageInsights);
         }
       })
@@ -86,7 +86,7 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
       .sort((left, right) => severityWeight[right.severity] - severityWeight[left.severity]),
     [account, recommendations],
   );
-  const criticalAnomalyCount = anomalies.filter((row) => row.severity === 'HIGH' || row.severity === 'CRITICAL').length;
+  const criticalOpportunityCount = opportunities.filter((row) => row.severity === 'HIGH' || row.severity === 'CRITICAL').length;
   const totalSavings = tableData.reduce((total, row) => total + (row.estimatedMonthlySavings ?? 0), 0);
   const computeCount = tableData.filter((row) => row.type.includes('COMPUTE')).length;
 
@@ -100,10 +100,10 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
-          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Anomalías Críticas</p>
+          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Oportunidades Críticas</p>
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-tak-yellow text-3xl">warning</span>
-            <h3 className="text-3xl font-black text-white">{loading ? '...' : criticalAnomalyCount}</h3>
+            <h3 className="text-3xl font-black text-white">{loading ? '...' : criticalOpportunityCount}</h3>
           </div>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
@@ -170,7 +170,7 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
         <div className="p-6 border-b border-zinc-800">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="material-symbols-outlined text-tak-yellow">monitoring</span>
-            Anomalias Detectadas
+            Oportunidades Detectadas
           </h3>
         </div>
         <div className="overflow-x-auto custom-scrollbar">
@@ -184,20 +184,20 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
               </tr>
             </thead>
             <tbody>
-              {anomalies.length === 0 ? (
+              {opportunities.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-sm font-bold text-zinc-500">Sin anomalias persistidas para este tenant</td>
+                  <td colSpan={4} className="p-6 text-center text-sm font-bold text-zinc-500">Sin oportunidades persistidas para este tenant</td>
                 </tr>
-              ) : anomalies.slice(0, 6).map((anomaly) => (
-                <tr key={anomaly.id} className="hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50 last:border-0">
-                  <td className="p-4 text-sm font-medium text-white">{anomaly.serviceName ?? anomaly.resourceId ?? 'Total'}</td>
+              ) : opportunities.slice(0, 6).map((opportunity) => (
+                <tr key={opportunity.id} className="hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50 last:border-0">
+                  <td className="p-4 text-sm font-medium text-white">{opportunity.serviceName ?? opportunity.resourceId ?? 'Total'}</td>
                   <td className="p-4">
-                    <span className="bg-red-500/10 text-red-300 text-[10px] font-bold px-2 py-1 rounded uppercase">{anomaly.severity}</span>
+                    <span className="bg-red-500/10 text-red-300 text-[10px] font-bold px-2 py-1 rounded uppercase">{opportunity.severity}</span>
                   </td>
                   <td className="p-4 text-sm text-white font-black">
-                    {currencyFormatter.format(anomaly.deltaAmount)} / {anomaly.deltaPercent.toFixed(1)}%
+                    {currencyFormatter.format(opportunity.deltaAmount)} / {opportunity.deltaPercent.toFixed(1)}%
                   </td>
-                  <td className="p-4 text-sm text-zinc-400 font-medium">{anomaly.explanation}</td>
+                  <td className="p-4 text-sm text-zinc-400 font-medium">{opportunity.explanation}</td>
                 </tr>
               ))}
             </tbody>

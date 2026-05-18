@@ -2,7 +2,13 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
 ).replace(/\/$/, '');
 
-export type ApiRole = 'ADMIN' | 'VIEWER';
+export type ApiRole =
+  | 'ADMIN'
+  | 'VIEWER'
+  | 'OPERATOR_ADMIN'
+  | 'FINOPS_TECHNICIAN'
+  | 'CLIENT_APPROVER'
+  | 'CLIENT_VIEWER';
 export type AppRole = 'admin' | 'client';
 
 export interface ApiUser {
@@ -111,6 +117,8 @@ export interface CostAnomaly {
   readonly detectedAt: string;
 }
 
+export type CostOpportunity = CostAnomaly;
+
 export interface CostForecast {
   readonly id: string;
   readonly cloudAccountId?: string;
@@ -205,6 +213,11 @@ export interface UsageInsight {
 export interface AnalyticsAnomaliesResponse {
   readonly success: true;
   readonly anomalies: readonly CostAnomaly[];
+}
+
+export interface AnalyticsOpportunitiesResponse {
+  readonly success: true;
+  readonly opportunities: readonly CostOpportunity[];
 }
 
 export interface AnalyticsForecastResponse {
@@ -356,9 +369,59 @@ export interface SavingsKpisResponse {
     readonly estimatedMonthlySavings: number;
     readonly observedMonthlySavings: number;
     readonly confirmedMonthlySavings: number;
+    readonly missedSavingsAmount: number;
     readonly currency: string;
     readonly executedRecommendations: number;
+    readonly pendingSavingsRecommendations: number;
+    readonly topMissedSavingsRecommendation?: {
+      readonly id: string;
+      readonly title: string;
+      readonly missedSavingsAmount: number;
+      readonly estimatedMonthlySavings: number;
+      readonly currency: string;
+      readonly createdAt: string;
+      readonly status: RecommendationStatus;
+    };
   };
+}
+
+export type InAppNotificationStatus = 'UNREAD' | 'READ' | 'DISMISSED';
+export type InAppNotificationType = 'SAVINGS_REMINDER';
+
+export interface InAppNotification {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly userId: string;
+  readonly recommendationId?: string;
+  readonly type: InAppNotificationType;
+  readonly status: InAppNotificationStatus;
+  readonly title: string;
+  readonly message: string;
+  readonly missedSavingsAmount?: number;
+  readonly estimatedMonthlySavings?: number;
+  readonly currency: string;
+  readonly periodStart?: string;
+  readonly periodEnd?: string;
+  readonly generatedForDate?: string;
+  readonly metadata?: unknown;
+  readonly persisted: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface NotificationsResponse {
+  readonly success: true;
+  readonly notifications: readonly InAppNotification[];
+  readonly meta: {
+    readonly count: number;
+    readonly unreadCount: number;
+    readonly previewCount: number;
+  };
+}
+
+export interface NotificationResponse {
+  readonly success: true;
+  readonly notification: InAppNotification;
 }
 
 export interface AdoptionKpisResponse {
@@ -401,13 +464,154 @@ export interface AiRecommendationGenerationResponse {
   readonly context: AiContextSummary;
 }
 
+export interface AgentInstructionRules {
+  readonly objective: string;
+  readonly tone: string;
+  readonly recommendationPriorities: readonly string[];
+  readonly evidenceRequirements: readonly string[];
+  readonly riskPolicy: string;
+  readonly forbiddenActions: readonly string[];
+}
+
+export interface AgentInstructionProfile {
+  readonly id: string;
+  readonly version: number;
+  readonly status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | 'REJECTED';
+  readonly structuredRules: AgentInstructionRules;
+  readonly freeformNotes?: string;
+  readonly validationReport?: {
+    readonly passed: boolean;
+    readonly issues: readonly string[];
+    readonly warnings: readonly string[];
+  };
+  readonly activatedAt?: string;
+}
+
+export interface TenantAgentRule {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly category: string;
+  readonly ruleText: string;
+  readonly priority: number;
+  readonly status: 'ACTIVE' | 'DISABLED';
+}
+
+export interface AiContextTrace {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly userId?: string;
+  readonly operation: 'CHAT' | 'RECOMMENDATION' | 'EXECUTION_PLAN' | 'AUDIT' | 'LEARNING';
+  readonly model: string;
+  readonly status: string;
+  readonly profileVersion?: number;
+  readonly promptTokenEstimate: number;
+  readonly responseTokenEstimate?: number;
+  readonly latencyMs?: number;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+}
+
+export interface KnowledgeGraphNode {
+  readonly id: string;
+  readonly nodeType: string;
+  readonly label: string;
+  readonly externalId?: string;
+  readonly metadata?: unknown;
+}
+
+export interface KnowledgeGraphEdge {
+  readonly id: string;
+  readonly sourceNodeId: string;
+  readonly targetNodeId: string;
+  readonly relationType: string;
+  readonly confidence: number;
+  readonly metadata?: unknown;
+}
+
+export interface AgentProfileResponse {
+  readonly success: true;
+  readonly profile: AgentInstructionProfile;
+}
+
+export interface TenantRulesResponse {
+  readonly success: true;
+  readonly rules: readonly TenantAgentRule[];
+}
+
+export interface TenantRuleResponse {
+  readonly success: true;
+  readonly rule: TenantAgentRule;
+}
+
+export interface AiContextTracesResponse {
+  readonly success: true;
+  readonly traces: readonly AiContextTrace[];
+}
+
+export interface KnowledgeGraphResponse {
+  readonly success: true;
+  readonly graph: {
+    readonly nodes: readonly KnowledgeGraphNode[];
+    readonly edges: readonly KnowledgeGraphEdge[];
+  };
+}
+
+export interface ContextBackfillResponse {
+  readonly success: true;
+  readonly summaries: {
+    readonly runId: string;
+    readonly summaryCount: number;
+  };
+  readonly graph: {
+    readonly runId: string;
+    readonly nodeCount: number;
+    readonly edgeCount: number;
+  };
+}
+
+export interface TelegramLinkedUser {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly email: string;
+  readonly name: string;
+  readonly role: ApiRole;
+  readonly status: 'ACTIVE' | 'DISABLED';
+}
+
+export interface TelegramChatLink {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly userId: string;
+  readonly chatId: string;
+  readonly telegramUserId?: string;
+  readonly telegramUsername?: string;
+  readonly status: 'ACTIVE' | 'DISABLED';
+  readonly linkedByUserId: string;
+  readonly disabledAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly user?: TelegramLinkedUser;
+}
+
+export interface TelegramLinksResponse {
+  readonly success: true;
+  readonly links: readonly TelegramChatLink[];
+}
+
+export interface TelegramLinkResponse {
+  readonly success: true;
+  readonly link: TelegramChatLink;
+}
+
 interface ApiErrorBody {
   readonly error?: string;
   readonly code?: string;
 }
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
-  return role === 'ADMIN' ? 'admin' : 'client';
+  return role === 'ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
+    ? 'admin'
+    : 'client';
 }
 
 export async function login(email: string, password: string): Promise<AuthSession> {
@@ -442,6 +646,10 @@ export async function fetchRecommendations(token: string): Promise<Recommendatio
 
 export async function fetchAnalyticsAnomalies(token: string): Promise<AnalyticsAnomaliesResponse> {
   return apiRequest<AnalyticsAnomaliesResponse>('/analytics/anomalies', { token });
+}
+
+export async function fetchAnalyticsOpportunities(token: string): Promise<AnalyticsOpportunitiesResponse> {
+  return apiRequest<AnalyticsOpportunitiesResponse>('/analytics/opportunities', { token });
 }
 
 export async function fetchAnalyticsForecast(token: string): Promise<AnalyticsForecastResponse> {
@@ -580,6 +788,24 @@ export async function fetchSavingsKpis(token: string): Promise<SavingsKpisRespon
   return apiRequest<SavingsKpisResponse>('/kpis/savings', { token });
 }
 
+export async function fetchNotifications(token: string): Promise<NotificationsResponse> {
+  return apiRequest<NotificationsResponse>('/notifications', { token });
+}
+
+export async function markNotificationRead(token: string, notificationId: string): Promise<NotificationResponse> {
+  return apiRequest<NotificationResponse>(`/notifications/${encodeURIComponent(notificationId)}/read`, {
+    method: 'PATCH',
+    token,
+  });
+}
+
+export async function dismissNotification(token: string, notificationId: string): Promise<NotificationResponse> {
+  return apiRequest<NotificationResponse>(`/notifications/${encodeURIComponent(notificationId)}/dismiss`, {
+    method: 'PATCH',
+    token,
+  });
+}
+
 export async function fetchAdoptionKpis(token: string): Promise<AdoptionKpisResponse> {
   return apiRequest<AdoptionKpisResponse>('/kpis/adoption', { token });
 }
@@ -606,6 +832,116 @@ export async function generateAiRecommendations(
     method: 'POST',
     token,
     body: JSON.stringify({ persist }),
+  });
+}
+
+export async function fetchAgentProfile(token: string): Promise<AgentProfileResponse> {
+  return apiRequest<AgentProfileResponse>('/agent/profile', { token });
+}
+
+export async function activateAgentProfile(
+  token: string,
+  input: {
+    readonly structuredRules: AgentInstructionRules;
+    readonly freeformNotes?: string;
+  },
+): Promise<AgentProfileResponse> {
+  return apiRequest<AgentProfileResponse>('/agent/profile/activate', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchTenantAgentRules(token: string): Promise<TenantRulesResponse> {
+  return apiRequest<TenantRulesResponse>('/agent/tenant-rules', { token });
+}
+
+export async function createTenantAgentRule(
+  token: string,
+  input: {
+    readonly category: string;
+    readonly ruleText: string;
+    readonly priority?: number;
+  },
+): Promise<TenantRuleResponse> {
+  return apiRequest<TenantRuleResponse>('/agent/tenant-rules', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disableTenantAgentRule(token: string, ruleId: string): Promise<TenantRuleResponse> {
+  return apiRequest<TenantRuleResponse>(`/agent/tenant-rules/${encodeURIComponent(ruleId)}/disable`, {
+    method: 'PATCH',
+    token,
+  });
+}
+
+export async function fetchAiContextTraces(token: string): Promise<AiContextTracesResponse> {
+  return apiRequest<AiContextTracesResponse>('/agent/context-traces', { token });
+}
+
+export async function fetchKnowledgeGraph(
+  token: string,
+  params: {
+    readonly recommendationId?: string;
+    readonly resourceId?: string;
+  },
+): Promise<KnowledgeGraphResponse> {
+  const queryParams = new URLSearchParams();
+
+  if (params.recommendationId !== undefined && params.recommendationId.trim().length > 0) {
+    queryParams.set('recommendationId', params.recommendationId);
+  }
+
+  if (params.resourceId !== undefined && params.resourceId.trim().length > 0) {
+    queryParams.set('resourceId', params.resourceId);
+  }
+
+  const query = queryParams.toString();
+  return apiRequest<KnowledgeGraphResponse>(`/agent/knowledge-graph${query.length > 0 ? `?${query}` : ''}`, { token });
+}
+
+export async function backfillAgentContext(token: string): Promise<ContextBackfillResponse> {
+  return apiRequest<ContextBackfillResponse>('/agent/context/backfill', {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function fetchTelegramLinks(token: string): Promise<TelegramLinksResponse> {
+  return apiRequest<TelegramLinksResponse>('/telegram/links', { token });
+}
+
+export async function createTelegramLink(
+  token: string,
+  input: {
+    readonly email: string;
+    readonly chatId: string;
+    readonly telegramUserId?: string;
+    readonly telegramUsername?: string;
+  },
+): Promise<TelegramLinkResponse> {
+  return apiRequest<TelegramLinkResponse>('/telegram/links', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disableTelegramLink(token: string, linkId: string): Promise<TelegramLinkResponse> {
+  return apiRequest<TelegramLinkResponse>(`/telegram/links/${encodeURIComponent(linkId)}/disable`, {
+    method: 'PATCH',
+    token,
+  });
+}
+
+export async function sendTelegramTestMessage(token: string, linkId: string): Promise<TelegramLinkResponse> {
+  return apiRequest<TelegramLinkResponse>(`/telegram/links/${encodeURIComponent(linkId)}/test-message`, {
+    method: 'POST',
+    token,
   });
 }
 

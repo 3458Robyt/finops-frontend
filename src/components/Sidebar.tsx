@@ -1,7 +1,7 @@
 
 type Role = 'admin' | 'client';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings';
 
 interface NavItem {
   id: Exclude<NavView, 'profile'>;
@@ -24,6 +24,7 @@ export default function Sidebar({ currentView, onViewChange, currentRole }: Side
     { id: 'console', icon: 'terminal', label: 'Consola Técnica', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
     { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
+    { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },
   ];
 
   const navItems = allNavItems.filter(item => item.roles.includes(currentRole));

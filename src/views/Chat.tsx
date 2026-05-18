@@ -16,7 +16,7 @@ interface UiMessage extends AiChatMessage {
 
 const quickPrompts = [
   'Explica donde esta el mayor costo del periodo',
-  'Detecta posibles anomalias en el gasto',
+  'Detecta posibles oportunidades en el gasto',
   'Que acciones priorizarias para reducir costos?',
 ] as const;
 
@@ -25,7 +25,7 @@ export default function Chat({ token }: ChatProps) {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Estoy conectado al motor IA y al resumen FOCUS cargado en Supabase. Preguntame por costos, anomalias o acciones FinOps.',
+      content: 'Estoy conectado al motor IA y al resumen FOCUS cargado en Supabase. Preguntame por costos, oportunidades o acciones FinOps.',
     },
   ]);
   const [input, setInput] = useState('');
