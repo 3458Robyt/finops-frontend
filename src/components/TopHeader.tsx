@@ -7,7 +7,7 @@ import {
   type InAppNotification,
 } from '../services/api';
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta';
 type Account = 'prod' | 'dev';
 
 interface TopHeaderProps {
@@ -24,6 +24,7 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   history: 'Historial de Optimizaciones',
   profile: 'Perfil de Usuario y Seguridad',
   agent_settings: 'Gobierno del Agente IA',
+  ingesta: 'Ingesta y Calidad de Datos',
 };
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {

@@ -7,12 +7,13 @@ import History from './views/History';
 import Profile from './views/Profile';
 import ResourceDetail from './views/ResourceDetail';
 import AgentSettings from './views/AgentSettings';
+import Ingesta from './views/Ingesta';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import { login, mapApiRoleToAppRole, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta';
 type Account = 'prod' | 'dev';
 export type Role = AppRole;
 function App() {
@@ -52,6 +53,7 @@ function App() {
       case 'chat': return <Chat token={authSession.accessToken} />;
       case 'history': return <History token={authSession.accessToken} />;
       case 'agent_settings': return <AgentSettings token={authSession.accessToken} />;
+      case 'ingesta': return <Ingesta token={authSession.accessToken} />;
       case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} />;
       default: return <Dashboard account={activeAccount} token={authSession.accessToken} />;
     }

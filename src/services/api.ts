@@ -945,6 +945,75 @@ export async function sendTelegramTestMessage(token: string, linkId: string): Pr
   });
 }
 
+export type IngestionSourceType =
+  | 'BILLING_EXPORT'
+  | 'INVENTORY'
+  | 'TECHNICAL_METRIC'
+  | 'AGENT_METRIC';
+
+export type IngestionJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+
+export type DataQualityStatus = 'PASSED' | 'WARNING' | 'FAILED';
+
+export interface IngestionJobHistoryItem {
+  readonly id: string;
+  readonly cloudConnectionId: string;
+  readonly sourceType: IngestionSourceType;
+  readonly status: IngestionJobStatus;
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  readonly targetStart: string;
+  readonly targetEnd: string;
+  readonly errorMessage?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface DataQualityCheckItem {
+  readonly id: string;
+  readonly cloudConnectionId?: string;
+  readonly sourceType: IngestionSourceType;
+  readonly checkName: string;
+  readonly status: DataQualityStatus;
+  readonly observedAt: string;
+  readonly expectedAt?: string;
+  readonly details?: Readonly<Record<string, unknown>>;
+}
+
+export interface IngestionHistoryResponse {
+  readonly success: true;
+  readonly jobs: readonly IngestionJobHistoryItem[];
+}
+
+export interface DataQualityResponse {
+  readonly success: true;
+  readonly checks: readonly DataQualityCheckItem[];
+}
+
+/**
+ * Obtiene el historial de trabajos de ingesta del tenant autenticado.
+ * El backend acota `limit` al rango [1, 200] (por defecto 50).
+ */
+export async function fetchIngestionHistory(
+  token: string,
+  limit?: number,
+): Promise<IngestionHistoryResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<IngestionHistoryResponse>(`/ingestion/history${query}`, { token });
+}
+
+/**
+ * Obtiene los controles de calidad de datos del tenant autenticado.
+ * El backend acota `limit` al rango [1, 200] (por defecto 50).
+ */
+export async function fetchDataQualityChecks(
+  token: string,
+  limit?: number,
+): Promise<DataQualityResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
+}
+
 async function apiRequest<T>(
   path: string,
   options: RequestInit & { readonly token?: string } = {},
