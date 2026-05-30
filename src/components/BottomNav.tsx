@@ -1,7 +1,7 @@
 
 type Role = 'admin' | 'client';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
 
 interface NavItem {
   id: NavView;
@@ -23,6 +23,7 @@ export default function BottomNav({ currentView, onViewChange, currentRole }: Bo
     { id: 'dashboard', icon: 'dashboard', label: 'Panel', roles: ['admin', 'client'] },
     { id: 'console', icon: 'terminal', label: 'Consola', roles: ['admin'] },
     { id: 'ingesta', icon: 'cloud_sync', label: 'Ingesta', roles: ['admin'] },
+    { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'IA', roles: ['admin', 'client'] },
     { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
     { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin'] },

@@ -1,7 +1,7 @@
 
 type Role = 'admin' | 'client';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
 
 interface NavItem {
   id: Exclude<NavView, 'profile'>;
@@ -23,6 +23,7 @@ export default function Sidebar({ currentView, onViewChange, currentRole }: Side
     { id: 'dashboard', icon: 'dashboard', label: 'Panel de Control', roles: ['admin', 'client'] },
     { id: 'console', icon: 'terminal', label: 'Consola Técnica', roles: ['admin'] },
     { id: 'ingesta', icon: 'cloud_sync', label: 'Ingesta y Datos', roles: ['admin'] },
+    { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas Técnicas', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
     { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
     { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },

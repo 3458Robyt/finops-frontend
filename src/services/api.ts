@@ -1014,6 +1014,65 @@ export async function fetchDataQualityChecks(
   return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
 }
 
+export type CloudResourceStatus = 'ACTIVE' | 'STOPPED' | 'TERMINATED' | 'UNKNOWN';
+
+export interface CloudResourceItem {
+  readonly id: string;
+  readonly provider: string;
+  readonly externalResourceId: string;
+  readonly name?: string;
+  readonly resourceType: string;
+  readonly serviceName: string;
+  readonly regionId?: string;
+  readonly status: CloudResourceStatus;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+}
+
+export interface ResourceMetricSampleItem {
+  readonly id: string;
+  readonly externalResourceId: string;
+  readonly metricName: string;
+  readonly metricUnit?: string;
+  readonly value: number;
+  readonly sampledAt: string;
+  readonly granularitySeconds: number;
+}
+
+export interface TechnicalResourcesResponse {
+  readonly success: true;
+  readonly resources: readonly CloudResourceItem[];
+}
+
+export interface TechnicalSamplesResponse {
+  readonly success: true;
+  readonly samples: readonly ResourceMetricSampleItem[];
+}
+
+/**
+ * Obtiene el inventario de recursos cloud del tenant autenticado.
+ * Métricas técnicas reales (no derivadas de FOCUS). `limit` acotado a [1, 200].
+ */
+export async function fetchTechnicalResources(
+  token: string,
+  limit?: number,
+): Promise<TechnicalResourcesResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<TechnicalResourcesResponse>(`/technical-metrics/resources${query}`, { token });
+}
+
+/**
+ * Obtiene las muestras de métricas técnicas (CPU, memoria, IOPS, etc.) del
+ * tenant autenticado. No provienen de FOCUS. `limit` acotado a [1, 200].
+ */
+export async function fetchTechnicalMetricSamples(
+  token: string,
+  limit?: number,
+): Promise<TechnicalSamplesResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<TechnicalSamplesResponse>(`/technical-metrics/samples${query}`, { token });
+}
+
 async function apiRequest<T>(
   path: string,
   options: RequestInit & { readonly token?: string } = {},
