@@ -10,7 +10,7 @@ export default function Login({ onLogin }: { onLogin: (email: string, password: 
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>('admin');
   const [email, setEmail] = useState(demoEmails.admin);
-  const [password, setPassword] = useState('[demo password removed]');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleRoleChange = (role: Role) => {
