@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   fetchDataQualityChecks,
+  fetchCloudConnections,
   fetchIngestionHistory,
   queueIngestionJob,
+  type CloudConnectionSummary,
   type DataQualityCheckItem,
   type DataQualityStatus,
   type IngestionJobHistoryItem,
@@ -37,6 +39,7 @@ const qualityStatusStyles: Readonly<Record<DataQualityStatus, { readonly label: 
 export default function Ingesta({ token }: { readonly token: string }) {
   const [jobs, setJobs] = useState<readonly IngestionJobHistoryItem[]>([]);
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
+  const [connections, setConnections] = useState<readonly CloudConnectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueing, setQueueing] = useState(false);
@@ -51,21 +54,24 @@ export default function Ingesta({ token }: { readonly token: string }) {
     setError(null);
 
     try {
-      const [historyResponse, qualityResponse] = await Promise.all([
+      const [connectionsResponse, historyResponse, qualityResponse] = await Promise.all([
+      fetchCloudConnections(token),
       fetchIngestionHistory(token),
       fetchDataQualityChecks(token),
       ]);
       if (active()) {
+        setConnections(connectionsResponse.connections);
         setJobs(historyResponse.jobs);
         setChecks(qualityResponse.checks);
-        if (cloudConnectionId === '' && historyResponse.jobs[0]?.cloudConnectionId !== undefined) {
-          setCloudConnectionId(historyResponse.jobs[0].cloudConnectionId);
+        if (cloudConnectionId === '') {
+          setCloudConnectionId(connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '');
         }
       }
     } catch (cause: unknown) {
       if (active()) {
         setJobs([]);
         setChecks([]);
+        setConnections([]);
         setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
       }
     } finally {
@@ -134,13 +140,20 @@ export default function Ingesta({ token }: { readonly token: string }) {
         <form onSubmit={handleQueueJob} className="p-6 grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_minmax(180px,0.9fr)_minmax(190px,1fr)_minmax(190px,1fr)_auto] items-end">
           <label className="space-y-2">
             <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Conexión</span>
-            <input
+            <select
               value={cloudConnectionId}
               onChange={(event) => setCloudConnectionId(event.target.value)}
-              placeholder="cloud_connection_id"
               className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
               required
-            />
+            >
+              {connections.length === 0 ? (
+                <option value="">Sin conexiones activas</option>
+              ) : connections.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.name} · {connection.providerCode.toUpperCase()}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="space-y-2">
             <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Fuente</span>
@@ -176,7 +189,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
           </label>
           <button
             type="submit"
-            disabled={queueing}
+            disabled={queueing || cloudConnectionId.trim() === ''}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-tak-yellow px-4 text-sm font-black text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[20px]">add_task</span>

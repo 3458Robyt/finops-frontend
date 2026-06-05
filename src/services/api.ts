@@ -603,6 +603,27 @@ export interface TelegramLinkResponse {
   readonly link: TelegramChatLink;
 }
 
+export type CloudConnectionStatus = 'ACTIVE' | 'DISABLED' | 'ERROR' | 'PENDING_VALIDATION';
+
+export interface CloudConnectionSummary {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly providerCode: string;
+  readonly rootExternalId: string;
+  readonly name: string;
+  readonly status: CloudConnectionStatus;
+  readonly defaultRegion?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly lastValidatedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface CloudConnectionsResponse {
+  readonly success: true;
+  readonly connections: readonly CloudConnectionSummary[];
+}
+
 interface ApiErrorBody {
   readonly error?: string;
   readonly code?: string;
@@ -619,6 +640,10 @@ export async function login(email: string, password: string): Promise<AuthSessio
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+}
+
+export async function fetchCloudConnections(token: string): Promise<CloudConnectionsResponse> {
+  return apiRequest<CloudConnectionsResponse>('/cloud-connections', { token });
 }
 
 export async function fetchCosts(
