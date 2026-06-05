@@ -990,6 +990,18 @@ export interface DataQualityResponse {
   readonly checks: readonly DataQualityCheckItem[];
 }
 
+export interface QueueIngestionJobInput {
+  readonly cloudConnectionId: string;
+  readonly sourceType: IngestionSourceType;
+  readonly targetStart: string;
+  readonly targetEnd: string;
+}
+
+export interface QueueIngestionJobResponse {
+  readonly success: true;
+  readonly job: IngestionJobHistoryItem;
+}
+
 /**
  * Obtiene el historial de trabajos de ingesta del tenant autenticado.
  * El backend acota `limit` al rango [1, 200] (por defecto 50).
@@ -1012,6 +1024,20 @@ export async function fetchDataQualityChecks(
 ): Promise<DataQualityResponse> {
   const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
   return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
+}
+
+/**
+ * Encola un trabajo de ingesta SDK para una conexion cloud del tenant.
+ */
+export async function queueIngestionJob(
+  token: string,
+  input: QueueIngestionJobInput,
+): Promise<QueueIngestionJobResponse> {
+  return apiRequest<QueueIngestionJobResponse>('/ingestion/jobs', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
 }
 
 export type CloudResourceStatus = 'ACTIVE' | 'STOPPED' | 'TERMINATED' | 'UNKNOWN';

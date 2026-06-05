@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   fetchDataQualityChecks,
   fetchIngestionHistory,
+  queueIngestionJob,
   type DataQualityCheckItem,
   type DataQualityStatus,
   type IngestionJobHistoryItem,
@@ -38,39 +39,72 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [queueing, setQueueing] = useState(false);
+  const [queueMessage, setQueueMessage] = useState<string | null>(null);
+  const [cloudConnectionId, setCloudConnectionId] = useState('');
+  const [sourceType, setSourceType] = useState<IngestionSourceType>('TECHNICAL_METRIC');
+  const [targetStart, setTargetStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)));
+  const [targetEnd, setTargetEnd] = useState(() => toDatetimeLocal(new Date()));
 
-  useEffect(() => {
-    let active = true;
+  const loadData = async (active: () => boolean): Promise<void> => {
     setLoading(true);
     setError(null);
 
-    Promise.all([
+    try {
+      const [historyResponse, qualityResponse] = await Promise.all([
       fetchIngestionHistory(token),
       fetchDataQualityChecks(token),
-    ])
-      .then(([historyResponse, qualityResponse]) => {
-        if (active) {
-          setJobs(historyResponse.jobs);
-          setChecks(qualityResponse.checks);
+      ]);
+      if (active()) {
+        setJobs(historyResponse.jobs);
+        setChecks(qualityResponse.checks);
+        if (cloudConnectionId === '' && historyResponse.jobs[0]?.cloudConnectionId !== undefined) {
+          setCloudConnectionId(historyResponse.jobs[0].cloudConnectionId);
         }
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          setJobs([]);
-          setChecks([]);
-          setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+      }
+    } catch (cause: unknown) {
+      if (active()) {
+        setJobs([]);
+        setChecks([]);
+        setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
+      }
+    } finally {
+      if (active()) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    void loadData(() => active);
 
     return () => {
       active = false;
     };
   }, [token]);
+
+  const handleQueueJob = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setQueueing(true);
+    setQueueMessage(null);
+    setError(null);
+
+    try {
+      await queueIngestionJob(token, {
+        cloudConnectionId: cloudConnectionId.trim(),
+        sourceType,
+        targetStart: new Date(targetStart).toISOString(),
+        targetEnd: new Date(targetEnd).toISOString(),
+      });
+      setQueueMessage('Trabajo de ingesta encolado.');
+      await loadData(() => true);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo encolar la ingesta.');
+    } finally {
+      setQueueing(false);
+    }
+  };
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -86,6 +120,70 @@ export default function Ingesta({ token }: { readonly token: string }) {
           {error}
         </div>
       )}
+      {queueMessage !== null && (
+        <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-sm font-medium text-green-300">
+          {queueMessage}
+        </div>
+      )}
+
+      <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
+          <span className="material-symbols-outlined text-tak-yellow">playlist_add</span>
+          <h3 className="text-lg font-bold text-white">Crear trabajo de ingesta</h3>
+        </div>
+        <form onSubmit={handleQueueJob} className="p-6 grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_minmax(180px,0.9fr)_minmax(190px,1fr)_minmax(190px,1fr)_auto] items-end">
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Conexión</span>
+            <input
+              value={cloudConnectionId}
+              onChange={(event) => setCloudConnectionId(event.target.value)}
+              placeholder="cloud_connection_id"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Fuente</span>
+            <select
+              value={sourceType}
+              onChange={(event) => setSourceType(event.target.value as IngestionSourceType)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+            >
+              <option value="TECHNICAL_METRIC">Métrica técnica</option>
+              <option value="BILLING_EXPORT">Facturación</option>
+              <option value="INVENTORY">Inventario</option>
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Inicio</span>
+            <input
+              type="datetime-local"
+              value={targetStart}
+              onChange={(event) => setTargetStart(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Fin</span>
+            <input
+              type="datetime-local"
+              value={targetEnd}
+              onChange={(event) => setTargetEnd(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={queueing}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-tak-yellow px-4 text-sm font-black text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[20px]">add_task</span>
+            {queueing ? 'Encolando' : 'Encolar'}
+          </button>
+        </form>
+      </section>
 
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
@@ -197,4 +295,9 @@ function formatDateTime(value: string): string {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(new Date(value));
+}
+
+function toDatetimeLocal(value: Date): string {
+  const offsetMs = value.getTimezoneOffset() * 60 * 1000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
 }
