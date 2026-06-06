@@ -1027,6 +1027,41 @@ export interface QueueIngestionJobResponse {
   readonly job: IngestionJobHistoryItem;
 }
 
+export interface IngestionReadinessIssue {
+  readonly provider: string;
+  readonly severity: 'INFO' | 'WARNING' | 'BLOCKER';
+  readonly message: string;
+}
+
+export interface IngestionReadinessConnectionSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly providerCode: string;
+  readonly defaultRegion?: string;
+  readonly credentialPurposes: readonly string[];
+  readonly metadataCounts: Readonly<Record<string, number>>;
+  readonly recentJobs: readonly {
+    readonly id: string;
+    readonly sourceType: IngestionSourceType;
+    readonly status: IngestionJobStatus;
+    readonly targetStart: string;
+    readonly targetEnd: string;
+    readonly completedAt?: string;
+    readonly hasError: boolean;
+    readonly summary: Readonly<Record<string, unknown>> | null;
+  }[];
+}
+
+export interface IngestionReadinessResponse {
+  readonly success: true;
+  readonly readiness: {
+    readonly ok: boolean;
+    readonly generatedAt: string;
+    readonly connections: readonly IngestionReadinessConnectionSummary[];
+    readonly issues: readonly IngestionReadinessIssue[];
+  };
+}
+
 /**
  * Obtiene el historial de trabajos de ingesta del tenant autenticado.
  * El backend acota `limit` al rango [1, 200] (por defecto 50).
@@ -1049,6 +1084,10 @@ export async function fetchDataQualityChecks(
 ): Promise<DataQualityResponse> {
   const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
   return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
+}
+
+export async function fetchIngestionReadiness(token: string): Promise<IngestionReadinessResponse> {
+  return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', { token });
 }
 
 /**

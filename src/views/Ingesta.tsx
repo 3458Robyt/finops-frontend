@@ -3,12 +3,15 @@ import {
   fetchDataQualityChecks,
   fetchCloudConnections,
   fetchIngestionHistory,
+  fetchIngestionReadiness,
   queueIngestionJob,
   type CloudConnectionSummary,
   type DataQualityCheckItem,
   type DataQualityStatus,
   type IngestionJobHistoryItem,
   type IngestionJobStatus,
+  type IngestionReadinessConnectionSummary,
+  type IngestionReadinessIssue,
   type IngestionSourceType,
 } from '../services/api';
 
@@ -36,10 +39,20 @@ const qualityStatusStyles: Readonly<Record<DataQualityStatus, { readonly label: 
   FAILED: { label: 'Fallido', className: 'bg-red-500/15 text-red-300' },
 };
 
+const readinessSeverityStyles: Readonly<Record<IngestionReadinessIssue['severity'], { readonly label: string; readonly className: string }>> = {
+  INFO: { label: 'Info', className: 'bg-sky-500/15 text-sky-300' },
+  WARNING: { label: 'Advertencia', className: 'bg-tak-yellow/15 text-tak-yellow' },
+  BLOCKER: { label: 'Bloqueante', className: 'bg-red-500/15 text-red-300' },
+};
+
 export default function Ingesta({ token }: { readonly token: string }) {
   const [jobs, setJobs] = useState<readonly IngestionJobHistoryItem[]>([]);
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
   const [connections, setConnections] = useState<readonly CloudConnectionSummary[]>([]);
+  const [readinessOk, setReadinessOk] = useState(false);
+  const [readinessGeneratedAt, setReadinessGeneratedAt] = useState<string | null>(null);
+  const [readinessConnections, setReadinessConnections] = useState<readonly IngestionReadinessConnectionSummary[]>([]);
+  const [readinessIssues, setReadinessIssues] = useState<readonly IngestionReadinessIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueing, setQueueing] = useState(false);
@@ -54,15 +67,20 @@ export default function Ingesta({ token }: { readonly token: string }) {
     setError(null);
 
     try {
-      const [connectionsResponse, historyResponse, qualityResponse] = await Promise.all([
+      const [connectionsResponse, historyResponse, qualityResponse, readinessResponse] = await Promise.all([
       fetchCloudConnections(token),
       fetchIngestionHistory(token),
       fetchDataQualityChecks(token),
+      fetchIngestionReadiness(token),
       ]);
       if (active()) {
         setConnections(connectionsResponse.connections);
         setJobs(historyResponse.jobs);
         setChecks(qualityResponse.checks);
+        setReadinessOk(readinessResponse.readiness.ok);
+        setReadinessGeneratedAt(readinessResponse.readiness.generatedAt);
+        setReadinessConnections(readinessResponse.readiness.connections);
+        setReadinessIssues(readinessResponse.readiness.issues);
         if (cloudConnectionId === '') {
           setCloudConnectionId(connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '');
         }
@@ -72,6 +90,10 @@ export default function Ingesta({ token }: { readonly token: string }) {
         setJobs([]);
         setChecks([]);
         setConnections([]);
+        setReadinessOk(false);
+        setReadinessGeneratedAt(null);
+        setReadinessConnections([]);
+        setReadinessIssues([]);
         setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
       }
     } finally {
@@ -131,6 +153,61 @@ export default function Ingesta({ token }: { readonly token: string }) {
           {queueMessage}
         </div>
       )}
+
+      <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-zinc-800 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-tak-yellow">health_and_safety</span>
+            <h3 className="text-lg font-bold text-white">Preparacion de ingesta productiva</h3>
+          </div>
+          <StatusBadge
+            label={readinessOk ? 'Listo sin bloqueantes' : 'Requiere atencion'}
+            className={readinessOk ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}
+          />
+        </div>
+        <div className="p-6 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+              Conexiones evaluadas {readinessGeneratedAt !== null ? `Â· ${formatDateTime(readinessGeneratedAt)}` : ''}
+            </p>
+            {loading ? (
+              <p className="text-sm font-medium text-zinc-500">Cargando preparacion...</p>
+            ) : readinessConnections.length === 0 ? (
+              <p className="text-sm font-medium text-zinc-500">Sin conexiones AWS/OCI activas para evaluar.</p>
+            ) : readinessConnections.map((connection) => (
+              <div key={connection.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-black text-white">{connection.name}</p>
+                    <p className="text-xs font-medium text-zinc-500">{connection.providerCode.toUpperCase()} Â· {connection.defaultRegion ?? 'Sin region por defecto'}</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-400">{connection.recentJobs.length} jobs recientes</p>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <ReadinessLine label="Credenciales" value={connection.credentialPurposes.length > 0 ? connection.credentialPurposes.join(', ') : 'Sin credenciales activas'} />
+                  <ReadinessLine label="Metadata" value={formatMetadataCounts(connection.metadataCounts)} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Hallazgos</p>
+            {loading ? (
+              <p className="text-sm font-medium text-zinc-500">Cargando hallazgos...</p>
+            ) : readinessIssues.length === 0 ? (
+              <p className="text-sm font-medium text-green-300">No hay bloqueantes ni advertencias registradas.</p>
+            ) : readinessIssues.map((issue, index) => (
+              <div key={`${issue.provider}-${issue.severity}-${index}`} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">{issue.provider.toUpperCase()}</p>
+                  <StatusBadge {...readinessSeverityStyles[issue.severity]} />
+                </div>
+                <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-300">{issue.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
@@ -300,6 +377,24 @@ function StatusBadge({ label, className }: { readonly label: string; readonly cl
       {label}
     </span>
   );
+}
+
+function ReadinessLine({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{label}</p>
+      <p className="mt-1 text-xs font-medium text-zinc-300">{value}</p>
+    </div>
+  );
+}
+
+function formatMetadataCounts(counts: Readonly<Record<string, number>>): string {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) {
+    return 'Sin metadata';
+  }
+
+  return entries.map(([key, value]) => `${key}: ${value}`).join(' Â· ');
 }
 
 function formatDateTime(value: string): string {
