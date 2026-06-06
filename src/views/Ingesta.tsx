@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  configureFocusSource,
   fetchDataQualityChecks,
   fetchCloudConnections,
   fetchIngestionHistory,
@@ -58,6 +59,17 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const [queueing, setQueueing] = useState(false);
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
   const [cloudConnectionId, setCloudConnectionId] = useState('');
+  const [focusConnectionId, setFocusConnectionId] = useState('');
+  const [focusMode, setFocusMode] = useState<'location' | 'object'>('location');
+  const [focusBucket, setFocusBucket] = useState('');
+  const [focusPrefix, setFocusPrefix] = useState('');
+  const [focusObjectKey, setFocusObjectKey] = useState('');
+  const [focusNamespace, setFocusNamespace] = useState('');
+  const [focusRegion, setFocusRegion] = useState('');
+  const [focusVersion, setFocusVersion] = useState('1.0');
+  const [focusMaxObjects, setFocusMaxObjects] = useState('100');
+  const [focusReplace, setFocusReplace] = useState(false);
+  const [configuringFocus, setConfiguringFocus] = useState(false);
   const [sourceType, setSourceType] = useState<IngestionSourceType>('TECHNICAL_METRIC');
   const [targetStart, setTargetStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)));
   const [targetEnd, setTargetEnd] = useState(() => toDatetimeLocal(new Date()));
@@ -83,6 +95,9 @@ export default function Ingesta({ token }: { readonly token: string }) {
         setReadinessIssues(readinessResponse.readiness.issues);
         if (cloudConnectionId === '') {
           setCloudConnectionId(connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '');
+        }
+        if (focusConnectionId === '') {
+          setFocusConnectionId(connectionsResponse.connections[0]?.id ?? '');
         }
       }
     } catch (cause: unknown) {
@@ -131,6 +146,40 @@ export default function Ingesta({ token }: { readonly token: string }) {
       setError(cause instanceof Error ? cause.message : 'No se pudo encolar la ingesta.');
     } finally {
       setQueueing(false);
+    }
+  };
+
+  const selectedFocusConnection = connections.find((connection) => connection.id === focusConnectionId);
+  const selectedFocusProvider = selectedFocusConnection?.providerCode.toLowerCase();
+
+  const handleConfigureFocus = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setConfiguringFocus(true);
+    setQueueMessage(null);
+    setError(null);
+
+    try {
+      await configureFocusSource(token, {
+        cloudConnectionId: focusConnectionId.trim(),
+        mode: focusMode,
+        replace: focusReplace,
+        values: buildFocusValues(selectedFocusProvider, {
+          mode: focusMode,
+          bucket: focusBucket,
+          prefix: focusPrefix,
+          objectKey: focusObjectKey,
+          namespaceName: focusNamespace,
+          region: focusRegion,
+          focusVersion,
+          maxObjects: focusMaxObjects,
+        }),
+      });
+      setQueueMessage('Fuente FOCUS configurada.');
+      await loadData(() => true);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo configurar la fuente FOCUS.');
+    } finally {
+      setConfiguringFocus(false);
     }
   };
 
@@ -277,6 +326,132 @@ export default function Ingesta({ token }: { readonly token: string }) {
 
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
+          <span className="material-symbols-outlined text-tak-yellow">folder_managed</span>
+          <h3 className="text-lg font-bold text-white">Configurar fuente FOCUS</h3>
+        </div>
+        <form onSubmit={handleConfigureFocus} className="p-6 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-4">
+            <label className="space-y-2 lg:col-span-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Conexion</span>
+              <select
+                value={focusConnectionId}
+                onChange={(event) => setFocusConnectionId(event.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                required
+              >
+                {connections.length === 0 ? (
+                  <option value="">Sin conexiones activas</option>
+                ) : connections.map((connection) => (
+                  <option key={connection.id} value={connection.id}>
+                    {connection.name} · {connection.providerCode.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Modo</span>
+              <select
+                value={focusMode}
+                onChange={(event) => setFocusMode(event.target.value as 'location' | 'object')}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              >
+                <option value="location">Prefijo</option>
+                <option value="object">Objeto directo</option>
+              </select>
+            </label>
+            <label className="flex items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <input
+                type="checkbox"
+                checked={focusReplace}
+                onChange={(event) => setFocusReplace(event.target.checked)}
+                className="h-4 w-4 accent-tak-yellow"
+              />
+              <span className="text-sm font-bold text-zinc-300">Reemplazar lista</span>
+            </label>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-4">
+            {selectedFocusProvider === 'oci' && (
+              <label className="space-y-2">
+                <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Namespace OCI</span>
+                <input
+                  value={focusNamespace}
+                  onChange={(event) => setFocusNamespace(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                  required
+                />
+              </label>
+            )}
+            <label className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">{selectedFocusProvider === 'aws' ? 'Bucket S3' : 'Bucket OCI'}</span>
+              <input
+                value={focusBucket}
+                onChange={(event) => setFocusBucket(event.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                required
+              />
+            </label>
+            <label className="space-y-2 lg:col-span-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">{focusMode === 'location' ? 'Prefijo' : 'Objeto'}</span>
+              <input
+                value={focusMode === 'location' ? focusPrefix : focusObjectKey}
+                onChange={(event) => {
+                  if (focusMode === 'location') {
+                    setFocusPrefix(event.target.value);
+                  } else {
+                    setFocusObjectKey(event.target.value);
+                  }
+                }}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                required
+              />
+            </label>
+            {selectedFocusProvider === 'aws' && (
+              <label className="space-y-2">
+                <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Region</span>
+                <input
+                  value={focusRegion}
+                  onChange={(event) => setFocusRegion(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                />
+              </label>
+            )}
+            <label className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">FOCUS</span>
+              <input
+                value={focusVersion}
+                onChange={(event) => setFocusVersion(event.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                required
+              />
+            </label>
+            {focusMode === 'location' && (
+              <label className="space-y-2">
+                <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Max objetos</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={focusMaxObjects}
+                  onChange={(event) => setFocusMaxObjects(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+                  required
+                />
+              </label>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={configuringFocus || focusConnectionId.trim() === ''}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 text-sm font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[20px]">save</span>
+            {configuringFocus ? 'Guardando' : 'Guardar fuente FOCUS'}
+          </button>
+        </form>
+      </section>
+
+      <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
           <span className="material-symbols-outlined text-tak-yellow">cloud_sync</span>
           <h3 className="text-lg font-bold text-white">Historial de ingesta</h3>
         </div>
@@ -395,6 +570,40 @@ function formatMetadataCounts(counts: Readonly<Record<string, number>>): string 
   }
 
   return entries.map(([key, value]) => `${key}: ${value}`).join(' Â· ');
+}
+
+function buildFocusValues(
+  provider: string | undefined,
+  input: {
+    readonly mode: 'location' | 'object';
+    readonly bucket: string;
+    readonly prefix: string;
+    readonly objectKey: string;
+    readonly namespaceName: string;
+    readonly region: string;
+    readonly focusVersion: string;
+    readonly maxObjects: string;
+  },
+): Readonly<Record<string, string>> {
+  if (provider === 'aws') {
+    return {
+      bucket: input.bucket.trim(),
+      ...(input.mode === 'location'
+        ? { prefix: input.prefix.trim(), 'max-objects': input.maxObjects.trim() }
+        : { key: input.objectKey.trim() }),
+      ...(input.region.trim() !== '' ? { region: input.region.trim() } : {}),
+      'focus-version': input.focusVersion.trim(),
+    };
+  }
+
+  return {
+    'namespace-name': input.namespaceName.trim(),
+    'bucket-name': input.bucket.trim(),
+    ...(input.mode === 'location'
+      ? { prefix: input.prefix.trim(), 'max-objects': input.maxObjects.trim() }
+      : { 'object-name': input.objectKey.trim() }),
+    'focus-version': input.focusVersion.trim(),
+  };
 }
 
 function formatDateTime(value: string): string {

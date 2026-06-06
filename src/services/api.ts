@@ -1027,6 +1027,25 @@ export interface QueueIngestionJobResponse {
   readonly job: IngestionJobHistoryItem;
 }
 
+export interface ConfigureFocusSourceInput {
+  readonly cloudConnectionId: string;
+  readonly mode: 'location' | 'object';
+  readonly replace: boolean;
+  readonly values: Readonly<Record<string, string>>;
+}
+
+export interface ConfigureFocusSourceResponse {
+  readonly success: true;
+  readonly focusSource: {
+    readonly cloudConnectionId: string;
+    readonly providerCode: string;
+    readonly mode: 'location' | 'object';
+    readonly updatedKey: string;
+    readonly configuredCount: number;
+    readonly replaced: boolean;
+  };
+}
+
 export interface IngestionReadinessIssue {
   readonly provider: string;
   readonly severity: 'INFO' | 'WARNING' | 'BLOCKER';
@@ -1098,6 +1117,17 @@ export async function queueIngestionJob(
   input: QueueIngestionJobInput,
 ): Promise<QueueIngestionJobResponse> {
   return apiRequest<QueueIngestionJobResponse>('/ingestion/jobs', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function configureFocusSource(
+  token: string,
+  input: ConfigureFocusSourceInput,
+): Promise<ConfigureFocusSourceResponse> {
+  return apiRequest<ConfigureFocusSourceResponse>('/ingestion/focus-sources', {
     method: 'POST',
     token,
     body: JSON.stringify(input),
