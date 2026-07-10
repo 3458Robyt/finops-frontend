@@ -20,10 +20,7 @@ import {
   type MonthlyUsagePoint,
 } from '../services/api';
 
-type Account = 'prod' | 'dev';
-
 interface DashboardProps {
-  readonly account: Account;
   readonly token: string;
 }
 
@@ -50,7 +47,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 });
 const dashboardCostWindowDays = 900;
 
-export default function Dashboard({ account, token }: DashboardProps) {
+export default function Dashboard({ token }: DashboardProps) {
   const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
@@ -60,7 +57,6 @@ export default function Dashboard({ account, token }: DashboardProps) {
   const [adoptionKpis, setAdoptionKpis] = useState<AdoptionKpisResponse['adoption'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isProd = account === 'prod';
 
   useEffect(() => {
     let active = true;
@@ -115,8 +111,8 @@ export default function Dashboard({ account, token }: DashboardProps) {
   }, [token]);
 
   const metrics = useMemo(
-    () => costs?.metrics.filter((metric) => matchesAccount(metric, account)) ?? [],
-    [account, costs],
+    () => costs?.metrics ?? [],
+    [costs],
   );
   const totalCost = useMemo(
     () => roundCurrency(metrics.reduce((total, metric) => total + metric.amount, 0)),
@@ -124,12 +120,12 @@ export default function Dashboard({ account, token }: DashboardProps) {
   );
   const chartData = useMemo(() => buildChartData(metrics), [metrics]);
   const suggestions = useMemo(
-    () => buildSuggestions(metrics, recommendations, account),
-    [account, metrics, recommendations],
+    () => buildSuggestions(metrics, recommendations),
+    [metrics, recommendations],
   );
-  const budget = Math.max(totalCost * (isProd ? 1.18 : 1.35), isProd ? 100 : 40);
+  const budget = Math.max(totalCost * 1.18, 100);
   const budgetUsage = budget > 0 ? Math.min((totalCost / budget) * 100, 100) : 0;
-  const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * (isProd ? 0.14 : 0.09));
+  const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * 0.14);
   const observedSavings = savingsKpis?.observedMonthlySavings ?? 0;
   const roi = totalCost > 0 ? roundCurrency((observedSavings / totalCost) * 100) : 0;
   const openOpportunities = opportunities.filter((opportunity) => opportunity.status === 'OPEN').length;
@@ -362,16 +358,6 @@ export default function Dashboard({ account, token }: DashboardProps) {
   );
 }
 
-function matchesAccount(metric: CostMetric, account: Account): boolean {
-  const environment = metric.tags.environment?.trim().toLowerCase();
-
-  if (environment === undefined || environment === '') {
-    return true;
-  }
-
-  return account === 'prod' ? environment === 'prod' : environment !== 'prod';
-}
-
 function buildChartData(metrics: readonly CostMetric[]): ChartPoint[] {
   const dailyTotals = new Map<string, { label: string; total: number }>();
 
@@ -402,10 +388,8 @@ function buildChartData(metrics: readonly CostMetric[]): ChartPoint[] {
 function buildSuggestions(
   metrics: readonly CostMetric[],
   recommendations: readonly Recommendation[],
-  account: Account,
 ): Suggestion[] {
   const recommendationSuggestions = recommendations
-    .filter((recommendation) => matchesRecommendationAccount(recommendation, account))
     .slice(0, 6)
     .map((recommendation) => ({
       id: recommendation.id,
@@ -450,25 +434,6 @@ function buildSuggestions(
       source: 'FOCUS',
       usageLabel: formatUsageLabel(serviceUsage.get(service)),
     }));
-}
-
-function matchesRecommendationAccount(recommendation: Recommendation, account: Account): boolean {
-  const environment = readEvidenceString(recommendation.evidence, 'environment')?.trim().toLowerCase();
-  const cloudAccountId = recommendation.cloudAccountId.toLowerCase();
-
-  if (environment !== undefined) {
-    return account === 'prod' ? environment === 'prod' : environment !== 'prod';
-  }
-
-  if (cloudAccountId.includes('prod')) {
-    return account === 'prod';
-  }
-
-  if (cloudAccountId.includes('dev') || cloudAccountId.includes('staging')) {
-    return account === 'dev';
-  }
-
-  return true;
 }
 
 function readRecommendationSource(recommendation: Recommendation): Suggestion['source'] {

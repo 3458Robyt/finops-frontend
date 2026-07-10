@@ -1,22 +1,25 @@
 
 type Role = 'admin' | 'client';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
+type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
 
 interface NavItem {
   id: NavView;
   icon: string;
   label: string;
-  roles: readonly Role[];
+roles: readonly Role[];
+masterOnly?: boolean;
 }
 
 interface BottomNavProps {
   currentView: CurrentView;
   onViewChange: (view: NavView) => void;
-  currentRole: Role;
+currentRole: Role;
+apiRole: ApiRole;
 }
 
-export default function BottomNav({ currentView, onViewChange, currentRole }: BottomNavProps) {
+export default function BottomNav({ currentView, onViewChange, currentRole, apiRole }: BottomNavProps) {
   if (currentView === 'login') return null;
 
   const allNavItems: readonly NavItem[] = [
@@ -25,12 +28,13 @@ export default function BottomNav({ currentView, onViewChange, currentRole }: Bo
     { id: 'ingesta', icon: 'cloud_sync', label: 'Ingesta', roles: ['admin'] },
     { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'IA', roles: ['admin', 'client'] },
-    { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
-    { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin'] },
-    { id: 'profile', icon: 'person', label: 'Perfil', roles: ['admin', 'client'] },
-  ];
+{ id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
+{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin'] },
+{ id: 'master_admin', icon: 'admin_panel_settings', label: 'MSP', roles: ['admin'], masterOnly: true },
+{ id: 'profile', icon: 'person', label: 'Perfil', roles: ['admin', 'client'] },
+];
 
-  const navItems = allNavItems.filter(item => item.roles.includes(currentRole));
+const navItems = allNavItems.filter(item => item.roles.includes(currentRole) && (item.masterOnly !== true || apiRole === 'MASTER_ADMIN'));
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800 z-50 flex items-center justify-around h-16 px-2">

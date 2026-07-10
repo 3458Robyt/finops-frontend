@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   configureFocusSource,
   fetchDataQualityChecks,
@@ -6,6 +6,7 @@ import {
   fetchIngestionHistory,
   fetchIngestionReadiness,
   queueIngestionJob,
+  queueTechnicalMetricBackfill,
   type CloudConnectionSummary,
   type DataQualityCheckItem,
   type DataQualityStatus,
@@ -57,8 +58,12 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueing, setQueueing] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
   const [cloudConnectionId, setCloudConnectionId] = useState('');
+  const [backfillConnectionId, setBackfillConnectionId] = useState('');
+  const [backfillLookbackDays, setBackfillLookbackDays] = useState('90');
+  const [backfillWindowHours, setBackfillWindowHours] = useState('24');
   const [focusConnectionId, setFocusConnectionId] = useState('');
   const [focusMode, setFocusMode] = useState<'location' | 'object'>('location');
   const [focusBucket, setFocusBucket] = useState('');
@@ -74,7 +79,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const [targetStart, setTargetStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)));
   const [targetEnd, setTargetEnd] = useState(() => toDatetimeLocal(new Date()));
 
-  const loadData = async (active: () => boolean): Promise<void> => {
+  const loadData = useCallback(async (active: () => boolean): Promise<void> => {
     setLoading(true);
     setError(null);
 
@@ -93,12 +98,10 @@ export default function Ingesta({ token }: { readonly token: string }) {
         setReadinessGeneratedAt(readinessResponse.readiness.generatedAt);
         setReadinessConnections(readinessResponse.readiness.connections);
         setReadinessIssues(readinessResponse.readiness.issues);
-        if (cloudConnectionId === '') {
-          setCloudConnectionId(connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '');
-        }
-        if (focusConnectionId === '') {
-          setFocusConnectionId(connectionsResponse.connections[0]?.id ?? '');
-        }
+        const defaultConnectionId = connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '';
+        setCloudConnectionId((current) => current === '' ? defaultConnectionId : current);
+        setBackfillConnectionId((current) => current === '' ? defaultConnectionId : current);
+        setFocusConnectionId((current) => current === '' ? connectionsResponse.connections[0]?.id ?? '' : current);
       }
     } catch (cause: unknown) {
       if (active()) {
@@ -116,7 +119,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
         setLoading(false);
       }
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +128,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [loadData]);
 
   const handleQueueJob = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -151,6 +154,29 @@ export default function Ingesta({ token }: { readonly token: string }) {
 
   const selectedFocusConnection = connections.find((connection) => connection.id === focusConnectionId);
   const selectedFocusProvider = selectedFocusConnection?.providerCode.toLowerCase();
+
+  const handleBackfill = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBackfilling(true);
+    setQueueMessage(null);
+    setError(null);
+
+    try {
+      const response = await queueTechnicalMetricBackfill(token, {
+        cloudConnectionId: backfillConnectionId.trim(),
+        lookbackDays: Number.parseInt(backfillLookbackDays, 10),
+        windowHours: Number.parseInt(backfillWindowHours, 10),
+      });
+      setQueueMessage(
+        `Backfill tecnico encolado: ${response.backfill.createdJobs.length} jobs creados, ${response.backfill.skippedWindows.length} ventanas omitidas.`,
+      );
+      await loadData(() => true);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo encolar el backfill tecnico.');
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const handleConfigureFocus = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -217,7 +243,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
         <div className="p-6 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-3">
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-              Conexiones evaluadas {readinessGeneratedAt !== null ? `Â· ${formatDateTime(readinessGeneratedAt)}` : ''}
+              Conexiones evaluadas {readinessGeneratedAt !== null ? `· ${formatDateTime(readinessGeneratedAt)}` : ''}
             </p>
             {loading ? (
               <p className="text-sm font-medium text-zinc-500">Cargando preparacion...</p>
@@ -228,7 +254,7 @@ export default function Ingesta({ token }: { readonly token: string }) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-black text-white">{connection.name}</p>
-                    <p className="text-xs font-medium text-zinc-500">{connection.providerCode.toUpperCase()} Â· {connection.defaultRegion ?? 'Sin region por defecto'}</p>
+                    <p className="text-xs font-medium text-zinc-500">{connection.providerCode.toUpperCase()} · {connection.defaultRegion ?? 'Sin region por defecto'}</p>
                   </div>
                   <p className="text-xs font-bold text-zinc-400">{connection.recentJobs.length} jobs recientes</p>
                 </div>
@@ -255,6 +281,72 @@ export default function Ingesta({ token }: { readonly token: string }) {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-zinc-800 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-tak-yellow">history</span>
+            <h3 className="text-lg font-bold text-white">Backfill historico de metricas tecnicas</h3>
+          </div>
+          <span className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+            maximo 90 dias
+          </span>
+        </div>
+        <form onSubmit={handleBackfill} className="p-6 grid gap-4 lg:grid-cols-[minmax(220px,1.5fr)_minmax(140px,0.7fr)_minmax(140px,0.7fr)_auto] items-end">
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Conexion</span>
+            <select
+              value={backfillConnectionId}
+              onChange={(event) => setBackfillConnectionId(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            >
+              {connections.length === 0 ? (
+                <option value="">Sin conexiones activas</option>
+              ) : connections.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.name} · {connection.providerCode.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Dias hacia atras</span>
+            <input
+              type="number"
+              min="1"
+              max="90"
+              value={backfillLookbackDays}
+              onChange={(event) => setBackfillLookbackDays(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Ventana horas</span>
+            <input
+              type="number"
+              min="1"
+              max="24"
+              value={backfillWindowHours}
+              onChange={(event) => setBackfillWindowHours(event.target.value)}
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={backfilling || backfillConnectionId.trim() === ''}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 text-sm font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-[20px]">cloud_download</span>
+            {backfilling ? 'Encolando' : 'Traer historico'}
+          </button>
+        </form>
+        <div className="border-t border-zinc-800 px-6 py-4 text-xs font-medium leading-relaxed text-zinc-500">
+          Crea trabajos diarios de metricas tecnicas desde la retencion disponible del proveedor. Las ventanas que ya esten cubiertas por jobs pendientes, en ejecucion o exitosos se omiten.
         </div>
       </section>
 
@@ -569,7 +661,7 @@ function formatMetadataCounts(counts: Readonly<Record<string, number>>): string 
     return 'Sin metadata';
   }
 
-  return entries.map(([key, value]) => `${key}: ${value}`).join(' Â· ');
+  return entries.map(([key, value]) => `${key}: ${value}`).join(' · ');
 }
 
 function buildFocusValues(

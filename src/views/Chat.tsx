@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  ApiRequestError,
   generateAiRecommendations,
   sendAiChatMessage,
   type AiChatMessage,
@@ -98,7 +99,7 @@ export default function Chat({ token }: ChatProps) {
         },
       ]);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudieron generar recomendaciones IA');
+      setError(formatAiGenerationError(requestError));
     } finally {
       setIsGenerating(false);
     }
@@ -220,4 +221,37 @@ function formatRecommendations(
       return `${index + 1}. [${recommendation.severity}] ${recommendation.title}\n${recommendation.description}${savings}`;
     }),
   ].join('\n\n');
+}
+
+function formatAiGenerationError(error: unknown): string {
+  if (error instanceof ApiRequestError && error.code === 'AI_AUDIT_REJECTED') {
+    const audit = isRecord(error.audit) ? error.audit : {};
+    const blockingIssues = readStringList(audit['blockingIssues']);
+    const requiredChanges = readStringList(audit['requiredChanges']);
+    const score = typeof audit['score'] === 'number' ? ` Puntaje auditor: ${audit['score']}/100.` : '';
+    const diagnostic = error.diagnosticId !== undefined ? ` Diagnostico: ${error.diagnosticId}.` : '';
+
+    return [
+      `El auditor IA rechazo las recomendaciones generadas.${score}${diagnostic}`,
+      blockingIssues.length > 0 ? `Motivos: ${blockingIssues.join(' ')}` : '',
+      requiredChanges.length > 0 ? `Correcciones requeridas: ${requiredChanges.join(' ')}` : '',
+      'No se guardo ninguna recomendacion rechazada. Intenta de nuevo o revisa si falta evidencia tecnica suficiente.',
+    ]
+      .filter((item) => item !== '')
+      .join('\n');
+  }
+
+  return error instanceof Error ? error.message : 'No se pudieron generar recomendaciones IA';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
 }

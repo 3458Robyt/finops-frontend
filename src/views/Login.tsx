@@ -1,24 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import type { Role } from '../App';
-
-const demoEmails: Record<Role, string> = {
-  admin: '[correo omitido]',
-  client: 'ejecutivo@cliente.com',
-};
 
 export default function Login({ onLogin }: { onLogin: (email: string, password: string) => Promise<void> }) {
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role>('admin');
-  const [email, setEmail] = useState(demoEmails.admin);
+const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const handleRoleChange = (role: Role) => {
-    setSelectedRole(role);
-    setEmail(demoEmails[role]);
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
+  const [error, setError] = useState<string | null>(null); const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -46,22 +32,6 @@ export default function Login({ onLogin }: { onLogin: (email: string, password: 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Seleccionar Rol</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">badge</span>
-              <select 
-                value={selectedRole}
-                onChange={(e) => handleRoleChange(e.target.value as Role)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 pl-10 pr-10 text-white focus:outline-none focus:border-tak-yellow focus:ring-1 focus:ring-tak-yellow transition-all appearance-none cursor-pointer"
-              >
-                <option value="admin">Administrador FinOps (TAK)</option>
-                <option value="client">Ejecutivo / Cliente Cloud</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">expand_more</span>
-            </div>
-          </div>
-
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest ml-1">Usuario / Email</label>
             <div className="relative">

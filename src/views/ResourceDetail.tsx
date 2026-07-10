@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   fetchLatestRecommendationExecutionPlan,
-  fetchKnowledgeGraph,
   fetchRecommendationById,
   fetchRecommendationTimeline,
   generateRecommendationExecutionPlan,
@@ -9,8 +8,6 @@ import {
   submitRecommendationDecision,
   type AppRole,
   type AiAuditReport,
-  type KnowledgeGraphEdge,
-  type KnowledgeGraphNode,
   type Recommendation,
   type RecommendationExecutionPlan,
   type RecommendationFeedbackReason,
@@ -103,12 +100,6 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState<string | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
-  const [contextGraph, setContextGraph] = useState<{
-    readonly nodes: readonly KnowledgeGraphNode[];
-    readonly edges: readonly KnowledgeGraphEdge[];
-  } | null>(null);
-  const [contextGraphLoading, setContextGraphLoading] = useState(false);
-  const [contextGraphError, setContextGraphError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -121,8 +112,6 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
     setDecisionReasonCode('');
     setDecisionMode(null);
     setPlanLookupLoading(true);
-    setContextGraph(null);
-    setContextGraphError(null);
 
     fetchRecommendationById(token, recommendationId)
       .then((response) => {
@@ -215,20 +204,6 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
       setPlanError(requestError instanceof Error ? requestError.message : 'No fue posible generar el plan auditado');
     } finally {
       setPlanLoading(false);
-    }
-  };
-
-  const handleLoadContextGraph = async () => {
-    setContextGraphLoading(true);
-    setContextGraphError(null);
-
-    try {
-      const response = await fetchKnowledgeGraph(token, { recommendationId: recommendation.id });
-      setContextGraph(response.graph);
-    } catch (requestError) {
-      setContextGraphError(requestError instanceof Error ? requestError.message : 'No fue posible cargar el contexto usado');
-    } finally {
-      setContextGraphLoading(false);
     }
   };
 
@@ -491,29 +466,9 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
               <button onClick={onBack} className="w-full bg-zinc-900 hover:bg-zinc-800 py-4 rounded-2xl text-zinc-400 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] border border-zinc-800">
                 Volver a recomendaciones
               </button>
-              <button
-                onClick={() => void handleLoadContextGraph()}
-                disabled={contextGraphLoading}
-                className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60 py-4 rounded-2xl text-zinc-300 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] border border-zinc-800 flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-base">hub</span>
-                {contextGraphLoading ? 'Cargando contexto...' : 'Ver contexto usado'}
-              </button>
             </div>
           </div>
         </div>
-
-        {(contextGraphError !== null || contextGraph !== null) && (
-          <div className="mt-8">
-            {contextGraphError !== null ? (
-              <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-sm font-bold text-red-300">
-                {contextGraphError}
-              </div>
-            ) : contextGraph !== null ? (
-              <ContextGraphPanel nodes={contextGraph.nodes} edges={contextGraph.edges} />
-            ) : null}
-          </div>
-        )}
 
         {(planError !== null || executionPlan !== null) && (
           <div className="mt-8">
@@ -629,55 +584,6 @@ function MetricCard({ label, value }: { readonly label: string; readonly value: 
     <div className="bg-zinc-950/20 border border-zinc-800 p-5 rounded-2xl min-w-0">
       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">{label}</p>
       <p className="text-sm font-bold text-zinc-100 break-words">{value}</p>
-    </div>
-  );
-}
-
-function ContextGraphPanel({
-  nodes,
-  edges,
-}: {
-  readonly nodes: readonly KnowledgeGraphNode[];
-  readonly edges: readonly KnowledgeGraphEdge[];
-}) {
-  return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-950/40 p-6 md:p-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-[10px] font-black text-tak-yellow uppercase tracking-[0.25em]">Contexto usado por IA</p>
-          <h4 className="mt-2 text-xl font-black text-white">Grafo de conocimiento relacionado</h4>
-        </div>
-        <div className="flex gap-2">
-          <Badge label={`${nodes.length} nodos`} />
-          <Badge label={`${edges.length} relaciones`} />
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Nodos</p>
-          {nodes.length === 0 ? (
-            <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm font-bold text-zinc-500">Sin nodos relacionados.</p>
-          ) : nodes.slice(0, 12).map((node) => (
-            <div key={node.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">{shortenType(node.nodeType)}</p>
-              <p className="mt-1 text-sm font-bold text-zinc-100 break-words">{node.label}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Relaciones</p>
-          {edges.length === 0 ? (
-            <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm font-bold text-zinc-500">Sin relaciones relacionadas.</p>
-          ) : edges.slice(0, 12).map((edge) => (
-            <div key={edge.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <p className="text-sm font-black text-zinc-100">{shortenType(edge.relationType)}</p>
-              <p className="mt-1 text-xs font-bold text-zinc-500">Confianza {Math.round(edge.confidence * 100)}%</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

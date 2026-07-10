@@ -9,17 +9,16 @@ import ResourceDetail from './views/ResourceDetail';
 import AgentSettings from './views/AgentSettings';
 import Ingesta from './views/Ingesta';
 import MetricasTecnicas from './views/MetricasTecnicas';
+import MasterAdmin from './views/MasterAdmin';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
-import { login, mapApiRoleToAppRole, type AuthSession, type AppRole } from './services/api';
+import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas';
-type Account = 'prod' | 'dev';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
-  const [activeAccount, setActiveAccount] = useState<Account>('prod');
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
 
@@ -39,38 +38,66 @@ function App() {
     setSelectedResourceType(null);
   };
 
+const handleTenantChange = async (tenantId: string) => {
+    if (authSession === null || tenantId === authSession.activeTenant.id) {
+      return;
+    }
+
+    const nextSession = await switchTenant(authSession.accessToken, tenantId);
+    setAuthSession(nextSession);
+    setSelectedResourceType(null);
+    if (currentView === 'resource_detail') {
+      setCurrentView('console');
+    }
+};
+
+const refreshAccessibleTenants = async () => {
+if (authSession === null) return;
+const response = await fetchAccessibleTenants(authSession.accessToken);
+setAuthSession((current) => current === null ? current : {
+...current,
+activeTenant: response.activeTenant ?? current.activeTenant,
+availableTenants: response.availableTenants,
+});
+};
+
   if (currentView === 'login' || authSession === null) {
     return <Login onLogin={handleLogin} />;
   }
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard account={activeAccount} token={authSession.accessToken} />;
-      case 'console': return <Console account={activeAccount} token={authSession.accessToken} onResourceSelect={(id) => {
+      case 'dashboard': return <Dashboard token={authSession.accessToken} />;
+      case 'console': return <Console token={authSession.accessToken} onResourceSelect={(id) => {
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
       case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} currentRole={currentRole} onBack={() => setCurrentView('console')} />;
       case 'chat': return <Chat token={authSession.accessToken} />;
       case 'history': return <History token={authSession.accessToken} />;
-      case 'agent_settings': return <AgentSettings token={authSession.accessToken} />;
-      case 'ingesta': return <Ingesta token={authSession.accessToken} />;
-      case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
-      case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} />;
-      default: return <Dashboard account={activeAccount} token={authSession.accessToken} />;
+case 'agent_settings': return <AgentSettings token={authSession.accessToken} role={authSession.user.role} />;
+case 'ingesta': return <Ingesta token={authSession.accessToken} />;
+case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
+case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
+? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
+: <Dashboard token={authSession.accessToken} />;
+case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
+      default: return <Dashboard token={authSession.accessToken} />;
     }
   };
 
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
-      <Sidebar currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} />
-      <BottomNav currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} />
+<Sidebar currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} user={authSession.user} />
+<BottomNav currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} />
       
       <div className="flex-1 lg:ml-[280px] flex flex-col min-h-[100dvh]">
         <TopHeader 
           currentView={currentView} 
-          activeAccount={activeAccount} 
-          onAccountChange={setActiveAccount} 
+          activeTenant={authSession.activeTenant}
+          availableTenants={authSession.availableTenants}
+          onTenantChange={handleTenantChange}
+          role={authSession.user.role}
           token={authSession.accessToken}
         />
         <main className="flex-1 p-4 lg:p-10 pb-24 lg:pb-10 custom-scrollbar overflow-x-hidden">
