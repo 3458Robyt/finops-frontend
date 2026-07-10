@@ -1,14 +1,22 @@
 import { useState } from 'react';
+import type { ApiUser } from '../services/api';
 
 interface ToggleProps {
   checked: boolean;
   onChange: () => void;
 }
 
-export default function Profile({ onLogout, currentRole }: { onLogout: () => void, currentRole: 'admin' | 'client' }) {
-  const [twoFactor, setTwoFactor] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [persistent, setPersistent] = useState(false);
+export default function Profile({ onLogout, currentRole, user }: { onLogout: () => void, currentRole: 'admin' | 'client', user: ApiUser }) {
+const [twoFactor, setTwoFactor] = useState(true);
+const [notifications, setNotifications] = useState(true);
+const [persistent, setPersistent] = useState(false);
+const displayName = user.name.trim() !== '' ? user.name : user.email;
+const initials = displayName
+.split(/\s+/)
+.filter(Boolean)
+.slice(0, 2)
+.map((part) => part[0]?.toUpperCase() ?? '')
+.join('') || user.email.slice(0, 2).toUpperCase();
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -17,7 +25,7 @@ export default function Profile({ onLogout, currentRole }: { onLogout: () => voi
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
           <div className="relative">
             <div className="size-32 rounded-3xl border-2 border-zinc-800 shadow-2xl bg-zinc-800 flex items-center justify-center text-5xl font-black text-zinc-600">
-              {currentRole === 'admin' ? 'AR' : 'EC'}
+              {initials}
             </div>
             <button className="absolute -bottom-2 -right-2 size-10 bg-tak-yellow text-zinc-950 rounded-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
               <span className="material-symbols-outlined text-xl font-bold">photo_camera</span>
@@ -30,7 +38,7 @@ export default function Profile({ onLogout, currentRole }: { onLogout: () => voi
                 {currentRole === 'admin' ? 'Administrador del Sistema' : 'Nivel de Acceso: Ejecutivo'}
               </span>
               <h2 className="text-3xl font-black text-white">
-                {currentRole === 'admin' ? 'Andrés Rivera' : 'Ejecutivo Cliente'}
+                {displayName}
               </h2>
               <p className="text-zinc-500 font-medium">
                 {currentRole === 'admin' ? 'Admin de Cloud & FinOps Lead' : 'Lector Panel de Control'}
@@ -41,7 +49,7 @@ export default function Profile({ onLogout, currentRole }: { onLogout: () => voi
               <div className="flex items-center gap-2 text-zinc-400">
                 <span className="material-symbols-outlined text-tak-yellow">mail</span>
                 <span className="text-sm">
-                  {currentRole === 'admin' ? '[correo omitido]' : 'ejecutivo@cliente.com'}
+                  {user.email}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-zinc-400">

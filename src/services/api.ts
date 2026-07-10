@@ -4,6 +4,7 @@ const API_BASE_URL = (
 
 export type ApiRole =
   | 'ADMIN'
+  | 'MASTER_ADMIN'
   | 'VIEWER'
   | 'OPERATOR_ADMIN'
   | 'FINOPS_TECHNICIAN'
@@ -14,15 +15,28 @@ export type AppRole = 'admin' | 'client';
 export interface ApiUser {
   readonly id: string;
   readonly tenantId: string;
+  readonly homeTenantId: string;
   readonly email: string;
   readonly name: string;
   readonly role: ApiRole;
+}
+
+export type TenantAccessRole = 'HOME' | 'TECHNICIAN' | 'LEAD_TECHNICIAN' | 'OPERATOR_ADMIN' | 'MASTER';
+
+export interface AuthTenant {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly accessRole: TenantAccessRole;
+  readonly isCurrent: boolean;
 }
 
 export interface AuthSession {
   readonly accessToken: string;
   readonly expiresAt: string;
   readonly user: ApiUser;
+  readonly activeTenant: AuthTenant;
+  readonly availableTenants: readonly AuthTenant[];
 }
 
 export interface CostMetric {
@@ -511,23 +525,6 @@ export interface AiContextTrace {
   readonly expiresAt: string;
 }
 
-export interface KnowledgeGraphNode {
-  readonly id: string;
-  readonly nodeType: string;
-  readonly label: string;
-  readonly externalId?: string;
-  readonly metadata?: unknown;
-}
-
-export interface KnowledgeGraphEdge {
-  readonly id: string;
-  readonly sourceNodeId: string;
-  readonly targetNodeId: string;
-  readonly relationType: string;
-  readonly confidence: number;
-  readonly metadata?: unknown;
-}
-
 export interface AgentProfileResponse {
   readonly success: true;
   readonly profile: AgentInstructionProfile;
@@ -548,24 +545,11 @@ export interface AiContextTracesResponse {
   readonly traces: readonly AiContextTrace[];
 }
 
-export interface KnowledgeGraphResponse {
-  readonly success: true;
-  readonly graph: {
-    readonly nodes: readonly KnowledgeGraphNode[];
-    readonly edges: readonly KnowledgeGraphEdge[];
-  };
-}
-
 export interface ContextBackfillResponse {
   readonly success: true;
   readonly summaries: {
     readonly runId: string;
     readonly summaryCount: number;
-  };
-  readonly graph: {
-    readonly runId: string;
-    readonly nodeCount: number;
-    readonly edgeCount: number;
   };
 }
 
@@ -603,13 +587,168 @@ export interface TelegramLinkResponse {
   readonly link: TelegramChatLink;
 }
 
+export type OutboundMessageChannel = 'TELEGRAM' | 'EMAIL';
+export type OutboundMessageType = 'TEST' | 'SAVINGS_REMINDER' | 'AI_CHAT_RESPONSE' | 'RECOMMENDATION_SUMMARY' | 'EXECUTION_PLAN_READY';
+export type OutboundMessageStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface OutboundMessageDelivery {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly userId?: string;
+  readonly recommendationId?: string;
+  readonly channel: OutboundMessageChannel;
+  readonly messageType: OutboundMessageType;
+  readonly status: OutboundMessageStatus;
+  readonly subject?: string;
+  readonly preview: string;
+  readonly providerMessageId?: string;
+  readonly errorMessage?: string;
+  readonly sentAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface OutboundChannelStatusResponse {
+  readonly success: true;
+  readonly status: {
+    readonly telegram: {
+      readonly enabled: boolean;
+      readonly botUsernameConfigured: boolean;
+      readonly webhookSecretConfigured: boolean;
+      readonly activeLinks: number;
+      readonly totalLinks: number;
+    };
+    readonly email: {
+      readonly enabled: boolean;
+      readonly smtpConfigured: boolean;
+    };
+  };
+}
+
+export interface OutboundDeliveriesResponse {
+  readonly success: true;
+  readonly deliveries: readonly OutboundMessageDelivery[];
+}
+
+export interface OutboundSendResponse {
+  readonly success: true;
+  readonly deliveries: readonly OutboundMessageDelivery[];
+  readonly attemptedUsers?: number;
+}
+
+export type CloudConnectionStatus = 'ACTIVE' | 'DISABLED' | 'ERROR' | 'PENDING_VALIDATION';
+
+export interface CloudConnectionSummary {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly providerCode: string;
+  readonly rootExternalId: string;
+  readonly name: string;
+  readonly status: CloudConnectionStatus;
+  readonly defaultRegion?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly lastValidatedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface CloudConnectionsResponse {
+  readonly success: true;
+  readonly connections: readonly CloudConnectionSummary[];
+}
+
+export type MasterAdminTenantStatus = 'ACTIVE' | 'SUSPENDED';
+export type MasterAdminStaffRole = 'MASTER_ADMIN' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'ADMIN';
+export type MasterAdminAssignmentRole = 'TECHNICIAN' | 'LEAD_TECHNICIAN' | 'OPERATOR_ADMIN';
+
+export interface MasterAdminTenant {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly status: MasterAdminTenantStatus;
+  readonly assignedUsers: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface MasterAdminUser {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly name: string;
+  readonly email: string;
+  readonly role: MasterAdminStaffRole;
+  readonly status: 'ACTIVE' | 'DISABLED';
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface MasterAdminAssignment {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly tenantName: string;
+  readonly userId: string;
+  readonly userName: string;
+  readonly userEmail: string;
+  readonly role: MasterAdminAssignmentRole;
+  readonly createdAt: string;
+  readonly disabledAt: string | null;
+}
+
+export interface MasterAdminTenantsResponse {
+  readonly success: true;
+  readonly tenants: readonly MasterAdminTenant[];
+}
+
+export interface MasterAdminTenantResponse {
+  readonly success: true;
+  readonly tenant: MasterAdminTenant;
+}
+
+export interface MasterAdminUsersResponse {
+  readonly success: true;
+  readonly users: readonly MasterAdminUser[];
+}
+
+export interface MasterAdminUserResponse {
+  readonly success: true;
+  readonly user: MasterAdminUser;
+}
+
+export interface MasterAdminAssignmentsResponse {
+  readonly success: true;
+  readonly assignments: readonly MasterAdminAssignment[];
+}
+
+export interface MasterAdminAssignmentResponse {
+  readonly success: true;
+  readonly assignment: MasterAdminAssignment;
+}
+
 interface ApiErrorBody {
   readonly error?: string;
   readonly code?: string;
+  readonly diagnosticId?: string;
+  readonly audit?: unknown;
+}
+
+export class ApiRequestError extends Error {
+  public readonly code?: string;
+  public readonly status: number;
+  public readonly diagnosticId?: string;
+  public readonly audit?: unknown;
+
+  constructor(message: string, input: { readonly status: number; readonly code?: string; readonly diagnosticId?: string; readonly audit?: unknown }) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = input.status;
+    this.code = input.code;
+    this.diagnosticId = input.diagnosticId;
+    this.audit = input.audit;
+  }
 }
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
-  return role === 'ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
+  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
     ? 'admin'
     : 'client';
 }
@@ -619,6 +758,107 @@ export async function login(email: string, password: string): Promise<AuthSessio
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+}
+
+export async function fetchAccessibleTenants(token: string): Promise<{
+  readonly success: true;
+  readonly activeTenant: AuthTenant | null;
+  readonly availableTenants: readonly AuthTenant[];
+}> {
+  return apiRequest('/auth/tenants', { token });
+}
+
+export async function switchTenant(token: string, tenantId: string): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/switch-tenant', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ tenantId }),
+  });
+}
+
+export async function fetchCloudConnections(token: string): Promise<CloudConnectionsResponse> {
+  return apiRequest<CloudConnectionsResponse>('/cloud-connections', { token });
+}
+
+export async function fetchMasterAdminTenants(token: string): Promise<MasterAdminTenantsResponse> {
+  return apiRequest<MasterAdminTenantsResponse>('/master-admin/tenants', { token });
+}
+
+export async function createMasterAdminTenant(
+  token: string,
+  input: { readonly name: string; readonly slug?: string },
+): Promise<MasterAdminTenantResponse> {
+  return apiRequest<MasterAdminTenantResponse>('/master-admin/tenants', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateMasterAdminTenant(
+  token: string,
+  tenantId: string,
+  input: { readonly name?: string; readonly status?: MasterAdminTenantStatus },
+): Promise<MasterAdminTenantResponse> {
+  return apiRequest<MasterAdminTenantResponse>(`/master-admin/tenants/${encodeURIComponent(tenantId)}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchMasterAdminUsers(token: string): Promise<MasterAdminUsersResponse> {
+  return apiRequest<MasterAdminUsersResponse>('/master-admin/users', { token });
+}
+
+export async function createMasterAdminUser(
+  token: string,
+  input: {
+    readonly name: string;
+    readonly email: string;
+    readonly role: 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN';
+    readonly temporaryPassword: string;
+  },
+): Promise<MasterAdminUserResponse> {
+  return apiRequest<MasterAdminUserResponse>('/master-admin/users', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchMasterAdminAssignments(token: string): Promise<MasterAdminAssignmentsResponse> {
+  return apiRequest<MasterAdminAssignmentsResponse>('/master-admin/assignments', { token });
+}
+
+export async function assignMasterAdminTenant(
+  token: string,
+  tenantId: string,
+  userId: string,
+  input: { readonly accessRole: MasterAdminAssignmentRole },
+): Promise<MasterAdminAssignmentResponse> {
+  return apiRequest<MasterAdminAssignmentResponse>(
+    `/master-admin/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function revokeMasterAdminTenant(
+  token: string,
+  tenantId: string,
+  userId: string,
+): Promise<MasterAdminAssignmentResponse> {
+  return apiRequest<MasterAdminAssignmentResponse>(
+    `/master-admin/tenants/${encodeURIComponent(tenantId)}/users/${encodeURIComponent(userId)}`,
+    {
+      method: 'DELETE',
+      token,
+    },
+  );
 }
 
 export async function fetchCosts(
@@ -883,27 +1123,6 @@ export async function fetchAiContextTraces(token: string): Promise<AiContextTrac
   return apiRequest<AiContextTracesResponse>('/agent/context-traces', { token });
 }
 
-export async function fetchKnowledgeGraph(
-  token: string,
-  params: {
-    readonly recommendationId?: string;
-    readonly resourceId?: string;
-  },
-): Promise<KnowledgeGraphResponse> {
-  const queryParams = new URLSearchParams();
-
-  if (params.recommendationId !== undefined && params.recommendationId.trim().length > 0) {
-    queryParams.set('recommendationId', params.recommendationId);
-  }
-
-  if (params.resourceId !== undefined && params.resourceId.trim().length > 0) {
-    queryParams.set('resourceId', params.resourceId);
-  }
-
-  const query = queryParams.toString();
-  return apiRequest<KnowledgeGraphResponse>(`/agent/knowledge-graph${query.length > 0 ? `?${query}` : ''}`, { token });
-}
-
 export async function backfillAgentContext(token: string): Promise<ContextBackfillResponse> {
   return apiRequest<ContextBackfillResponse>('/agent/context/backfill', {
     method: 'POST',
@@ -945,6 +1164,524 @@ export async function sendTelegramTestMessage(token: string, linkId: string): Pr
   });
 }
 
+export async function fetchOutboundChannelStatus(token: string): Promise<OutboundChannelStatusResponse> {
+  return apiRequest<OutboundChannelStatusResponse>('/outbound-messages/status', { token });
+}
+
+export async function fetchOutboundDeliveries(token: string, limit = 30): Promise<OutboundDeliveriesResponse> {
+  return apiRequest<OutboundDeliveriesResponse>(`/outbound-messages/deliveries?limit=${encodeURIComponent(String(limit))}`, { token });
+}
+
+export async function sendOutboundTestMessage(
+  token: string,
+  input: { readonly email?: string; readonly telegramLinkId?: string },
+): Promise<OutboundSendResponse> {
+  return apiRequest<OutboundSendResponse>('/outbound-messages/test', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function sendSavingsRemindersNow(token: string): Promise<OutboundSendResponse> {
+  return apiRequest<OutboundSendResponse>('/outbound-messages/savings-reminders/send', {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function sendRecommendationSummaryNow(token: string): Promise<OutboundSendResponse> {
+  return apiRequest<OutboundSendResponse>('/outbound-messages/recommendations/summary/send', {
+    method: 'POST',
+    token,
+  });
+}
+
+export type IngestionSourceType =
+  | 'BILLING_EXPORT'
+  | 'INVENTORY'
+  | 'TECHNICAL_METRIC'
+  | 'AGENT_METRIC';
+
+export type IngestionJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+
+export type DataQualityStatus = 'PASSED' | 'WARNING' | 'FAILED';
+
+export interface IngestionJobHistoryItem {
+  readonly id: string;
+  readonly cloudConnectionId: string;
+  readonly sourceType: IngestionSourceType;
+  readonly status: IngestionJobStatus;
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  readonly targetStart: string;
+  readonly targetEnd: string;
+  readonly errorMessage?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface DataQualityCheckItem {
+  readonly id: string;
+  readonly cloudConnectionId?: string;
+  readonly sourceType: IngestionSourceType;
+  readonly checkName: string;
+  readonly status: DataQualityStatus;
+  readonly observedAt: string;
+  readonly expectedAt?: string;
+  readonly details?: Readonly<Record<string, unknown>>;
+}
+
+export interface IngestionHistoryResponse {
+  readonly success: true;
+  readonly jobs: readonly IngestionJobHistoryItem[];
+}
+
+export interface DataQualityResponse {
+  readonly success: true;
+  readonly checks: readonly DataQualityCheckItem[];
+}
+
+export interface QueueIngestionJobInput {
+  readonly cloudConnectionId: string;
+  readonly sourceType: IngestionSourceType;
+  readonly targetStart: string;
+  readonly targetEnd: string;
+}
+
+export interface QueueIngestionJobResponse {
+  readonly success: true;
+  readonly job: IngestionJobHistoryItem;
+}
+
+export interface QueueTechnicalBackfillInput {
+  readonly cloudConnectionId: string;
+  readonly lookbackDays?: number;
+  readonly windowHours?: number;
+}
+
+export interface QueueTechnicalBackfillResponse {
+  readonly success: true;
+  readonly backfill: {
+    readonly cloudConnectionId: string;
+    readonly sourceType: 'TECHNICAL_METRIC';
+    readonly lookbackDays: number;
+    readonly windowHours: number;
+    readonly rangeStart: string;
+    readonly rangeEnd: string;
+    readonly createdJobs: readonly IngestionJobHistoryItem[];
+    readonly skippedWindows: readonly {
+      readonly targetStart: string;
+      readonly targetEnd: string;
+    }[];
+  };
+}
+
+export interface ConfigureFocusSourceInput {
+  readonly cloudConnectionId: string;
+  readonly mode: 'location' | 'object';
+  readonly replace: boolean;
+  readonly values: Readonly<Record<string, string>>;
+}
+
+export interface ConfigureFocusSourceResponse {
+  readonly success: true;
+  readonly focusSource: {
+    readonly cloudConnectionId: string;
+    readonly providerCode: string;
+    readonly mode: 'location' | 'object';
+    readonly updatedKey: string;
+    readonly configuredCount: number;
+    readonly replaced: boolean;
+  };
+}
+
+export interface IngestionReadinessIssue {
+  readonly provider: string;
+  readonly severity: 'INFO' | 'WARNING' | 'BLOCKER';
+  readonly message: string;
+}
+
+export interface IngestionReadinessConnectionSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly providerCode: string;
+  readonly defaultRegion?: string;
+  readonly credentialPurposes: readonly string[];
+  readonly metadataCounts: Readonly<Record<string, number>>;
+  readonly recentJobs: readonly {
+    readonly id: string;
+    readonly sourceType: IngestionSourceType;
+    readonly status: IngestionJobStatus;
+    readonly targetStart: string;
+    readonly targetEnd: string;
+    readonly completedAt?: string;
+    readonly hasError: boolean;
+    readonly summary: Readonly<Record<string, unknown>> | null;
+  }[];
+}
+
+export interface IngestionReadinessResponse {
+  readonly success: true;
+  readonly readiness: {
+    readonly ok: boolean;
+    readonly generatedAt: string;
+    readonly connections: readonly IngestionReadinessConnectionSummary[];
+    readonly issues: readonly IngestionReadinessIssue[];
+  };
+}
+
+/**
+ * Obtiene el historial de trabajos de ingesta del tenant autenticado.
+ * El backend acota `limit` al rango [1, 200] (por defecto 50).
+ */
+export async function fetchIngestionHistory(
+  token: string,
+  limit?: number,
+): Promise<IngestionHistoryResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<IngestionHistoryResponse>(`/ingestion/history${query}`, { token });
+}
+
+/**
+ * Obtiene los controles de calidad de datos del tenant autenticado.
+ * El backend acota `limit` al rango [1, 200] (por defecto 50).
+ */
+export async function fetchDataQualityChecks(
+  token: string,
+  limit?: number,
+): Promise<DataQualityResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
+}
+
+export async function fetchIngestionReadiness(token: string): Promise<IngestionReadinessResponse> {
+  return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', { token });
+}
+
+/**
+ * Encola un trabajo de ingesta SDK para una conexion cloud del tenant.
+ */
+export async function queueIngestionJob(
+  token: string,
+  input: QueueIngestionJobInput,
+): Promise<QueueIngestionJobResponse> {
+  return apiRequest<QueueIngestionJobResponse>('/ingestion/jobs', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function queueTechnicalMetricBackfill(
+  token: string,
+  input: QueueTechnicalBackfillInput,
+): Promise<QueueTechnicalBackfillResponse> {
+  return apiRequest<QueueTechnicalBackfillResponse>('/ingestion/backfill', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function configureFocusSource(
+  token: string,
+  input: ConfigureFocusSourceInput,
+): Promise<ConfigureFocusSourceResponse> {
+  return apiRequest<ConfigureFocusSourceResponse>('/ingestion/focus-sources', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export type CloudResourceStatus = 'ACTIVE' | 'STOPPED' | 'TERMINATED' | 'UNKNOWN';
+
+export interface CloudResourceItem {
+  readonly id: string;
+  readonly provider: string;
+  readonly externalResourceId: string;
+  readonly name?: string;
+  readonly resourceType: string;
+  readonly serviceName: string;
+  readonly regionId?: string;
+  readonly status: CloudResourceStatus;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+}
+
+export interface ResourceMetricSampleItem {
+  readonly id: string;
+  readonly provider: string;
+  readonly externalResourceId: string;
+  readonly cloudResourceId?: string;
+  readonly metricName: string;
+  readonly metricUnit?: string;
+  readonly value: number;
+  readonly sampledAt: string;
+  readonly granularitySeconds: number;
+}
+
+export interface TechnicalResourcesResponse {
+  readonly success: true;
+  readonly resources: readonly CloudResourceItem[];
+}
+
+export interface TechnicalSamplesResponse {
+  readonly success: true;
+  readonly samples: readonly ResourceMetricSampleItem[];
+}
+
+export type TechnicalMetricGroup = 'CPU' | 'MEMORY' | 'NETWORK' | 'DISK' | 'SYSTEM' | 'OTHER';
+export type TechnicalMetricBucket = 'auto' | 'raw' | '30m' | 'hour' | 'day';
+export type TechnicalCostMatchLevel = 'EXACT' | 'SERVICE' | 'NONE';
+
+export interface TechnicalMetricCatalogItem {
+  readonly metricName: string;
+  readonly metricUnit?: string;
+  readonly group: TechnicalMetricGroup;
+  readonly sampleCount: number;
+  readonly minSampledAt: string;
+  readonly maxSampledAt: string;
+}
+
+export interface TechnicalMetricKpi {
+  readonly id: string;
+  readonly label: string;
+  readonly group: TechnicalMetricGroup;
+  readonly metricNames: readonly string[];
+  readonly unit?: string;
+  readonly average: number;
+  readonly minimum: number;
+  readonly maximum: number;
+  readonly latest: number;
+  readonly latestSampledAt: string;
+  readonly sampleCount: number;
+}
+
+export interface TechnicalMetricResourceSummary {
+  readonly externalResourceId: string;
+  readonly provider: string;
+  readonly name?: string;
+  readonly serviceName?: string;
+  readonly resourceType?: string;
+  readonly regionId?: string;
+  readonly status?: string;
+  readonly metricNames: readonly string[];
+  readonly sampleCount: number;
+  readonly minSampledAt: string;
+  readonly maxSampledAt: string;
+  readonly cost?: {
+    readonly totalCost: number;
+    readonly currency: string;
+    readonly metricCount: number;
+    readonly matchLevel: TechnicalCostMatchLevel;
+  };
+}
+
+export interface TechnicalMetricOpportunity {
+  readonly id: string;
+  readonly severity: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH';
+  readonly title: string;
+  readonly description: string;
+  readonly externalResourceId?: string;
+  readonly metricName?: string;
+  readonly value?: number;
+  readonly unit?: string;
+  readonly cost?: number;
+  readonly currency?: string;
+}
+
+export interface TechnicalMetricsOverview {
+  readonly minSampledAt?: string;
+  readonly maxSampledAt?: string;
+  readonly latestSampledAt?: string;
+  readonly resourceCount: number;
+  readonly metricCount: number;
+  readonly sampleCount: number;
+  readonly resources: readonly TechnicalMetricResourceSummary[];
+  readonly metrics: readonly TechnicalMetricCatalogItem[];
+  readonly kpis: readonly TechnicalMetricKpi[];
+  readonly opportunities: readonly TechnicalMetricOpportunity[];
+}
+
+export interface TechnicalMetricSeriesPoint {
+  readonly bucketStart: string;
+  readonly externalResourceId: string;
+  readonly metricName: string;
+  readonly metricUnit?: string;
+  readonly avg: number;
+  readonly min: number;
+  readonly max: number;
+  readonly latest: number;
+  readonly sampleCount: number;
+  readonly minSampledAt?: string;
+  readonly maxSampledAt?: string;
+  readonly latestSampledAt?: string;
+}
+
+export interface TechnicalMetricCoverageMetric {
+  readonly metricName: string;
+  readonly sampleCount: number;
+  readonly daysWithData: number;
+  readonly expectedDays: number;
+  readonly coveragePercent: number;
+  readonly minSampledAt?: string;
+  readonly maxSampledAt?: string;
+}
+
+export interface TechnicalMetricCoverageDay {
+  readonly date: string;
+  readonly sampleCount: number;
+  readonly metricCount: number;
+  readonly status: 'WITH_DATA' | 'NO_DATA';
+}
+
+export interface TechnicalMetricCoverage {
+  readonly rangeStart?: string;
+  readonly rangeEnd?: string;
+  readonly minSampledAt?: string;
+  readonly maxSampledAt?: string;
+  readonly totalSamples: number;
+  readonly metricCount: number;
+  readonly resourceCount: number;
+  readonly expectedDays: number;
+  readonly daysWithData: number;
+  readonly coveragePercent: number;
+  readonly metrics: readonly TechnicalMetricCoverageMetric[];
+  readonly days: readonly TechnicalMetricCoverageDay[];
+}
+
+export interface TechnicalOverviewResponse {
+  readonly success: true;
+  readonly overview: TechnicalMetricsOverview;
+}
+
+export interface TechnicalSeriesResponse {
+  readonly success: true;
+  readonly series: readonly TechnicalMetricSeriesPoint[];
+  readonly meta: {
+    readonly hasMore: boolean;
+    readonly nextCursor?: string;
+    readonly returnedPoints: number;
+    readonly totalSamples: number;
+    readonly queryMs: number;
+    readonly bucket: Exclude<TechnicalMetricBucket, 'auto'>;
+    readonly pageSize: number;
+  };
+}
+
+export interface TechnicalCoverageResponse {
+  readonly success: true;
+  readonly coverage: TechnicalMetricCoverage;
+}
+
+/**
+ * Obtiene el inventario de recursos cloud del tenant autenticado.
+ * Métricas técnicas reales (no derivadas de FOCUS). `limit` acotado a [1, 200].
+ */
+export async function fetchTechnicalResources(
+  token: string,
+  limit?: number,
+): Promise<TechnicalResourcesResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<TechnicalResourcesResponse>(`/technical-metrics/resources${query}`, { token });
+}
+
+/**
+ * Obtiene las muestras de métricas técnicas (CPU, memoria, IOPS, etc.) del
+ * tenant autenticado. No provienen de FOCUS. `limit` acotado a [1, 200].
+ */
+export async function fetchTechnicalMetricSamples(
+  token: string,
+  limit?: number,
+): Promise<TechnicalSamplesResponse> {
+  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  return apiRequest<TechnicalSamplesResponse>(`/technical-metrics/samples${query}`, { token });
+}
+
+export async function fetchTechnicalMetricsOverview(
+  token: string,
+  params: {
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly externalResourceId?: string;
+    readonly metricNames?: readonly string[];
+  } = {},
+): Promise<TechnicalOverviewResponse> {
+  const query = buildTechnicalMetricsQuery(params);
+  return apiRequest<TechnicalOverviewResponse>(`/technical-metrics/overview${query}`, { token });
+}
+
+export async function fetchTechnicalMetricSeries(
+  token: string,
+  params: {
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly externalResourceId?: string;
+    readonly metricNames?: readonly string[];
+    readonly bucket?: TechnicalMetricBucket;
+    readonly cursor?: string;
+    readonly pageSize?: number;
+  } = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<TechnicalSeriesResponse> {
+  const query = buildTechnicalMetricsQuery(params);
+  return apiRequest<TechnicalSeriesResponse>(`/technical-metrics/series${query}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchTechnicalMetricsCoverage(
+  token: string,
+  params: {
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly externalResourceId?: string;
+  } = {},
+): Promise<TechnicalCoverageResponse> {
+  const query = buildTechnicalMetricsQuery(params);
+  return apiRequest<TechnicalCoverageResponse>(`/technical-metrics/coverage${query}`, { token });
+}
+
+function buildTechnicalMetricsQuery(params: {
+  readonly startDate?: string;
+  readonly endDate?: string;
+  readonly externalResourceId?: string;
+  readonly metricNames?: readonly string[];
+  readonly bucket?: TechnicalMetricBucket;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}): string {
+  const query = new URLSearchParams();
+
+  if (params.startDate !== undefined) {
+    query.set('startDate', params.startDate);
+  }
+  if (params.endDate !== undefined) {
+    query.set('endDate', params.endDate);
+  }
+  if (params.externalResourceId !== undefined) {
+    query.set('externalResourceId', params.externalResourceId);
+  }
+  if (params.metricNames !== undefined && params.metricNames.length > 0) {
+    query.set('metricNames', params.metricNames.join(','));
+  }
+  if (params.bucket !== undefined) {
+    query.set('bucket', params.bucket);
+  }
+  if (params.cursor !== undefined) {
+    query.set('cursor', params.cursor);
+  }
+  if (params.pageSize !== undefined) {
+    query.set('pageSize', String(params.pageSize));
+  }
+
+  const serialized = query.toString();
+  return serialized.length > 0 ? `?${serialized}` : '';
+}
+
 async function apiRequest<T>(
   path: string,
   options: RequestInit & { readonly token?: string } = {},
@@ -971,7 +1708,12 @@ async function apiRequest<T>(
       body = {};
     }
 
-    throw new Error(body.error ?? `API request failed with status ${response.status}`);
+    throw new ApiRequestError(body.error ?? `API request failed with status ${response.status}`, {
+      status: response.status,
+      ...(body.code !== undefined ? { code: body.code } : {}),
+      ...(body.diagnosticId !== undefined ? { diagnosticId: body.diagnosticId } : {}),
+      ...(body.audit !== undefined ? { audit: body.audit } : {}),
+    });
   }
 
   return response.json() as Promise<T>;

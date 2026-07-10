@@ -1,33 +1,49 @@
 
+import type { ApiUser } from '../services/api';
+
 type Role = 'admin' | 'client';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings';
+type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
 
 interface NavItem {
   id: Exclude<NavView, 'profile'>;
   icon: string;
   label: string;
-  roles: readonly Role[];
+roles: readonly Role[];
+masterOnly?: boolean;
 }
 
 interface SidebarProps {
-  currentView: CurrentView;
-  onViewChange: (view: NavView) => void;
-  currentRole: Role;
+currentView: CurrentView;
+onViewChange: (view: NavView) => void;
+currentRole: Role;
+apiRole: ApiRole;
+user: ApiUser;
 }
 
-export default function Sidebar({ currentView, onViewChange, currentRole }: SidebarProps) {
-  if (currentView === 'login') return null;
+export default function Sidebar({ currentView, onViewChange, currentRole, apiRole, user }: SidebarProps) {
+if (currentView === 'login') return null;
+const displayName = user.name.trim() !== '' ? user.name : user.email;
+const initials = displayName
+.split(/\s+/)
+.filter(Boolean)
+.slice(0, 2)
+.map((part) => part[0]?.toUpperCase() ?? '')
+.join('') || user.email.slice(0, 2).toUpperCase();
 
   const allNavItems: readonly NavItem[] = [
     { id: 'dashboard', icon: 'dashboard', label: 'Panel de Control', roles: ['admin', 'client'] },
     { id: 'console', icon: 'terminal', label: 'Consola Técnica', roles: ['admin'] },
+    { id: 'ingesta', icon: 'cloud_sync', label: 'Ingesta y Datos', roles: ['admin'] },
+    { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas Técnicas', roles: ['admin'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
-    { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
-    { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },
-  ];
+{ id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
+{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },
+{ id: 'master_admin', icon: 'admin_panel_settings', label: 'Administracion MSP', roles: ['admin'], masterOnly: true },
+];
 
-  const navItems = allNavItems.filter(item => item.roles.includes(currentRole));
+const navItems = allNavItems.filter(item => item.roles.includes(currentRole) && (item.masterOnly !== true || apiRole === 'MASTER_ADMIN'));
 
   return (
     <aside className="hidden lg:flex fixed left-0 top-0 h-full w-[280px] bg-zinc-900 border-r border-zinc-800 z-50 flex-col">
@@ -77,11 +93,11 @@ export default function Sidebar({ currentView, onViewChange, currentRole }: Side
       <div className="p-6 mt-auto border-t border-zinc-800 bg-zinc-950/30">
         <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onClick={() => onViewChange('profile')}>
           <div className="size-10 rounded-full bg-zinc-800 ring-2 ring-zinc-700 flex items-center justify-center text-white font-bold">
-            {currentRole === 'admin' ? 'AR' : 'EC'}
+            {initials}
           </div>
           <div className="overflow-hidden text-left">
-            <p className="text-sm font-bold text-zinc-100 truncate">{currentRole === 'admin' ? 'Andrés Rivera' : 'Ejecutivo Cliente'}</p>
-            <p className="text-xs text-zinc-500 truncate">{currentRole === 'admin' ? 'Admin de Cloud' : 'Usuario Lector'}</p>
+            <p className="text-sm font-bold text-zinc-100 truncate">{displayName}</p>
+            <p className="text-xs text-zinc-500 truncate">{user.email}</p>
           </div>
         </div>
       </div>

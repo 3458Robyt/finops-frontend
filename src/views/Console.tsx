@@ -9,10 +9,7 @@ import {
   type UsageInsight,
 } from '../services/api';
 
-type Account = 'prod' | 'dev';
-
 interface ConsoleProps {
-  readonly account: Account;
   readonly token: string;
   readonly onResourceSelect?: (id: string) => void;
 }
@@ -30,7 +27,7 @@ const severityWeight: Record<Recommendation['severity'], number> = {
   LOW: 1,
 };
 
-export default function Console({ account, token, onResourceSelect }: ConsoleProps) {
+export default function Console({ token, onResourceSelect }: ConsoleProps) {
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
@@ -81,10 +78,9 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
   }, [token]);
 
   const tableData = useMemo(
-    () => recommendations
-      .filter((recommendation) => matchesAccount(recommendation, account))
+    () => [...recommendations]
       .sort((left, right) => severityWeight[right.severity] - severityWeight[left.severity]),
-    [account, recommendations],
+    [recommendations],
   );
   const criticalOpportunityCount = opportunities.filter((row) => row.severity === 'HIGH' || row.severity === 'CRITICAL').length;
   const totalSavings = tableData.reduce((total, row) => total + (row.estimatedMonthlySavings ?? 0), 0);
@@ -265,25 +261,6 @@ export default function Console({ account, token, onResourceSelect }: ConsolePro
       </div>
     </div>
   );
-}
-
-function matchesAccount(recommendation: Recommendation, account: Account): boolean {
-  const evidence = readEvidence(recommendation.evidence);
-  const cloudAccountId = recommendation.cloudAccountId.toLowerCase();
-
-  if (evidence.environment !== undefined) {
-    return account === 'prod' ? evidence.environment === 'prod' : evidence.environment !== 'prod';
-  }
-
-  if (cloudAccountId.includes('prod')) {
-    return account === 'prod';
-  }
-
-  if (cloudAccountId.includes('dev') || cloudAccountId.includes('staging')) {
-    return account === 'dev';
-  }
-
-  return true;
 }
 
 function readEvidence(value: unknown): {

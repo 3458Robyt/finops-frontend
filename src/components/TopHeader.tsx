@@ -4,16 +4,18 @@ import {
   dismissNotification,
   fetchNotifications,
   markNotificationRead,
+  type ApiRole,
+  type AuthTenant,
   type InAppNotification,
 } from '../services/api';
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings';
-type Account = 'prod' | 'dev';
-
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
 interface TopHeaderProps {
   currentView: CurrentView;
-  activeAccount: Account;
-  onAccountChange: (account: Account) => void;
+  activeTenant: AuthTenant;
+  availableTenants: readonly AuthTenant[];
+  onTenantChange: (tenantId: string) => Promise<void>;
+  role: ApiRole;
   token: string;
 }
 
@@ -24,6 +26,9 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   history: 'Historial de Optimizaciones',
   profile: 'Perfil de Usuario y Seguridad',
   agent_settings: 'Gobierno del Agente IA',
+  ingesta: 'Ingesta y Calidad de Datos',
+  metricas_tecnicas: 'Métricas Técnicas',
+  master_admin: 'Administracion MSP',
 };
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -32,11 +37,19 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-export default function TopHeader({ currentView, activeAccount, onAccountChange, token }: TopHeaderProps) {
+export default function TopHeader({
+  currentView,
+  activeTenant,
+  availableTenants,
+  onTenantChange,
+  role,
+  token,
+}: TopHeaderProps) {
   const [notifications, setNotifications] = useState<readonly InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [switchingTenant, setSwitchingTenant] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const visibleUnreadCount = useMemo(
@@ -107,6 +120,25 @@ export default function TopHeader({ currentView, activeAccount, onAccountChange,
     }
   };
 
+  const handleTenantChange = async (tenantId: string) => {
+    if (tenantId === activeTenant.id || switchingTenant) {
+      return;
+    }
+
+    setSwitchingTenant(true);
+    try {
+      await onTenantChange(tenantId);
+    } finally {
+      setSwitchingTenant(false);
+    }
+  };
+
+  const roleLabel = role === 'MASTER_ADMIN'
+    ? 'Maestro'
+    : role === 'ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
+      ? 'Admin'
+      : 'Cliente';
+
   if (currentView === 'login') return null;
 
   return (
@@ -121,16 +153,22 @@ export default function TopHeader({ currentView, activeAccount, onAccountChange,
       </div>
       
       <div className="flex items-center gap-3 lg:gap-6 ml-4">
-        <div className="hidden sm:flex flex-col items-end mr-2 relative group cursor-pointer">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Entorno FOCUS Activo</span>
-          <select 
-            value={activeAccount} 
-            onChange={(e) => onAccountChange(e.target.value as Account)}
-            className="appearance-none bg-zinc-900 border border-zinc-700 text-xs font-bold text-tak-yellow rounded px-3 py-1 pr-8 outline-none focus:ring-1 focus:ring-tak-yellow focus:border-tak-yellow cursor-pointer"
-          >
-            <option value="prod">TAK - Prod Principal</option>
-            <option value="dev">TAK - Dev/Staging</option>
-          </select>
+          <div className="hidden sm:flex flex-col items-end mr-2 relative group cursor-pointer">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+              Tenant activo · {roleLabel}
+            </span>
+            <select
+              value={activeTenant.id}
+              onChange={(e) => { void handleTenantChange(e.target.value); }}
+              disabled={switchingTenant || availableTenants.length <= 1}
+              className="appearance-none bg-zinc-900 border border-zinc-700 text-xs font-bold text-tak-yellow rounded px-3 py-1 pr-8 outline-none focus:ring-1 focus:ring-tak-yellow focus:border-tak-yellow cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 max-w-[220px]"
+            >
+              {availableTenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </option>
+              ))}
+            </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-tak-yellow mt-4 text-sm">
             <span className="material-symbols-outlined text-sm">expand_more</span>
           </div>
