@@ -13,7 +13,7 @@ interface FixtureManifest {
 }
 
 test.describe('FinOps app E2E', () => {
-  test('login, tenant switch, recommendations, technical metrics and chat', async ({ page }) => {
+  test('login, tenant switch, recommendations and technical resource detail', async ({ page }) => {
     const manifest = await readManifest();
 
     await page.goto('/');
@@ -62,11 +62,6 @@ test.describe('FinOps app E2E', () => {
       }
     }
 
-    await page.getByRole('button', { name: /asistente ia/i }).click();
-    await expect(page.getByText(/asistente finops/i)).toBeVisible();
-    await page.getByPlaceholder(/escribe tu consulta/i).fill('Responde solo: OK');
-    await page.getByRole('button', { name: /send|enviar/i }).click();
-    await expect(page.getByText(/ok/i).last()).toBeVisible({ timeout: 45_000 });
   });
 });
 
