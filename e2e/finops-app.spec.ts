@@ -51,16 +51,21 @@ test.describe('FinOps app E2E', () => {
     await page.getByRole('button', { name: /consola técnica/i }).click();
     await expect(page.getByText(/recomendaciones|oportunidades/i).first()).toBeVisible();
 
-    const detailLink = page.getByText(/reducir capacidad/i).first();
-    if (await detailLink.count() > 0) {
-      await detailLink.click();
-      await expect(page.getByText(/detalle|plan de ejecución|trazabilidad/i)).toBeVisible();
-      const planButton = page.getByRole('button', { name: /revisar plan de ejecuci[oó]n/i });
-      if (await planButton.count() > 0) {
-        await planButton.click();
-        await expect(page.getByText(/rollback|validaci[oó]n|criterios/i)).toBeVisible();
-      }
-    }
+    await page.getByRole('button', { name: /ver detalle/i }).first().click();
+    await expect(page.getByText(/plan de ejecucion auditado/i)).toBeVisible();
+    await expect(page.getByText(/rollback|validaciones|criterios/i).first()).toBeVisible();
+
+    await page.getByRole('button', { name: /^aprobar plan$/i }).click();
+    await expect(page.getByRole('heading', { name: /aprobar recomendacion/i })).toBeVisible();
+    await page.getByRole('button', { name: /^aprobar$/i }).click();
+    await expect(page.getByText(/decisi[oó]n guardada\. aprendizaje en cola/i)).toBeVisible();
+
+    await page.locator('input').last().fill('31.75');
+    await page.locator('textarea').last().fill('Ejecución manual validada en el entorno de prueba.');
+    await page.getByRole('button', { name: /guardar ejecuci[oó]n manual/i }).click();
+    await expect(page.getByText(/ejecuci[oó]n manual registrada y kpi actualizado/i)).toBeVisible();
+    await expect(page.getByText(/recomendaci[oó]n aprobada/i)).toBeVisible();
+    await expect(page.getByText(/ejecuci[oó]n manual registrada/i)).toBeVisible();
 
   });
 });
