@@ -1067,11 +1067,12 @@ export async function sendAiChatMessage(
 export async function generateAiRecommendations(
   token: string,
   persist = false,
+  externalResourceId?: string,
 ): Promise<AiRecommendationGenerationResponse> {
   return apiRequest<AiRecommendationGenerationResponse>('/ai/recommendations/generate', {
     method: 'POST',
     token,
-    body: JSON.stringify({ persist }),
+    body: JSON.stringify({ persist, ...(externalResourceId !== undefined ? { externalResourceId } : {}) }),
   });
 }
 
@@ -1427,6 +1428,23 @@ export interface TechnicalResourcesResponse {
   readonly resources: readonly CloudResourceItem[];
 }
 
+export interface TechnicalResourceSummary {
+  readonly resource: CloudResourceItem;
+  readonly metrics: readonly TechnicalMetricSummaryItem[];
+  readonly coverage: TechnicalMetricCoverage;
+  readonly cost?: {
+    readonly externalResourceId: string;
+    readonly totalCost: number;
+    readonly currency: string;
+    readonly metricCount: number;
+  };
+}
+
+export interface TechnicalResourceSummaryResponse {
+  readonly success: true;
+  readonly summary: TechnicalResourceSummary;
+}
+
 export interface TechnicalSamplesResponse {
   readonly success: true;
   readonly samples: readonly ResourceMetricSampleItem[];
@@ -1443,6 +1461,27 @@ export interface TechnicalMetricCatalogItem {
   readonly sampleCount: number;
   readonly minSampledAt: string;
   readonly maxSampledAt: string;
+}
+
+export interface TechnicalMetricSummaryItem {
+  readonly provider: string;
+  readonly externalResourceId: string;
+  readonly cloudResourceId?: string;
+  readonly resourceType?: string;
+  readonly serviceName?: string;
+  readonly metricName: string;
+  readonly metricUnit?: string;
+  readonly sampleCount: number;
+  readonly coverageDays: number;
+  readonly min: number;
+  readonly max: number;
+  readonly avg: number;
+  readonly p50: number;
+  readonly p95: number;
+  readonly p99: number;
+  readonly latest: number;
+  readonly firstSampledAt: string;
+  readonly latestSampledAt: string;
 }
 
 export interface TechnicalMetricKpi {
@@ -1586,6 +1625,16 @@ export async function fetchTechnicalResources(
 ): Promise<TechnicalResourcesResponse> {
   const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
   return apiRequest<TechnicalResourcesResponse>(`/technical-metrics/resources${query}`, { token });
+}
+
+export async function fetchTechnicalResourceSummary(
+  token: string,
+  externalResourceId: string,
+): Promise<TechnicalResourceSummaryResponse> {
+  return apiRequest<TechnicalResourceSummaryResponse>(
+    `/technical-metrics/resources/${encodeURIComponent(externalResourceId)}/summary`,
+    { token },
+  );
 }
 
 /**

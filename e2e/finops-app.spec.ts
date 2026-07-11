@@ -38,6 +38,14 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByRole('heading', { name: /métricas técnicas/i })).toBeVisible();
     await expect(page.getByText(/cpu|memoria|red|disco/i).first()).toBeVisible();
 
+    await page.getByRole('button', { name: /inventario cloud/i }).click();
+    await expect(page.getByRole('heading', { name: /inventario cloud/i })).toBeVisible();
+    const resourceDetail = page.getByRole('button', { name: /ver detalle/i }).first();
+    if (await resourceDetail.count() > 0) {
+      await resourceDetail.click();
+      await expect(page.getByText(/evidencia técnica/i)).toBeVisible();
+    }
+
     await page.getByRole('button', { name: /consola técnica/i }).click();
     await expect(page.getByText(/recomendaciones|oportunidades/i).first()).toBeVisible();
 
