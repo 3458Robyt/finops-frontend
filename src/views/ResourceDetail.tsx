@@ -402,7 +402,7 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
                 </p>
                 {missedSavings > 0 && (
                   <p className="mt-3 text-xs font-bold leading-relaxed text-zinc-300">
-                    Sabias que te podrias haber ahorrado {currencyFormatter.format(missedSavings)} desde que esta recomendacion fue creada.
+                    ¿Sabías que podrías haberte ahorrado {currencyFormatter.format(missedSavings)} desde que esta oportunidad fue creada?
                   </p>
                 )}
               </div>
