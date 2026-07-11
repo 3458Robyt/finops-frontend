@@ -80,7 +80,7 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
   }, [externalResourceId, token]);
   if (error !== null) return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
   if (summary === null) return <p className="p-8 text-sm text-zinc-400">Cargando detalle del recurso...</p>;
-  const { resource, coverage, metrics, cost } = summary;
+  const { resource, coverage, metrics, cost, evidence } = summary;
   const generateForResource = async () => {
     setGenerating(true); setAiMessage(null); setError(null);
     try {
@@ -97,6 +97,11 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
       <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
       <MetricCard label="Última muestra" value={coverage.maxSampledAt !== undefined ? formatDate(coverage.maxSampledAt) : 'Sin muestras'} detail={resource.status} />
     </div>
+    <section className={`rounded-2xl border p-5 ${evidence.strength === 'HIGH' ? 'border-green-500/30 bg-green-500/10' : evidence.strength === 'MEDIUM' ? 'border-tak-yellow/30 bg-tak-yellow/10' : 'border-red-500/30 bg-red-500/10'}`}>
+      <h3 className="font-black text-white">Estado de evidencia para IA: {evidence.strength === 'HIGH' ? 'fuerte' : evidence.strength === 'MEDIUM' ? 'moderada' : 'limitada'}</h3>
+      <p className="mt-1 text-sm text-zinc-300">{evidence.readiness === 'GENERATABLE' ? 'La evidencia permite analizar una oportunidad técnica, sujeto a auditoría IA.' : 'La IA solo puede proponer validación técnica previa; no debe recomendar una ejecución directa.'}</p>
+      {evidence.blockers.length > 0 && <p className="mt-2 text-xs text-zinc-400">Validaciones pendientes: {evidence.blockers.map(formatEvidenceBlocker).join(', ')}.</p>}
+    </section>
     {aiMessage !== null && <p className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">{aiMessage}</p>}
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><h3 className="font-black text-white">Evidencia técnica</h3>
       {metrics.length === 0 ? <p className="mt-3 text-sm text-tak-yellow">No hay evidencia técnica suficiente para generar una recomendación ejecutable.</p> : <div className="mt-4 grid gap-3 md:grid-cols-2">{metrics.map((metric) => <div key={metric.metricName} className="rounded-xl bg-zinc-950 p-4"><p className="font-bold text-white">{metric.metricName}</p><p className="mt-1 text-sm text-zinc-400">Promedio {metric.avg.toFixed(2)} {metric.metricUnit ?? ''} · p95 {metric.p95.toFixed(2)}</p><p className="mt-1 text-xs text-zinc-500">{metric.sampleCount} muestras · {metric.coverageDays} días</p></div>)}</div>}
@@ -117,3 +122,14 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
 function MetricCard({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail: string }) { return <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</p><p className="mt-2 text-xl font-black text-white">{value}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div>; }
 function formatDate(value: string): string { return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
 function formatCurrency(value: number, currency: string): string { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value); }
+function formatEvidenceBlocker(blocker: string): string {
+  const labels: Record<string, string> = {
+    NO_TECHNICAL_EVIDENCE: 'sin muestras técnicas',
+    INSUFFICIENT_TECHNICAL_COVERAGE: 'cobertura o frescura insuficiente',
+    MISSING_CPU_METRIC: 'falta métrica de CPU',
+    MISSING_MEMORY_METRIC: 'falta métrica de memoria',
+    CPU_SATURATION_RISK: 'riesgo de saturación de CPU',
+    MEMORY_SATURATION_RISK: 'riesgo de saturación de memoria',
+  };
+  return labels[blocker] ?? 'requiere validación técnica';
+}

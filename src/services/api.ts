@@ -1441,6 +1441,12 @@ export interface TechnicalResourceSummary {
   readonly resource: CloudResourceItem;
   readonly metrics: readonly TechnicalMetricSummaryItem[];
   readonly coverage: TechnicalMetricCoverage;
+  readonly evidence: {
+    readonly strength: 'LOW' | 'MEDIUM' | 'HIGH';
+    readonly readiness: 'GENERATABLE' | 'VALIDATION_ONLY' | 'BLOCKED_NO_EVIDENCE';
+    readonly blockers: readonly string[];
+    readonly ruleMatches: readonly string[];
+  };
   readonly cost?: {
     readonly externalResourceId: string;
     readonly totalCost: number;
