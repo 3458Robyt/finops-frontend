@@ -204,7 +204,7 @@ export default function Dashboard({ token }: DashboardProps) {
             </div>
             <div>
               <p className="text-sm lg:text-base font-black text-white">
-                Sabias que te podrias haber ahorrado {currencyFormatter.format(missedSavingsAmount)} si hubieras aplicado las recomendaciones pendientes?
+                ¿Sabías que podrías haberte ahorrado {currencyFormatter.format(missedSavingsAmount)} si hubieras aplicado las oportunidades pendientes?
               </p>
               <p className="text-xs text-zinc-500 mt-1">
                 Calculado desde la fecha de generacion de cada recomendacion y su ahorro mensual estimado.
