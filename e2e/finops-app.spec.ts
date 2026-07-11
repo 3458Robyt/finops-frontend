@@ -52,6 +52,9 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/recomendaciones|oportunidades/i).first()).toBeVisible();
 
     await page.getByRole('button', { name: /ver detalle/i }).first().click();
+    await expect(page.getByTestId('canonical-evidence-panel')).toBeVisible();
+    await expect(page.getByText(/evidencia técnica verificable/i)).toBeVisible();
+    await expect(page.getByText(/aprendizaje: 1 memorias y 1 casos relevantes/i)).toBeVisible();
     await expect(page.getByText(/plan de ejecucion auditado/i).first()).toBeVisible();
     await expect(page.getByText(/rollback|validaciones|criterios/i).first()).toBeVisible();
 
