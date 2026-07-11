@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   fetchTechnicalResourceSummary,
   fetchTechnicalResources,
+  fetchRecommendations,
   generateAiRecommendations,
   type CloudResourceItem,
+  type Recommendation,
   type TechnicalResourceSummary,
 } from '../services/api';
 
@@ -60,10 +62,22 @@ export default function CloudInventory({ token, onOpenResource }: CloudInventory
 
 export function CloudResourceDetail({ token, externalResourceId, onBack }: { readonly token: string; readonly externalResourceId: string; readonly onBack: () => void }) {
   const [summary, setSummary] = useState<TechnicalResourceSummary | null>(null);
+  const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  useEffect(() => { void fetchTechnicalResourceSummary(token, externalResourceId).then((response) => setSummary(response.summary)).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el recurso.')); }, [externalResourceId, token]);
+  useEffect(() => {
+    setSummary(null); setRecommendations([]); setError(null);
+    void Promise.all([
+      fetchTechnicalResourceSummary(token, externalResourceId),
+      fetchRecommendations(token, { externalResourceId }),
+    ])
+      .then(([resourceResponse, recommendationResponse]) => {
+        setSummary(resourceResponse.summary);
+        setRecommendations(recommendationResponse.recommendations);
+      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el recurso.'));
+  }, [externalResourceId, token]);
   if (error !== null) return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
   if (summary === null) return <p className="p-8 text-sm text-zinc-400">Cargando detalle del recurso...</p>;
   const { resource, coverage, metrics, cost } = summary;
@@ -77,7 +91,7 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
   };
   return <div className="space-y-6 animate-in fade-in duration-500">
     <button onClick={onBack} className="text-sm font-bold text-tak-yellow">← Volver al inventario</button>
-    <header><h2 className="text-2xl font-black text-white">{resource.name ?? resource.externalResourceId}</h2><p className="mt-1 text-sm text-zinc-400">{resource.externalResourceId} · {resource.provider} · {resource.regionId ?? 'Sin región'}</p></header>
+    <header><h2 className="text-2xl font-black text-white">{resource.name ?? resource.externalResourceId}</h2><p className="mt-1 text-sm text-zinc-400">{resource.externalResourceId} · {resource.provider} · {resource.regionId ?? 'Sin región'}</p><p className="mt-1 text-xs text-zinc-500">{resource.serviceName} · {resource.resourceType} · {resource.status} · detectado desde {formatDate(resource.firstSeenAt)}</p></header>
     <div className="grid gap-4 md:grid-cols-3">
       <MetricCard label="Cobertura técnica" value={`${coverage.coveragePercent.toFixed(0)}%`} detail={`${coverage.totalSamples} muestras`} />
       <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
@@ -86,6 +100,11 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
     {aiMessage !== null && <p className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">{aiMessage}</p>}
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><h3 className="font-black text-white">Evidencia técnica</h3>
       {metrics.length === 0 ? <p className="mt-3 text-sm text-tak-yellow">No hay evidencia técnica suficiente para generar una recomendación ejecutable.</p> : <div className="mt-4 grid gap-3 md:grid-cols-2">{metrics.map((metric) => <div key={metric.metricName} className="rounded-xl bg-zinc-950 p-4"><p className="font-bold text-white">{metric.metricName}</p><p className="mt-1 text-sm text-zinc-400">Promedio {metric.avg.toFixed(2)} {metric.metricUnit ?? ''} · p95 {metric.p95.toFixed(2)}</p><p className="mt-1 text-xs text-zinc-500">{metric.sampleCount} muestras · {metric.coverageDays} días</p></div>)}</div>}
+    </section>
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+      <h3 className="font-black text-white">Oportunidades relacionadas</h3>
+      <p className="mt-1 text-sm text-zinc-400">Solo se muestran recomendaciones cuya evidencia apunta exactamente a este recurso.</p>
+      {recommendations.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay oportunidades persistidas para este recurso.</p> : <div className="mt-4 space-y-3">{recommendations.map((recommendation) => <article key={recommendation.id} className="rounded-xl bg-zinc-950 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-white">{recommendation.title}</p><p className="mt-1 text-sm text-zinc-400">{recommendation.description}</p></div><span className="rounded-full bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">{recommendation.status}</span></div><p className="mt-2 text-xs text-tak-yellow">Ahorro estimado: {recommendation.estimatedMonthlySavings !== undefined ? formatCurrency(recommendation.estimatedMonthlySavings, recommendation.currency) : 'Por validar'}</p></article>)}</div>}
     </section>
     <button onClick={() => void generateForResource()} disabled={generating || metrics.length === 0 || cost === undefined}
       className="rounded-xl bg-tak-yellow px-4 py-3 text-sm font-black text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50">

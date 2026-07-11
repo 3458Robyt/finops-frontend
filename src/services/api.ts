@@ -878,8 +878,17 @@ export async function fetchCosts(
   });
 }
 
-export async function fetchRecommendations(token: string): Promise<RecommendationsResponse> {
-  return apiRequest<RecommendationsResponse>('/recommendations', {
+export async function fetchRecommendations(
+  token: string,
+  filters: { readonly externalResourceId?: string } = {},
+): Promise<RecommendationsResponse> {
+  const params = new URLSearchParams();
+  if (filters.externalResourceId !== undefined) {
+    params.set('externalResourceId', filters.externalResourceId);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : '';
+
+  return apiRequest<RecommendationsResponse>(`/recommendations${query}`, {
     token,
   });
 }
