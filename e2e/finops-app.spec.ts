@@ -44,6 +44,8 @@ test.describe('FinOps app E2E', () => {
     if (await resourceDetail.count() > 0) {
       await resourceDetail.click();
       await expect(page.getByText(/evidencia técnica/i)).toBeVisible();
+      await expect(page.getByText(/oportunidades relacionadas/i)).toBeVisible();
+      await expect(page.getByText(/detectado desde/i)).toBeVisible();
     }
 
     await page.getByRole('button', { name: /consola técnica/i }).click();
