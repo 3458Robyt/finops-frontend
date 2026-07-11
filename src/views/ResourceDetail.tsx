@@ -45,6 +45,27 @@ interface EvidenceRecord {
   readonly raw: Readonly<Record<string, unknown>>;
 }
 
+interface CanonicalEvidenceSnapshot {
+  readonly hash: string;
+  readonly availability: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly resources: readonly {
+    readonly externalResourceId: string;
+    readonly linkQuality: string;
+    readonly metrics: readonly {
+      readonly metricName: string;
+      readonly avg?: number;
+      readonly p95?: number;
+      readonly sampleCount?: number;
+      readonly coverageDays?: number;
+      readonly evidenceRef?: string;
+    }[];
+    readonly ruleMatches: readonly string[];
+    readonly blockers: readonly string[];
+  }[];
+}
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -159,6 +180,10 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
   const evidence = useMemo(
     () => readEvidence(recommendation?.evidence),
     [recommendation],
+  );
+  const canonicalEvidence = useMemo(
+    () => readCanonicalEvidenceSnapshot(evidence.raw['recommendationEvidenceSnapshot']),
+    [evidence],
   );
   const chart = useMemo(
     () => buildUsageChart(recommendation, evidence),
@@ -382,6 +407,8 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
               <MetricCard label="Nivel de evidencia" value={formatEvidenceLevel(evidence.evidenceLevel)} />
               <MetricCard label="Consumo FOCUS" value={formatUsageEvidence(evidence)} />
             </div>
+
+            {canonicalEvidence !== undefined && <CanonicalEvidencePanel snapshot={canonicalEvidence} evidence={evidence} />}
           </div>
 
           <div className="lg:col-span-5 flex flex-col gap-8">
@@ -607,6 +634,51 @@ function EvidenceLine({ icon, label, value }: { readonly icon: string; readonly 
         <span className="block text-[10px] text-zinc-500 mt-1 uppercase tracking-wider">{label}</span>
       </p>
     </div>
+  );
+}
+
+function CanonicalEvidencePanel({ snapshot, evidence }: { readonly snapshot: CanonicalEvidenceSnapshot; readonly evidence: EvidenceRecord }) {
+  const audit = normalizeAuditReport(evidence.raw['aiAudit'], 0, 'REJECTED');
+  const learning = readLearningInfluence(evidence.raw['aiLearning']);
+
+  return (
+    <section className="rounded-3xl border border-cyan-900/60 bg-cyan-950/10 p-6 md:p-8" data-testid="canonical-evidence-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Evidencia técnica verificable</p>
+          <p className="mt-2 text-xs font-medium text-zinc-400">
+            Periodo {formatDateTime(snapshot.periodStart)} — {formatDateTime(snapshot.periodEnd)}
+          </p>
+        </div>
+        <Badge label={snapshot.availability.replaceAll('_', ' ')} tone="LOW" />
+      </div>
+
+      <div className="mt-5 space-y-4">
+        {snapshot.resources.map((resource) => (
+          <div key={resource.externalResourceId} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <div className="flex flex-wrap justify-between gap-2 text-xs font-bold text-zinc-200">
+              <span className="break-all">{resource.externalResourceId}</span>
+              <span className="text-cyan-300">{resource.linkQuality === 'COST_AND_TECHNICAL' ? 'Costo y métrica enlazados' : 'Métrica sin costo enlazado'}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {resource.metrics.slice(0, 4).map((metric) => (
+                <span key={metric.evidenceRef ?? metric.metricName} className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-bold text-zinc-300">
+                  {metric.metricName}: p95 {formatNullableNumber(metric.p95)} · {metric.sampleCount ?? 0} muestras / {metric.coverageDays ?? 0} días
+                </span>
+              ))}
+            </div>
+            {resource.ruleMatches.length > 0 && <p className="mt-3 text-xs text-green-300">Reglas: {resource.ruleMatches.join(', ')}</p>}
+            {resource.blockers.length > 0 && <p className="mt-2 text-xs text-amber-300">Bloqueos: {resource.blockers.join(', ')}</p>}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-3 text-xs md:grid-cols-2">
+        <p className="rounded-xl bg-zinc-900/70 p-3 text-zinc-300">Auditor IA: {audit.verdict} · puntuación {audit.score || 'no disponible'}</p>
+        <p className="rounded-xl bg-zinc-900/70 p-3 text-zinc-300">Aprendizaje: {learning === null ? 'No se usaron memorias auditadas.' : `${learning.memoryIds} memorias y ${learning.caseIds} casos relevantes.`}</p>
+      </div>
+      <p className="mt-4 break-all text-[10px] font-medium text-zinc-500">Huella de evidencia: {snapshot.hash}</p>
+    </section>
   );
 }
 
@@ -1123,6 +1195,86 @@ function readEvidence(value: unknown): EvidenceRecord {
     lifecyclePolicyRequired: readBoolean(raw, 'lifecyclePolicyRequired'),
     raw,
   };
+}
+
+function readCanonicalEvidenceSnapshot(value: unknown): CanonicalEvidenceSnapshot | undefined {
+  const record = asRecord(value);
+  if (record === undefined) {
+    return undefined;
+  }
+
+  const hash = readString(record, 'hash');
+  const availability = readString(record, 'availability');
+  const periodStart = readString(record, 'periodStart');
+  const periodEnd = readString(record, 'periodEnd');
+  const rawResources = Array.isArray(record['resources']) ? record['resources'] : [];
+  if (hash === undefined || availability === undefined || periodStart === undefined || periodEnd === undefined) {
+    return undefined;
+  }
+
+  return {
+    hash,
+    availability,
+    periodStart,
+    periodEnd,
+    resources: rawResources.flatMap((item) => {
+      const resource = asRecord(item);
+      const externalResourceId = resource === undefined ? undefined : readString(resource, 'externalResourceId');
+      if (resource === undefined || externalResourceId === undefined) {
+        return [];
+      }
+      const metrics = Array.isArray(resource['metrics']) ? resource['metrics'] : [];
+      const ruleEvaluation = asRecord(resource['ruleEvaluation']) ?? {};
+      return [{
+        externalResourceId,
+        linkQuality: readString(resource, 'linkQuality') ?? 'UNKNOWN',
+        metrics: metrics.flatMap((metric) => {
+          const value = asRecord(metric);
+          const metricName = value === undefined ? undefined : readString(value, 'metricName');
+          if (value === undefined || metricName === undefined) {
+            return [];
+          }
+          return [{
+            metricName,
+            avg: readNumber(value, 'avg'),
+            p95: readNumber(value, 'p95'),
+            sampleCount: readNumber(value, 'sampleCount'),
+            coverageDays: readNumber(value, 'coverageDays'),
+            evidenceRef: readString(value, 'evidenceRef'),
+          }];
+        }),
+        ruleMatches: readUnknownStringArray(ruleEvaluation['ruleMatches']),
+        blockers: readUnknownStringArray(ruleEvaluation['blockers']),
+      }];
+    }),
+  };
+}
+
+function readLearningInfluence(value: unknown): { readonly memoryIds: number; readonly caseIds: number } | null {
+  const record = asRecord(value);
+  if (record === undefined) {
+    return null;
+  }
+  return {
+    memoryIds: Array.isArray(record['memoryIds']) ? record['memoryIds'].length : 0,
+    caseIds: Array.isArray(record['caseIds']) ? record['caseIds'].length : 0,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function readUnknownStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+    : [];
+}
+
+function formatNullableNumber(value: number | undefined): string {
+  return value === undefined ? '—' : formatNumber(value);
 }
 
 function formatEvidenceLevel(value: string | undefined): string {
