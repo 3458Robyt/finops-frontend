@@ -10,17 +10,19 @@ import AgentSettings from './views/AgentSettings';
 import Ingesta from './views/Ingesta';
 import MetricasTecnicas from './views/MetricasTecnicas';
 import MasterAdmin from './views/MasterAdmin';
+import CloudInventory, { CloudResourceDetail } from './views/CloudInventory';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
+  const [selectedCloudResourceId, setSelectedCloudResourceId] = useState<string | null>(null);
 
   const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
 
@@ -36,6 +38,7 @@ function App() {
     setAuthSession(null);
     setCurrentView('login');
     setSelectedResourceType(null);
+    setSelectedCloudResourceId(null);
   };
 
 const handleTenantChange = async (tenantId: string) => {
@@ -49,6 +52,7 @@ const handleTenantChange = async (tenantId: string) => {
     if (currentView === 'resource_detail') {
       setCurrentView('console');
     }
+    if (currentView === 'cloud_resource_detail') setCurrentView('cloud_inventory');
 };
 
 const refreshAccessibleTenants = async () => {
@@ -78,6 +82,8 @@ availableTenants: response.availableTenants,
 case 'agent_settings': return <AgentSettings token={authSession.accessToken} role={authSession.user.role} />;
 case 'ingesta': return <Ingesta token={authSession.accessToken} />;
 case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
+case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(id) => { setSelectedCloudResourceId(id); setCurrentView('cloud_resource_detail'); }} />;
+case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
 : <Dashboard token={authSession.accessToken} />;
