@@ -6,7 +6,7 @@ import {
   generateRecommendationExecutionPlan,
   submitManualExecution,
   submitRecommendationDecision,
-  type AppRole,
+  type ApiRole,
   type AiAuditReport,
   type Recommendation,
   type RecommendationExecutionPlan,
@@ -18,7 +18,7 @@ import {
 interface ResourceDetailProps {
   readonly recommendationId: string;
   readonly token: string;
-  readonly currentRole: AppRole;
+  readonly apiRole: ApiRole;
   readonly onBack: () => void;
 }
 
@@ -79,7 +79,15 @@ const rejectionReasons: ReadonlyArray<{
   { value: 'REJECTED_NOT_ACTIONABLE', label: 'Recomendacion demasiado generica' },
 ];
 
-export default function ResourceDetail({ recommendationId, token, currentRole, onBack }: ResourceDetailProps) {
+function isOperationalRole(role: ApiRole): boolean {
+  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN';
+}
+
+function canApproveRecommendation(role: ApiRole): boolean {
+  return isOperationalRole(role) || role === 'CLIENT_APPROVER';
+}
+
+export default function ResourceDetail({ recommendationId, token, apiRole, onBack }: ResourceDetailProps) {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,11 +192,12 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
   const missedSavings = calculateMissedSavings(recommendation);
   const savingsRate = currentCost > 0 ? Math.min((savings / currentCost) * 100, 95) : 0;
   const service = evidence.service ?? evidence.metric ?? shortenType(recommendation.type);
-  const canDecide = currentRole === 'admin' &&
+  const canGenerateExecutionPlan = isOperationalRole(apiRole);
+  const canDecide = canApproveRecommendation(apiRole) &&
     executionPlan?.auditVerdict === 'APPROVED' &&
     executionPlan.recommendationId === recommendation.id &&
     recommendation.status === 'PENDING';
-  const canRegisterManualExecution = currentRole === 'admin' &&
+  const canRegisterManualExecution = canGenerateExecutionPlan &&
     executionPlan?.recommendationId === recommendation.id &&
     (recommendation.status === 'APPROVED' || recommendation.status === 'MANUAL_COMPLETED');
 
@@ -449,20 +458,21 @@ export default function ResourceDetail({ recommendationId, token, currentRole, o
             </div>
 
             <div className="space-y-3 pt-2">
-              <button
-                onClick={handleReviewPlan}
-                disabled={planLoading || planLookupLoading}
-                className="w-full bg-tak-yellow hover:bg-yellow-400 disabled:opacity-60 disabled:hover:bg-tak-yellow py-4 rounded-2xl text-zinc-950 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-[0_10px_30px_-10px_rgba(250,204,21,0.3)]"
-              >
-                <span className="material-symbols-outlined font-black">bolt</span>
-                {planLoading
-                  ? 'Generando plan auditado...'
-                  : planLookupLoading
-                    ? 'Buscando plan guardado...'
-                    : executionPlan === null
-                      ? 'Revisar plan de ejecucion'
-                      : 'Regenerar plan auditado'}
-              </button>
+              {executionPlan === null && canGenerateExecutionPlan && (
+                <button
+                  onClick={handleReviewPlan}
+                  disabled={planLoading || planLookupLoading}
+                  className="w-full bg-tak-yellow hover:bg-yellow-400 disabled:opacity-60 disabled:hover:bg-tak-yellow py-4 rounded-2xl text-zinc-950 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-[0_10px_30px_-10px_rgba(250,204,21,0.3)]"
+                >
+                  <span className="material-symbols-outlined font-black">bolt</span>
+                  {planLoading ? 'Generando plan auditado...' : planLookupLoading ? 'Buscando plan guardado...' : 'Revisar plan de ejecucion'}
+                </button>
+              )}
+              {executionPlan === null && !canGenerateExecutionPlan && !planLookupLoading && (
+                <p className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 text-xs font-bold text-zinc-400">
+                  Un técnico FinOps o administrador puede generar el plan. Cuando esté aprobado, podrás consultarlo aquí.
+                </p>
+              )}
               <button onClick={onBack} className="w-full bg-zinc-900 hover:bg-zinc-800 py-4 rounded-2xl text-zinc-400 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] border border-zinc-800">
                 Volver a recomendaciones
               </button>

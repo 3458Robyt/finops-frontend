@@ -14,7 +14,7 @@ import CloudInventory, { CloudResourceDetail } from './views/CloudInventory';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
-import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type AuthSession, type AppRole } from './services/api';
+import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
 
 type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail';
 export type Role = AppRole;
@@ -76,7 +76,7 @@ availableTenants: response.availableTenants,
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
-      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} currentRole={currentRole} onBack={() => setCurrentView('console')} />;
+      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} apiRole={authSession.user.role as ApiRole} onBack={() => setCurrentView('console')} />;
       case 'chat': return <Chat token={authSession.accessToken} />;
       case 'history': return <History token={authSession.accessToken} />;
 case 'agent_settings': return <AgentSettings token={authSession.accessToken} role={authSession.user.role} />;
