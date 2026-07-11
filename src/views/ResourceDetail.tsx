@@ -684,15 +684,16 @@ function ExecutionPlanPanel({
             </div>
           )}
 
+          {decisionLearningStatus !== null && (
+            <p className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-xs font-bold text-green-300">
+              {decisionLearningStatus}
+            </p>
+          )}
+
           {canDecide && (
             <div className="space-y-4">
               {decisionError !== null && (
                 <p className="text-xs font-bold text-red-300">{decisionError}</p>
-              )}
-              {decisionLearningStatus !== null && (
-                <p className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-xs font-bold text-green-300">
-                  {decisionLearningStatus}
-                </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
                 <button
