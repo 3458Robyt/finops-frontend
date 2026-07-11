@@ -52,7 +52,7 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/recomendaciones|oportunidades/i).first()).toBeVisible();
 
     await page.getByRole('button', { name: /ver detalle/i }).first().click();
-    await expect(page.getByText(/plan de ejecucion auditado/i)).toBeVisible();
+    await expect(page.getByText(/plan de ejecucion auditado/i).first()).toBeVisible();
     await expect(page.getByText(/rollback|validaciones|criterios/i).first()).toBeVisible();
 
     await page.getByRole('button', { name: /^aprobar plan$/i }).click();
