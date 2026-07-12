@@ -1,8 +1,8 @@
 
 type Role = 'admin' | 'client';
 type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'budgets';
 
 interface NavItem {
   id: NavView;
@@ -28,6 +28,7 @@ export default function BottomNav({ currentView, onViewChange, currentRole, apiR
     { id: 'ingesta', icon: 'cloud_sync', label: 'Ingesta', roles: ['admin'] },
     { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas', roles: ['admin'] },
     { id: 'cloud_inventory', icon: 'inventory_2', label: 'Inventario', roles: ['admin'] },
+    { id: 'budgets', icon: 'account_balance_wallet', label: 'Presupuesto', roles: ['admin', 'client'] },
     { id: 'chat', icon: 'smart_toy', label: 'IA', roles: ['admin', 'client'] },
 { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
 { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin'] },

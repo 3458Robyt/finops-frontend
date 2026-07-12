@@ -34,6 +34,10 @@ test.describe('FinOps app E2E', () => {
       await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
     }
 
+    await page.getByRole('button', { name: /presupuestos/i }).click();
+    await expect(page.getByRole('heading', { name: /presupuestos/i })).toBeVisible();
+    await expect(page.getByText(/gasto real/i).first()).toBeVisible();
+
     await page.getByRole('button', { name: /métricas técnicas/i }).click();
     await expect(page.getByRole('heading', { name: /métricas técnicas/i })).toBeVisible();
     await expect(page.getByText(/cpu|memoria|red|disco/i).first()).toBeVisible();

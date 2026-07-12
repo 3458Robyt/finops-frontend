@@ -7,6 +7,8 @@ import {
   fetchAnalyticsOpportunities,
   fetchAnalyticsUnitEconomics,
   fetchCosts,
+  fetchBudgets,
+  fetchBudgetPerformance,
   fetchRecommendations,
   fetchSavingsKpis,
   recomputeAnalytics,
@@ -18,6 +20,8 @@ import {
   type SavingsKpisResponse,
   type UsageInsight,
   type MonthlyUsagePoint,
+  type Budget,
+  type BudgetPerformance,
 } from '../services/api';
 
 interface DashboardProps {
@@ -46,6 +50,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 const dashboardCostWindowDays = 900;
+function currentMonth(): string { const date = new Date(); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
 
 export default function Dashboard({ token }: DashboardProps) {
   const [costs, setCosts] = useState<CostsResponse | null>(null);
@@ -55,6 +60,8 @@ export default function Dashboard({ token }: DashboardProps) {
   const [unitEconomics, setUnitEconomics] = useState<readonly MonthlyUsagePoint[]>([]);
   const [savingsKpis, setSavingsKpis] = useState<SavingsKpisResponse['savings'] | null>(null);
   const [adoptionKpis, setAdoptionKpis] = useState<AdoptionKpisResponse['adoption'] | null>(null);
+  const [budgets, setBudgets] = useState<readonly Budget[]>([]);
+  const [budgetPerformance, setBudgetPerformance] = useState<BudgetPerformance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +77,9 @@ export default function Dashboard({ token }: DashboardProps) {
       fetchAnalyticsUnitEconomics(token),
       fetchSavingsKpis(token),
       fetchAdoptionKpis(token),
+      fetchBudgets(token, { period: currentMonth() }),
     ])
-      .then(([costResponse, recommendationResponse, opportunityResponse, forecastResponse, insightsResponse, unitEconomicsResponse, savingsResponse, adoptionResponse]) => {
+      .then(async ([costResponse, recommendationResponse, opportunityResponse, forecastResponse, insightsResponse, unitEconomicsResponse, savingsResponse, adoptionResponse, budgetResponse]) => {
         if (active) {
           setCosts(costResponse);
           setRecommendations(recommendationResponse.recommendations);
@@ -80,6 +88,9 @@ export default function Dashboard({ token }: DashboardProps) {
           setUnitEconomics(unitEconomicsResponse.unitEconomics);
           setSavingsKpis(savingsResponse.savings);
           setAdoptionKpis(adoptionResponse.adoption);
+          setBudgets(budgetResponse.budgets);
+          const tenantBudget = budgetResponse.budgets.find((budget) => budget.scope === 'TENANT');
+          setBudgetPerformance(tenantBudget === undefined ? null : (await fetchBudgetPerformance(token, tenantBudget.id)).performance);
         }
 
         if (opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
@@ -123,8 +134,8 @@ export default function Dashboard({ token }: DashboardProps) {
     () => buildSuggestions(metrics, recommendations),
     [metrics, recommendations],
   );
-  const budget = Math.max(totalCost * 1.18, 100);
-  const budgetUsage = budget > 0 ? Math.min((totalCost / budget) * 100, 100) : 0;
+  const dashboardBudget = budgets.find((budget) => budget.scope === 'TENANT');
+  const budgetUsage = budgetPerformance?.consumedPercent ?? 0;
   const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * 0.14);
   const observedSavings = savingsKpis?.observedMonthlySavings ?? 0;
   const roi = totalCost > 0 ? roundCurrency((observedSavings / totalCost) * 100) : 0;
@@ -146,12 +157,12 @@ export default function Dashboard({ token }: DashboardProps) {
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <span className="material-symbols-outlined text-6xl text-white">account_balance_wallet</span>
           </div>
-          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gasto vs Forecast</p>
+          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gasto vs presupuesto</p>
           <div className="flex items-end gap-2 mb-4">
             <h3 className="text-3xl font-black text-white">
-              {loading ? '...' : currencyFormatter.format(totalCost)}
+              {loading ? '...' : budgetPerformance === null ? 'Sin presupuesto' : currencyFormatter.format(budgetPerformance.actualCost)}
             </h3>
-            <span className="text-zinc-500 text-sm font-medium mb-1">/ {currencyFormatter.format(budget)}</span>
+            {dashboardBudget !== undefined && <span className="text-zinc-500 text-sm font-medium mb-1">/ {currencyFormatter.format(dashboardBudget.amount)}</span>}
           </div>
           <div className="w-full bg-zinc-800 rounded-full h-3 overflow-hidden">
             <div
@@ -164,6 +175,7 @@ export default function Dashboard({ token }: DashboardProps) {
               <span className="material-symbols-outlined text-sm text-green-500 font-bold">verified</span>
               Datos FOCUS + analitica persistida
             </p>
+            <p className="text-xs text-zinc-500">{budgetPerformance?.forecastCost === undefined ? 'Forecast no disponible' : `Forecast: ${currencyFormatter.format(budgetPerformance.forecastCost)}`}</p>
           </div>
         </div>
 
