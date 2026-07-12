@@ -797,7 +797,7 @@ export async function fetchBudgets(token: string, filters: { readonly period?: s
 export async function fetchBudgetPerformance(token: string, budgetId: string): Promise<{ readonly success: true; readonly performance: BudgetPerformance }> {
   return apiRequest(`/budgets/${encodeURIComponent(budgetId)}/performance`, { token });
 }
-export async function createBudget(token: string, input: { readonly scope: BudgetScope; readonly cloudAccountId?: string; readonly serviceName?: string; readonly period: string; readonly amount: number; readonly currency: string }): Promise<{ readonly success: true; readonly budget: Budget }> {
+export async function createBudget(token: string, input: { readonly scope: BudgetScope; readonly cloudAccountId?: string; readonly serviceName?: string; readonly period: string; readonly amount: number; readonly currency: string; readonly warningThreshold?: number; readonly criticalThreshold?: number; readonly exceededThreshold?: number }): Promise<{ readonly success: true; readonly budget: Budget }> {
   return apiRequest('/budgets', { method: 'POST', token, body: JSON.stringify(input) });
 }
 export async function archiveBudget(token: string, budgetId: string): Promise<{ readonly success: true; readonly budget: Budget }> {
