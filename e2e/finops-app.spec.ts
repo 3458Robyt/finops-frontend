@@ -27,6 +27,7 @@ test.describe('FinOps app E2E', () => {
 
     await page.getByRole('button', { name: /presupuestos/i }).click();
     await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
+    await page.getByLabel('Periodo').fill('2026-05');
     await expect(page.getByText(/gasto real/i).first()).toBeVisible();
     await page.getByRole('button', { name: /consola técnica/i }).click();
 
