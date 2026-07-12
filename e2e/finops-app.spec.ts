@@ -25,6 +25,11 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/consola técnica finops/i)).toBeVisible();
     await expect(page.getByText(/tenant activo/i)).toBeVisible();
 
+    await page.getByRole('button', { name: /presupuestos/i }).click();
+    await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
+    await expect(page.getByText(/gasto real/i).first()).toBeVisible();
+    await page.getByRole('button', { name: /consola técnica/i }).click();
+
     const tenantSelector = page.locator('select').first();
     await expect(tenantSelector).toContainText(manifest.tenants[0]?.name ?? '');
     await expect(tenantSelector).toContainText(manifest.tenants[1]?.name ?? '');
@@ -33,10 +38,6 @@ test.describe('FinOps app E2E', () => {
       expect(selectedTenant).toHaveLength(1);
       await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
     }
-
-    await page.getByRole('button', { name: /presupuestos/i }).click();
-    await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
-    await expect(page.getByText(/gasto real/i).first()).toBeVisible();
 
     await page.getByRole('button', { name: /métricas técnicas/i }).click();
     await expect(page.getByRole('heading', { name: /métricas técnicas/i })).toBeVisible();
