@@ -72,7 +72,7 @@ availableTenants: response.availableTenants,
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard token={authSession.accessToken} />;
+      case 'dashboard': return <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
       case 'console': return <Console token={authSession.accessToken} onResourceSelect={(id) => {
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
@@ -88,9 +88,9 @@ case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} o
 case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
-: <Dashboard token={authSession.accessToken} />;
+: <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
 case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
-      default: return <Dashboard token={authSession.accessToken} />;
+      default: return <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
     }
   };
 

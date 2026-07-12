@@ -26,6 +26,7 @@ import {
 
 interface DashboardProps {
   readonly token: string;
+  readonly onOpenBudgets?: () => void;
 }
 
 interface ChartPoint {
@@ -52,7 +53,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 const dashboardCostWindowDays = 900;
 function currentMonth(): string { const date = new Date(); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
 
-export default function Dashboard({ token }: DashboardProps) {
+export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
   const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
@@ -153,7 +154,7 @@ export default function Dashboard({ token }: DashboardProps) {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl relative overflow-hidden group">
+        <button type="button" onClick={onOpenBudgets} className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl relative overflow-hidden group text-left">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <span className="material-symbols-outlined text-6xl text-white">account_balance_wallet</span>
           </div>
@@ -177,7 +178,7 @@ export default function Dashboard({ token }: DashboardProps) {
             </p>
             <p className="text-xs text-zinc-500">{budgetPerformance?.forecastCost === undefined ? 'Forecast no disponible' : `Forecast: ${currencyFormatter.format(budgetPerformance.forecastCost)}`}</p>
           </div>
-        </div>
+        </button>
 
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center gap-5 lg:gap-6">
           <div className="size-12 lg:size-14 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20 shrink-0">
