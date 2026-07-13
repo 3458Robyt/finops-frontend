@@ -3,7 +3,9 @@ import {
   fetchTechnicalResourceSummary,
   fetchTechnicalResources,
   fetchRecommendations,
+  fetchResourceAllocation,
   generateAiRecommendations,
+  type AllocationSummary,
   type CloudResourceItem,
   type Recommendation,
   type TechnicalResourceSummary,
@@ -62,19 +64,22 @@ export default function CloudInventory({ token, onOpenResource }: CloudInventory
 
 export function CloudResourceDetail({ token, externalResourceId, onBack }: { readonly token: string; readonly externalResourceId: string; readonly onBack: () => void }) {
   const [summary, setSummary] = useState<TechnicalResourceSummary | null>(null);
+  const [allocation, setAllocation] = useState<readonly AllocationSummary[]>([]);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   useEffect(() => {
-    setSummary(null); setRecommendations([]); setError(null);
+    setSummary(null); setRecommendations([]); setAllocation([]); setError(null);
     void Promise.all([
       fetchTechnicalResourceSummary(token, externalResourceId),
       fetchRecommendations(token, { externalResourceId }),
+      fetchResourceAllocation(token, externalResourceId),
     ])
-      .then(([resourceResponse, recommendationResponse]) => {
+      .then(([resourceResponse, recommendationResponse, allocationResponse]) => {
         setSummary(resourceResponse.summary);
         setRecommendations(recommendationResponse.recommendations);
+        setAllocation(allocationResponse.summary);
       })
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el recurso.'));
   }, [externalResourceId, token]);
@@ -94,7 +99,8 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
     <header><h2 className="text-2xl font-black text-white">{resource.name ?? resource.externalResourceId}</h2><p className="mt-1 text-sm text-zinc-400">{resource.externalResourceId} · {resource.provider} · {resource.regionId ?? 'Sin región'}</p><p className="mt-1 text-xs text-zinc-500">{resource.serviceName} · {resource.resourceType} · {resource.status} · detectado desde {formatDate(resource.firstSeenAt)}</p></header>
     <div className="grid gap-4 md:grid-cols-3">
       <MetricCard label="Cobertura técnica" value={`${coverage.coveragePercent.toFixed(0)}%`} detail={`${coverage.totalSamples} muestras`} />
-      <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
+     <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
+      <MetricCard label="Asignación de costo" value={allocation[0]?.dimensions.find((item) => item.allocationKey !== 'UNALLOCATED')?.allocationKey ?? 'Sin asignar'} detail={allocation.length === 0 ? 'No hay costo FOCUS para asignar' : allocation[0]!.period} />
       <MetricCard label="Última muestra" value={coverage.maxSampledAt !== undefined ? formatDate(coverage.maxSampledAt) : 'Sin muestras'} detail={resource.status} />
     </div>
     <section className={`rounded-2xl border p-5 ${evidence.strength === 'HIGH' ? 'border-green-500/30 bg-green-500/10' : evidence.strength === 'MEDIUM' ? 'border-tak-yellow/30 bg-tak-yellow/10' : 'border-red-500/30 bg-red-500/10'}`}>

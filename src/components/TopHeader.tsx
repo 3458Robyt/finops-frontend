@@ -9,7 +9,7 @@ import {
   type InAppNotification,
 } from '../services/api';
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
 interface TopHeaderProps {
   currentView: CurrentView;
   activeTenant: AuthTenant;
@@ -22,6 +22,7 @@ interface TopHeaderProps {
 const viewTitles: Partial<Record<CurrentView, string>> = {
   dashboard: 'Panel Ejecutivo ROI',
   budgets: 'Presupuestos FinOps',
+  cost_allocation: 'Asignación de costos',
   console: 'Consola Técnica FinOps',
   chat: 'Asistente Inteligente',
   history: 'Historial de Optimizaciones',

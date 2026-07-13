@@ -3,8 +3,8 @@ import type { ApiUser } from '../services/api';
 
 type Role = 'admin' | 'client';
 type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'budgets';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'budgets' | 'cost_allocation';
 
 interface NavItem {
   id: Exclude<NavView, 'profile'>;
@@ -39,6 +39,7 @@ const initials = displayName
     { id: 'metricas_tecnicas', icon: 'monitoring', label: 'Métricas Técnicas', roles: ['admin'] },
     { id: 'cloud_inventory', icon: 'inventory_2', label: 'Inventario Cloud', roles: ['admin'] },
     { id: 'budgets', icon: 'account_balance_wallet', label: 'Presupuestos', roles: ['admin', 'client'] },
+    { id: 'cost_allocation', icon: 'account_tree', label: 'Asignación de costos', roles: ['admin', 'client'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
 { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
 { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },

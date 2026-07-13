@@ -1,0 +1,78 @@
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { activateCostAllocationRule, archiveCostAllocationRule, createCostAllocationRule, downloadCostAllocationCsv, fetchCostAllocationComparison, fetchCostAllocationRules, fetchCostAllocationSummary, fetchUnallocatedCosts, previewCostAllocationRule, updateCostAllocationRule, type AllocationPreview, type AllocationSummary, type CostAllocationRule, type CostAllocationRuleInput } from '../services/api';
+
+type Filters = { readonly cloudAccountId?: string; readonly serviceName?: string; readonly currency?: string; readonly destination?: string };
+
+export default function CostAllocation({ token, canManage }: { readonly token: string; readonly canManage: boolean }) {
+  const [period, setPeriod] = useState(currentMonth());
+  const [filters, setFilters] = useState<Filters>({});
+  const [rules, setRules] = useState<readonly CostAllocationRule[]>([]);
+  const [summary, setSummary] = useState<readonly AllocationSummary[]>([]);
+  const [previousSummary, setPreviousSummary] = useState<readonly AllocationSummary[]>([]);
+  const [unallocated, setUnallocated] = useState<readonly UnallocatedItem[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [preview, setPreview] = useState<AllocationPreview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [ruleResult, summaryResult, comparisonResult, unallocatedResult] = await Promise.all([
+        fetchCostAllocationRules(token),
+        fetchCostAllocationSummary(token, period, filters),
+        fetchCostAllocationComparison(token, period, filters),
+        fetchUnallocatedCosts(token, period, filters),
+      ]);
+      setRules(ruleResult.rules); setSummary(summaryResult.summary); setPreviousSummary(comparisonResult.comparison.previousSummary); setUnallocated(unallocatedResult.items); setError(null);
+    } catch (cause) { setError(message(cause, 'No fue posible cargar la asignación de costos')); }
+  }, [filters, period, token]);
+
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  const visibleSummary = useMemo(() => summary.filter((item) => (filters.currency === undefined || item.currency === filters.currency) && (filters.destination === undefined || item.dimensions.some((dimension) => dimension.allocationKey.toLowerCase().includes(filters.destination!.toLowerCase())))), [filters.currency, filters.destination, summary]);
+
+  const create = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try { await createCostAllocationRule(token, readRule(new FormData(event.currentTarget))); setCreating(false); await load(); }
+    catch (cause) { setError(message(cause, 'No fue posible crear la regla')); }
+  };
+  const previewRule = async (rule: CostAllocationRuleInput) => {
+    try { setPreview((await previewCostAllocationRule(token, rule, period)).preview); setError(null); }
+    catch (cause) { setError(message(cause, 'No fue posible previsualizar la regla')); }
+  };
+  const editRule = async (rule: CostAllocationRule) => {
+    const name = window.prompt('Nombre de la regla', rule.name); if (name === null) return;
+    const priority = window.prompt('Prioridad (menor número = mayor prioridad)', String(rule.priority)); if (priority === null) return;
+    const parsed = Number(priority); if (!Number.isInteger(parsed) || parsed < 0 || name.trim() === '') { setError('El nombre y la prioridad son obligatorios.'); return; }
+    try { await updateCostAllocationRule(token, rule.id, { name: name.trim(), priority: parsed }); await load(); }
+    catch (cause) { setError(message(cause, 'No fue posible editar la regla')); }
+  };
+  const exportCsv = async () => {
+    try { const blob = new Blob([await downloadCostAllocationCsv(token, period)], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `showback-${period}.csv`; link.click(); URL.revokeObjectURL(url); }
+    catch (cause) { setError(message(cause, 'No fue posible exportar el CSV')); }
+  };
+
+  return <div className="space-y-6">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-3xl font-black">Asignación de costos</h1><p className="text-zinc-400">Showback determinístico por reglas, dimensiones FOCUS y etiquetas.</p></div><div className="flex flex-wrap gap-2"><input aria-label="Periodo" type="month" value={period} onChange={(event) => setPeriod(event.target.value)} className={fieldClass}/><button onClick={() => void exportCsv()} className="rounded border border-zinc-700 px-4 font-bold">Exportar CSV</button>{canManage && <button onClick={() => setCreating((open) => !open)} className="rounded bg-tak-yellow px-4 font-bold text-zinc-950">Nueva regla</button>}</div></header>
+    <div className="grid gap-2 md:grid-cols-4"><input value={filters.cloudAccountId ?? ''} onChange={(event) => setFilters((value) => ({ ...value, cloudAccountId: blank(event.target.value) }))} placeholder="Cuenta cloud" className={fieldClass}/><input value={filters.serviceName ?? ''} onChange={(event) => setFilters((value) => ({ ...value, serviceName: blank(event.target.value) }))} placeholder="Servicio" className={fieldClass}/><input value={filters.currency ?? ''} onChange={(event) => setFilters((value) => ({ ...value, currency: blank(event.target.value.toUpperCase()) }))} placeholder="Moneda" className={fieldClass}/><input value={filters.destination ?? ''} onChange={(event) => setFilters((value) => ({ ...value, destination: blank(event.target.value) }))} placeholder="Centro, proyecto, equipo o ambiente" className={fieldClass}/></div>
+    {error !== null && <p className="rounded border border-red-500/40 p-3 text-red-300">{error}</p>}
+    {creating && <RuleForm onSubmit={create}/>} {preview !== null && <section className="rounded-xl border border-tak-yellow/40 bg-tak-yellow/10 p-4"><div className="flex justify-between gap-4"><div><h2 className="font-bold">Previsualización sin guardar</h2><p className="text-sm text-zinc-300">Muestra la cobertura que tendría esta regla en {period}; no modifica costos ni reglas.</p></div><button onClick={() => setPreview(null)} className="text-sm">Cerrar</button></div><p className="mt-2 text-sm">Coincidiría con {preview.metricCount} líneas y {preview.resourceCount} recursos.</p><AllocationCards summary={preview.summary}/>{preview.examples.length > 0 && <p className="mt-3 text-xs text-zinc-400">Ejemplos: {preview.examples.map((item) => `${item.currency} ${item.cost.toFixed(2)} · ${item.serviceName}`).join(' | ')}</p>}</section>}
+    <AllocationCards summary={visibleSummary}/>
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><h2 className="font-bold">Comparación de cobertura mensual</h2>{visibleSummary.map((item) => { const previous = previousSummary.find((candidate) => candidate.currency === item.currency); const delta = item.coveragePercent - (previous?.coveragePercent ?? 0); return <p key={item.currency} className="mt-2 text-sm">{item.currency}: {item.coveragePercent.toFixed(1)}% este mes · {previous?.coveragePercent.toFixed(1) ?? 'sin datos'}% mes anterior <b className={delta >= 0 ? 'text-green-300' : 'text-red-300'}>({delta >= 0 ? '+' : ''}{delta.toFixed(1)} pp)</b></p>; })}</section>
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><h2 className="font-bold">Distribución del gasto</h2>{visibleSummary.length === 0 ? <p className="mt-3 text-zinc-500">No hay costos para los filtros seleccionados.</p> : <div className="mt-3 space-y-2">{visibleSummary.flatMap((item) => item.dimensions.map((dimension) => ({ ...dimension, currency: item.currency }))).filter((item) => filters.destination === undefined || item.allocationKey.toLowerCase().includes(filters.destination.toLowerCase())).map((item) => <p key={`${item.currency}-${item.allocationKey}`} className="flex justify-between gap-3 text-sm"><span>{item.allocationKey === 'UNALLOCATED' ? 'Sin asignar' : item.allocationKey} <small className="text-zinc-500">· {item.metricCount} líneas · {item.resourceCount} recursos</small></span><b>{item.currency} {item.cost.toFixed(2)}</b></p>)}</div>}</section>
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><h2 className="font-bold">Reglas</h2>{rules.length === 0 ? <p className="mt-3 text-zinc-500">No hay reglas configuradas. Cree una regla para asignar el gasto sin etiqueta.</p> : <div className="mt-3 space-y-2">{rules.map((rule) => <div key={rule.id} className="flex flex-wrap justify-between gap-3 border-b border-zinc-800 py-3"><div><b>{rule.name}</b> <span className="text-xs text-zinc-500">Prioridad {rule.priority} · {labelStatus(rule.status)}</span><p className="text-sm text-zinc-400">{criterion(rule)} → {target(rule)}</p></div>{canManage && <div className="flex flex-wrap gap-3 text-sm"><button onClick={() => void previewRule(toInput(rule))}>Previsualizar</button><button onClick={() => void editRule(rule)}>Editar</button>{rule.status === 'DRAFT' && <button onClick={() => void activateCostAllocationRule(token, rule.id).then(load).catch((cause) => setError(message(cause, 'No fue posible activar la regla')))}>Activar</button>}{rule.status !== 'ARCHIVED' && <button className="text-red-300" onClick={() => void archiveCostAllocationRule(token, rule.id).then(load).catch((cause) => setError(message(cause, 'No fue posible archivar la regla')))}>Archivar</button>}</div>}</div>)}</div>}</section>
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><h2 className="font-bold">Costos sin asignar</h2>{unallocated.length === 0 ? <p className="mt-3 text-zinc-500">No hay costos sin asignar para este periodo y filtros.</p> : <div className="mt-3 space-y-2">{unallocated.slice(0, 50).map((item, index) => <p key={`${item.cloudAccountId}-${item.serviceName}-${index}`} className="text-sm"><b>{item.currency} {item.cost.toFixed(2)}</b> · {item.serviceName} · {item.cloudAccountId} {item.resourceId !== undefined ? `· ${item.resourceId}` : ''}<span className="text-zinc-500"> — {item.suggestedCriteria.join(', ')}</span></p>)}</div>}</section>
+  </div>;
+}
+
+function RuleForm({ onSubmit }: { readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) { return <form onSubmit={onSubmit} className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900 p-4 md:grid-cols-3"><input required name="name" placeholder="Nombre" className={fieldClass}/><input required type="number" min="0" defaultValue="100" name="priority" placeholder="Prioridad" className={fieldClass}/><input name="description" placeholder="Descripción" className={fieldClass}/><input name="cloudAccountId" placeholder="Cuenta cloud (criterio)" className={fieldClass}/><input name="provider" placeholder="Proveedor: AWS u OCI" className={fieldClass}/><input name="serviceName" placeholder="Servicio (criterio)" className={fieldClass}/><input name="regionId" placeholder="Región (criterio)" className={fieldClass}/><input name="resourceId" placeholder="Recurso (criterio)" className={fieldClass}/><input name="tagKey" placeholder="Etiqueta (criterio)" className={fieldClass}/><input name="tagValue" placeholder="Valor etiqueta" className={fieldClass}/><input name="costCenter" placeholder="Centro de costo" className={fieldClass}/><input name="businessUnit" placeholder="Unidad de negocio" className={fieldClass}/><input name="project" placeholder="Proyecto" className={fieldClass}/><input name="team" placeholder="Equipo" className={fieldClass}/><input name="environment" placeholder="Ambiente" className={fieldClass}/><button className="rounded bg-white font-bold text-zinc-950">Guardar borrador</button></form>; }
+function AllocationCards({ summary }: { readonly summary: readonly AllocationSummary[] }) { return <section className="grid gap-3 md:grid-cols-3">{summary.map((item) => <article key={item.currency} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><p className="text-xs uppercase text-zinc-500">{item.currency} · Cobertura</p><p className="text-3xl font-black">{item.coveragePercent.toFixed(1)}%</p><p className="text-sm text-zinc-400">Total {item.currency} {item.totalCost.toFixed(2)} · Asignado {item.currency} {item.allocatedCost.toFixed(2)} · Sin asignar {item.currency} {item.unallocatedCost.toFixed(2)}</p></article>)}</section>; }
+function readRule(form: FormData): CostAllocationRuleInput { const provider = blank(String(form.get('provider') ?? '').toUpperCase()); return { name: String(form.get('name')).trim(), priority: Number(form.get('priority')), status: 'DRAFT', ...optional(form, 'description'), ...optional(form, 'cloudAccountId'), ...(provider === undefined ? {} : { provider }), ...optional(form, 'serviceName'), ...optional(form, 'regionId'), ...optional(form, 'resourceId'), ...optional(form, 'tagKey'), ...optional(form, 'tagValue'), ...optional(form, 'costCenter'), ...optional(form, 'businessUnit'), ...optional(form, 'project'), ...optional(form, 'team'), ...optional(form, 'environment') }; }
+function optional(form: FormData, key: keyof CostAllocationRuleInput) { const value = blank(String(form.get(key) ?? '')); return value === undefined ? {} : { [key]: value }; }
+function toInput(rule: CostAllocationRule): CostAllocationRuleInput { return { name: rule.name, priority: rule.priority, status: rule.status, ...(rule.description === undefined ? {} : { description: rule.description }), ...(rule.cloudAccountId === undefined ? {} : { cloudAccountId: rule.cloudAccountId }), ...(rule.provider === undefined ? {} : { provider: rule.provider }), ...(rule.serviceName === undefined ? {} : { serviceName: rule.serviceName }), ...(rule.regionId === undefined ? {} : { regionId: rule.regionId }), ...(rule.resourceId === undefined ? {} : { resourceId: rule.resourceId }), ...(rule.tagKey === undefined ? {} : { tagKey: rule.tagKey }), ...(rule.tagValue === undefined ? {} : { tagValue: rule.tagValue }), ...(rule.costCenter === undefined ? {} : { costCenter: rule.costCenter }), ...(rule.businessUnit === undefined ? {} : { businessUnit: rule.businessUnit }), ...(rule.project === undefined ? {} : { project: rule.project }), ...(rule.team === undefined ? {} : { team: rule.team }), ...(rule.environment === undefined ? {} : { environment: rule.environment }) }; }
+function criterion(rule: CostAllocationRule): string { return [rule.cloudAccountId, rule.provider, rule.serviceName, rule.regionId, rule.resourceId, rule.tagKey === undefined ? undefined : `${rule.tagKey}=${rule.tagValue}`].filter(Boolean).join(' · '); }
+function target(rule: CostAllocationRule): string { return [rule.costCenter, rule.businessUnit, rule.project, rule.team, rule.environment].filter(Boolean).join(' · '); }
+function labelStatus(status: CostAllocationRule['status']): string { return status === 'DRAFT' ? 'Borrador' : status === 'ACTIVE' ? 'Activa' : 'Archivada'; }
+function blank(value: string): string | undefined { const trimmed = value.trim(); return trimmed === '' ? undefined : trimmed; }
+function message(cause: unknown, fallback: string): string { return cause instanceof Error ? cause.message : fallback; }
+function currentMonth(): string { const date = new Date(); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
+const fieldClass = 'rounded border border-zinc-700 bg-zinc-950 p-2';
+type UnallocatedItem = { readonly cost: number; readonly currency: string; readonly serviceName: string; readonly cloudAccountId: string; readonly resourceId?: string; readonly suggestedCriteria: readonly string[] };
