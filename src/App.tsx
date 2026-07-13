@@ -12,12 +12,13 @@ import MetricasTecnicas from './views/MetricasTecnicas';
 import MasterAdmin from './views/MasterAdmin';
 import CloudInventory, { CloudResourceDetail } from './views/CloudInventory';
 import Budgets from './views/Budgets';
+import CostAllocation from './views/CostAllocation';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
@@ -83,7 +84,8 @@ availableTenants: response.availableTenants,
 case 'agent_settings': return <AgentSettings token={authSession.accessToken} role={authSession.user.role} />;
 case 'ingesta': return <Ingesta token={authSession.accessToken} />;
 case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
-case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
+case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
+case 'cost_allocation': return <CostAllocation token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
 case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(id) => { setSelectedCloudResourceId(id); setCurrentView('cloud_resource_detail'); }} />;
 case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
