@@ -82,7 +82,7 @@ availableTenants: response.availableTenants,
       case 'chat': return <Chat token={authSession.accessToken} />;
       case 'history': return <History token={authSession.accessToken} />;
 case 'agent_settings': return <AgentSettings token={authSession.accessToken} role={authSession.user.role} />;
-case 'ingesta': return <Ingesta token={authSession.accessToken} />;
+case 'ingesta': return <Ingesta token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
 case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
 case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
 case 'cost_allocation': return <CostAllocation token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;

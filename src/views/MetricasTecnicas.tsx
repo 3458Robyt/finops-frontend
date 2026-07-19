@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-} from 'recharts';
 import { TechnicalMetricUPlot } from '../components/TechnicalMetricUPlot';
 import {
   fetchTechnicalMetricsCoverage,
@@ -92,7 +87,7 @@ export default function MetricasTecnicas({ token }: { readonly token: string }) 
   const nextSeriesControllerRef = useRef<AbortController | null>(null);
   const rangeParams = useMemo(
     () => buildRangeParams(range, coverage),
-    [coverage, range],
+    [range, coverage],
   );
 
   useEffect(() => {
@@ -356,6 +351,7 @@ export default function MetricasTecnicas({ token }: { readonly token: string }) 
         </div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400">
           Ultimo dato: <span className="font-bold text-white">{formatDateTime(overview?.latestSampledAt)}</span>
+          {loadingOverview && overview !== null && <span className="ml-2 font-semibold text-tak-yellow" aria-live="polite">Actualizando…</span>}
         </div>
       </header>
 
@@ -366,9 +362,9 @@ export default function MetricasTecnicas({ token }: { readonly token: string }) 
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon="database" label="Muestras tecnicas" value={loadingOverview ? '...' : formatNumber(overview?.sampleCount ?? 0)} helper={formatRange(overview)} />
-        <StatCard icon="dns" label="Recursos detectados" value={loadingOverview ? '...' : formatNumber(overview?.resourceCount ?? 0)} helper="Derivados de metricas reales" />
-        <StatCard icon="monitoring" label="Metricas disponibles" value={loadingOverview ? '...' : formatNumber(overview?.metricCount ?? 0)} helper={selectedMetricMeta?.metricName ?? 'Sin metrica seleccionada'} />
+        <StatCard icon="database" label="Muestras tecnicas" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.sampleCount ?? 0)} helper={formatRange(overview)} />
+        <StatCard icon="dns" label="Recursos detectados" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.resourceCount ?? 0)} helper="Derivados de metricas reales" />
+        <StatCard icon="monitoring" label="Metricas disponibles" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.metricCount ?? 0)} helper={selectedMetricMeta?.metricName ?? 'Sin metrica seleccionada'} />
         <StatCard
           icon="payments"
           label="Costo asociado"
@@ -585,16 +581,7 @@ function KpiCard({ kpi }: { readonly kpi: TechnicalMetricKpi }) {
         </span>
       </div>
       <div className="h-20">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={[
-            { name: 'Min', value: kpi.minimum },
-            { name: 'Prom', value: kpi.average },
-            { name: 'Pico', value: kpi.maximum },
-            { name: 'Ult', value: kpi.latest },
-          ]}>
-            <Area type="monotone" dataKey="value" stroke="#FACC15" fill="#FACC15" fillOpacity={0.16} strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
+        <KpiSparkline values={[kpi.minimum, kpi.average, kpi.maximum, kpi.latest]} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
         <MiniMetric label="Promedio" value={formatMetricValue(kpi.average, kpi.unit)} />
@@ -603,6 +590,29 @@ function KpiCard({ kpi }: { readonly kpi: TechnicalMetricKpi }) {
         <MiniMetric label="Actualizado" value={formatShortDate(kpi.latestSampledAt)} />
       </div>
     </div>
+  );
+}
+
+function KpiSparkline({ values }: { readonly values: readonly number[] }) {
+  const points = values.filter(Number.isFinite);
+  if (points.length < 2) {
+    return <div className="h-full rounded-xl border border-zinc-800 bg-zinc-950" />;
+  }
+
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const coordinates = values.map((value, index) => {
+    const x = (index / Math.max(1, values.length - 1)) * 100;
+    const y = Number.isFinite(value) ? 92 - ((value - min) / range) * 84 : 92;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full" aria-hidden="true">
+      <polyline points={`0,100 ${coordinates} 100,100`} fill="#facc15" fillOpacity="0.16" stroke="none" />
+      <polyline points={coordinates} fill="none" stroke="#facc15" strokeWidth="3" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 

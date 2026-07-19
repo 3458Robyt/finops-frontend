@@ -23,6 +23,14 @@ export type BudgetHealth = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'EXCEEDED';
 export interface Budget { readonly id: string; readonly scope: BudgetScope; readonly scopeKey: string; readonly cloudAccountId?: string; readonly serviceName?: string; readonly periodStart: string; readonly amount: number; readonly currency: string; readonly warningThreshold: number; readonly criticalThreshold: number; readonly exceededThreshold: number; readonly status: 'ACTIVE' | 'ARCHIVED'; }
 export interface BudgetPerformance { readonly budget: Budget; readonly actualCost: number; readonly remainingBudget: number; readonly consumedPercent: number; readonly forecastCost?: number; readonly varianceAmount?: number; readonly variancePercent?: number; readonly health: BudgetHealth; readonly estimatedDepletionDate?: string; }
 export interface BudgetsResponse { readonly success: true; readonly budgets: readonly Budget[]; }
+export interface CostDataOptions {
+  readonly periods: readonly { readonly period: string; readonly metricCount: number }[];
+  readonly latestPeriod?: string;
+  readonly cloudAccounts: readonly { readonly id: string; readonly name: string; readonly provider: string }[];
+  readonly services: readonly string[];
+  readonly regions: readonly string[];
+  readonly currencies: readonly string[];
+}
 
 export interface ApiUser {
   readonly id: string;
@@ -236,11 +244,6 @@ export interface UsageInsight {
   readonly evidence: unknown;
 }
 
-export interface AnalyticsAnomaliesResponse {
-  readonly success: true;
-  readonly anomalies: readonly CostAnomaly[];
-}
-
 export interface AnalyticsOpportunitiesResponse {
   readonly success: true;
   readonly opportunities: readonly CostOpportunity[];
@@ -249,16 +252,6 @@ export interface AnalyticsOpportunitiesResponse {
 export interface AnalyticsForecastResponse {
   readonly success: true;
   readonly forecasts: readonly CostForecast[];
-}
-
-export interface AnalyticsTrendsResponse {
-  readonly success: true;
-  readonly trends: readonly CostTrend[];
-}
-
-export interface AnalyticsUsageResponse {
-  readonly success: true;
-  readonly usage: readonly MonthlyUsagePoint[];
 }
 
 export interface AnalyticsUnitEconomicsResponse {
@@ -669,6 +662,64 @@ export interface CloudConnectionsResponse {
   readonly connections: readonly CloudConnectionSummary[];
 }
 
+export interface CloudProviderCatalogEntry {
+  readonly code: string;
+  readonly displayName: string;
+  readonly provider: 'AWS' | 'OCI' | 'AZURE' | 'GCP' | 'CUSTOM';
+  readonly capabilities: readonly string[];
+  readonly documentationUrl?: string;
+  readonly enabled: boolean;
+}
+
+export type CloudCredentialPurpose = 'OPERATIONAL' | 'BILLING_EXPORT_READ' | 'INVENTORY_READ' | 'METRICS_READ' | 'STORAGE_READ';
+export type CloudCapabilityStatus = 'AVAILABLE' | 'NOT_CONFIGURED' | 'DENIED' | 'ERROR';
+export type CloudOnboardingStatus = 'NO_CREDENTIAL' | 'REQUIRES_VALIDATION' | 'SYNCING' | 'PARTIAL' | 'READY' | 'REQUIRES_ATTENTION';
+
+export interface CloudCredentialSummary {
+  readonly id: string;
+  readonly purpose: CloudCredentialPurpose;
+  readonly status: 'ACTIVE' | 'DISABLED' | 'REVOKED' | 'EXPIRED';
+  readonly label: string;
+  readonly externalPrincipalId?: string;
+  readonly createdAt: string;
+  readonly disabledAt?: string;
+  readonly revokedAt?: string;
+}
+
+export interface CloudCapabilityValidation {
+  readonly capability: string;
+  readonly status: CloudCapabilityStatus;
+  readonly message: string;
+  readonly checkedAt?: string;
+}
+
+export interface CloudOnboardingDetail {
+  readonly connection: CloudConnectionSummary;
+  readonly credentials: readonly CloudCredentialSummary[];
+  readonly readiness: IngestionReadinessConnectionSummary | null;
+  readonly issues: readonly IngestionReadinessIssue[];
+}
+
+export interface CloudFocusPreview {
+  readonly providerCode: string;
+  readonly configuredLocations: number;
+  readonly configuredObjects: number;
+  readonly discoveredObjects: number;
+  readonly approximateBytes: number;
+  readonly sizedObjects: number;
+  readonly supportedFormats: readonly string[];
+  readonly errors: readonly string[];
+  readonly earliestObjectAt?: string;
+  readonly latestObjectAt?: string;
+  readonly objects: readonly {
+    readonly name: string;
+    readonly location: string;
+    readonly source: 'configured' | 'discovered';
+    readonly sizeBytes?: number;
+    readonly lastModified?: string;
+  }[];
+}
+
 export type MasterAdminTenantStatus = 'ACTIVE' | 'SUSPENDED';
 export type MasterAdminStaffRole = 'MASTER_ADMIN' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'ADMIN';
 export type MasterAdminAssignmentRole = 'TECHNICIAN' | 'LEAD_TECHNICIAN' | 'OPERATOR_ADMIN';
@@ -790,6 +841,99 @@ export async function switchTenant(token: string, tenantId: string): Promise<Aut
 
 export async function fetchCloudConnections(token: string): Promise<CloudConnectionsResponse> {
   return apiRequest<CloudConnectionsResponse>('/cloud-connections', { token });
+}
+
+export async function fetchCloudProviders(token: string): Promise<{ readonly success: true; readonly providers: readonly CloudProviderCatalogEntry[] }> {
+  return apiRequest('/cloud-connections/providers', { token });
+}
+
+export async function createCloudConnection(token: string, input: {
+  readonly providerCode: string;
+  readonly rootExternalId: string;
+  readonly name: string;
+  readonly defaultRegion?: string;
+}): Promise<{ readonly success: true; readonly connection: CloudConnectionSummary }> {
+  return apiRequest('/cloud-connections', { method: 'POST', token, body: JSON.stringify(input) });
+}
+
+export async function updateCloudConnection(token: string, cloudConnectionId: string, input: {
+  readonly name: string;
+  readonly defaultRegion?: string;
+}): Promise<{ readonly success: true; readonly connection: CloudConnectionSummary }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}`, {
+    method: 'PATCH', token, body: JSON.stringify(input),
+  });
+}
+
+export async function setCloudConnectionStatus(token: string, cloudConnectionId: string, status: 'ACTIVE' | 'DISABLED'): Promise<{ readonly success: true; readonly connection: CloudConnectionSummary }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/status`, {
+    method: 'PATCH', token, body: JSON.stringify({ status }),
+  });
+}
+
+export async function fetchCloudOnboarding(token: string, cloudConnectionId: string, signal?: AbortSignal): Promise<{ readonly success: true; readonly onboarding: CloudOnboardingDetail }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/onboarding`, { token, signal });
+}
+
+export async function storeCloudCredential(token: string, cloudConnectionId: string, input: {
+  readonly purpose: CloudCredentialPurpose;
+  readonly label: string;
+  readonly payload: Readonly<Record<string, string>>;
+}): Promise<{ readonly success: true; readonly credential: CloudCredentialSummary }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/credentials`, {
+    method: 'POST', token, body: JSON.stringify(input),
+  });
+}
+
+export async function revokeCloudCredential(token: string, cloudConnectionId: string, credentialId: string): Promise<{ readonly success: true; readonly credential: CloudCredentialSummary }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/credentials/${encodeURIComponent(credentialId)}`, {
+    method: 'DELETE', token,
+  });
+}
+
+export async function validateCloudConnection(token: string, cloudConnectionId: string): Promise<{ readonly success: true; readonly validation: { readonly providerCode: string; readonly capabilities: readonly CloudCapabilityValidation[] } }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/validate`, { method: 'POST', token });
+}
+
+export async function activateCloudConnection(token: string, cloudConnectionId: string, input: {
+  readonly billingLookbackDays?: number;
+  readonly metricLookbackDays?: number;
+  readonly metricWindowHours?: number;
+}): Promise<{ readonly success: true; readonly activation: { readonly cloudConnectionId: string; readonly createdJobs: readonly IngestionJobHistoryItem[]; readonly skipped: readonly IngestionSourceType[]; readonly unavailable: readonly IngestionSourceType[] } }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/activate`, {
+    method: 'POST', token, body: JSON.stringify(input),
+  });
+}
+
+export async function retryFailedCloudIngestion(token: string, cloudConnectionId: string, sourceType: IngestionSourceType): Promise<{ readonly success: true; readonly jobs: readonly IngestionJobHistoryItem[] }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/ingestion-jobs/retry-failed`, {
+    method: 'POST', token, body: JSON.stringify({ sourceType }),
+  });
+}
+
+export async function cancelPendingCloudIngestion(token: string, cloudConnectionId: string, sourceType: IngestionSourceType): Promise<{ readonly success: true; readonly sourceType: IngestionSourceType; readonly cancelled: number }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/ingestion-jobs/cancel-pending`, {
+    method: 'POST', token, body: JSON.stringify({ sourceType }),
+  });
+}
+
+export async function configureCloudMetricDefinitions(token: string, cloudConnectionId: string, input: {
+  readonly definitions: readonly Readonly<Record<string, unknown>>[];
+  readonly replace: boolean;
+}): Promise<{ readonly success: true; readonly metricDefinitions: { readonly configuredCount: number; readonly updatedKey: string; readonly replaced: boolean } }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/metric-definitions`, {
+    method: 'PUT', token, body: JSON.stringify(input),
+  });
+}
+
+export async function previewCloudFocusSource(token: string, cloudConnectionId: string, limit = 100): Promise<{ readonly success: true; readonly preview: CloudFocusPreview }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/focus-preview`, {
+    method: 'POST', token, body: JSON.stringify({ limit }),
+  });
+}
+export async function fetchCostDataOptions(token: string, period?: string): Promise<{ readonly success: true; readonly options: CostDataOptions }> {
+  const query = period === undefined ? '' : `?period=${encodeURIComponent(period)}`;
+  return apiRequest(`/costs/options${query}`, { token });
 }
 
 export async function fetchCostAllocationRules(token: string): Promise<{ readonly success: true; readonly rules: readonly CostAllocationRule[] }> { return apiRequest('/cost-allocation/rules', { token }); }
@@ -944,30 +1088,12 @@ export async function fetchRecommendations(
   });
 }
 
-export async function fetchAnalyticsAnomalies(token: string): Promise<AnalyticsAnomaliesResponse> {
-  return apiRequest<AnalyticsAnomaliesResponse>('/analytics/anomalies', { token });
-}
-
 export async function fetchAnalyticsOpportunities(token: string): Promise<AnalyticsOpportunitiesResponse> {
   return apiRequest<AnalyticsOpportunitiesResponse>('/analytics/opportunities', { token });
 }
 
 export async function fetchAnalyticsForecast(token: string): Promise<AnalyticsForecastResponse> {
   return apiRequest<AnalyticsForecastResponse>('/analytics/forecast', { token });
-}
-
-export async function fetchAnalyticsTrends(
-  token: string,
-  groupBy: AnalyticsGroupBy = 'service',
-): Promise<AnalyticsTrendsResponse> {
-  return apiRequest<AnalyticsTrendsResponse>(`/analytics/trends?groupBy=${encodeURIComponent(groupBy)}`, { token });
-}
-
-export async function fetchAnalyticsUsage(
-  token: string,
-  groupBy: AnalyticsGroupBy = 'service',
-): Promise<AnalyticsUsageResponse> {
-  return apiRequest<AnalyticsUsageResponse>(`/analytics/usage?groupBy=${encodeURIComponent(groupBy)}`, { token });
 }
 
 export async function fetchAnalyticsUnitEconomics(
@@ -1357,10 +1483,29 @@ export interface ConfigureFocusSourceResponse {
   };
 }
 
+export type BillingSourceMode = 'AUTO' | 'FOCUS' | 'PROVIDER_API';
+
+export async function configureBillingSource(
+  token: string,
+  cloudConnectionId: string,
+  mode: BillingSourceMode,
+): Promise<{ readonly success: true; readonly billingSource: { readonly cloudConnectionId: string; readonly providerCode: string; readonly mode: BillingSourceMode } }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/billing-source`, {
+    method: 'PUT',
+    token,
+    body: JSON.stringify({ mode }),
+  });
+}
+
 export interface IngestionReadinessIssue {
   readonly provider: string;
+  readonly connectionId?: string;
   readonly severity: 'INFO' | 'WARNING' | 'BLOCKER';
+  readonly capability: 'CONNECTION' | 'CREDENTIALS' | 'INVENTORY' | 'COSTS' | 'METRICS' | 'STORAGE' | 'JOBS';
   readonly message: string;
+  readonly affectedData: readonly string[];
+  readonly action: string;
+  readonly actionCode: string;
 }
 
 export interface IngestionReadinessConnectionSummary {
@@ -1368,7 +1513,10 @@ export interface IngestionReadinessConnectionSummary {
   readonly name: string;
   readonly providerCode: string;
   readonly defaultRegion?: string;
+  readonly lastValidatedAt?: string;
+  readonly onboardingStatus: CloudOnboardingStatus;
   readonly credentialPurposes: readonly string[];
+  readonly capabilities: readonly CloudCapabilityValidation[];
   readonly metadataCounts: Readonly<Record<string, number>>;
   readonly recentJobs: readonly {
     readonly id: string;

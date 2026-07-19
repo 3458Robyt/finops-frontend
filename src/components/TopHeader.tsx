@@ -160,6 +160,7 @@ export default function TopHeader({
               Tenant activo · {roleLabel}
             </span>
             <select
+              aria-label="Tenant activo"
               value={activeTenant.id}
               onChange={(e) => { void handleTenantChange(e.target.value); }}
               disabled={switchingTenant || availableTenants.length <= 1}

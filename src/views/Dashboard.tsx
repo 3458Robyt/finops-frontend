@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { CostHistoryUPlot } from '../components/CostHistoryUPlot';
 import {
   fetchAdoptionKpis,
   fetchAnalyticsEfficiencyInsights,
@@ -63,59 +63,47 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
   const [adoptionKpis, setAdoptionKpis] = useState<AdoptionKpisResponse['adoption'] | null>(null);
   const [budgets, setBudgets] = useState<readonly Budget[]>([]);
   const [budgetPerformance, setBudgetPerformance] = useState<BudgetPerformance | null>(null);
+  const [budgetError, setBudgetError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-
-    Promise.all([
-      fetchCosts(token, buildDashboardCostRange()),
-      fetchRecommendations(token),
-      fetchAnalyticsOpportunities(token),
-      fetchAnalyticsForecast(token),
-      fetchAnalyticsEfficiencyInsights(token),
-      fetchAnalyticsUnitEconomics(token),
-      fetchSavingsKpis(token),
-      fetchAdoptionKpis(token),
-      fetchBudgets(token, { period: currentMonth() }),
-    ])
-      .then(async ([costResponse, recommendationResponse, opportunityResponse, forecastResponse, insightsResponse, unitEconomicsResponse, savingsResponse, adoptionResponse, budgetResponse]) => {
-        if (active) {
-          setCosts(costResponse);
-          setRecommendations(recommendationResponse.recommendations);
-          setOpportunities(opportunityResponse.opportunities);
-          setUsageInsights(insightsResponse.insights);
-          setUnitEconomics(unitEconomicsResponse.unitEconomics);
-          setSavingsKpis(savingsResponse.savings);
-          setAdoptionKpis(adoptionResponse.adoption);
-          setBudgets(budgetResponse.budgets);
-          const tenantBudget = budgetResponse.budgets.find((budget) => budget.scope === 'TENANT');
-          setBudgetPerformance(tenantBudget === undefined ? null : (await fetchBudgetPerformance(token, tenantBudget.id)).performance);
+    void (async () => {
+      const results = await Promise.allSettled([
+        fetchCosts(token, buildDashboardCostRange()), fetchRecommendations(token), fetchAnalyticsOpportunities(token),
+        fetchAnalyticsForecast(token), fetchAnalyticsEfficiencyInsights(token), fetchAnalyticsUnitEconomics(token),
+        fetchSavingsKpis(token), fetchAdoptionKpis(token), fetchBudgets(token, { period: currentMonth() }),
+      ]);
+      if (!active) return;
+      const value = <T,>(index: number): T | undefined => results[index]?.status === 'fulfilled' ? results[index].value as T : undefined;
+      const costResponse = value<CostsResponse>(0); const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(1);
+      const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(2); const forecastResponse = value<{ forecasts: readonly unknown[] }>(3);
+      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(4); const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(5);
+      const savingsResponse = value<SavingsKpisResponse>(6); const adoptionResponse = value<AdoptionKpisResponse>(7); const budgetResponse = value<{ budgets: readonly Budget[] }>(8);
+      if (costResponse !== undefined) setCosts(costResponse);
+      if (recommendationResponse !== undefined) setRecommendations(recommendationResponse.recommendations);
+      if (opportunityResponse !== undefined) setOpportunities(opportunityResponse.opportunities);
+      if (insightsResponse !== undefined) setUsageInsights(insightsResponse.insights);
+      if (unitEconomicsResponse !== undefined) setUnitEconomics(unitEconomicsResponse.unitEconomics);
+      if (savingsResponse !== undefined) setSavingsKpis(savingsResponse.savings);
+      if (adoptionResponse !== undefined) setAdoptionKpis(adoptionResponse.adoption);
+      if (budgetResponse !== undefined) {
+        setBudgetError(null);
+        setBudgets(budgetResponse.budgets);
+        const tenantBudget = budgetResponse.budgets.find((budget) => budget.scope === 'TENANT');
+        if (tenantBudget !== undefined) {
+          try { setBudgetPerformance((await fetchBudgetPerformance(token, tenantBudget.id)).performance); }
+          catch { setBudgetPerformance(null); setBudgetError('El presupuesto no pudo actualizarse.'); }
         }
-
-        if (opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
-          return recomputeAnalytics(token);
-        }
-
-        return null;
-      })
-      .then((analyticsResponse) => {
-        if (active && analyticsResponse !== null) {
-          setOpportunities(analyticsResponse.anomalies);
-          setUsageInsights(analyticsResponse.usageInsights);
-        }
-      })
-      .catch((requestError) => {
-        if (active) {
-          setError(requestError instanceof Error ? requestError.message : 'No fue posible cargar costos');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
+      } else { setBudgetError('El presupuesto no pudo actualizarse.'); }
+      const failures = results.filter((result) => result.status === 'rejected');
+      setError(failures.length === 0 ? null : `${failures.length} bloque(s) no pudieron actualizarse. Los demás datos siguen disponibles.`);
+      if (opportunityResponse !== undefined && forecastResponse !== undefined && opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
+        try { const analyticsResponse = await recomputeAnalytics(token); if (active) { setOpportunities(analyticsResponse.anomalies); setUsageInsights(analyticsResponse.usageInsights); } } catch { /* Existing persisted data stays visible. */ }
+      }
+      if (active) setLoading(false);
+    })();
 
     return () => {
       active = false;
@@ -158,14 +146,14 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <span className="material-symbols-outlined text-6xl text-white">account_balance_wallet</span>
           </div>
-          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gasto vs presupuesto</p>
+          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gasto y presupuesto</p>
           <div className="flex items-end gap-2 mb-4">
             <h3 className="text-3xl font-black text-white">
-              {loading ? '...' : budgetPerformance === null ? 'Sin presupuesto' : currencyFormatter.format(budgetPerformance.actualCost)}
+              {loading ? '...' : budgetError !== null ? 'No disponible' : budgetPerformance === null ? 'Sin presupuesto' : currencyFormatter.format(budgetPerformance.actualCost)}
             </h3>
             {dashboardBudget !== undefined && <span className="text-zinc-500 text-sm font-medium mb-1">/ {currencyFormatter.format(dashboardBudget.amount)}</span>}
           </div>
-          <div className="w-full bg-zinc-800 rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-zinc-800 rounded-full h-3 overflow-hidden" aria-label="Consumo del presupuesto">
             <div
               className={`h-full rounded-full shadow-[0_0_8px_rgba(250,204,21,0.5)] ${budgetUsage > 85 ? 'bg-red-500' : 'bg-tak-yellow'}`}
               style={{ width: `${budgetUsage}%` }}
@@ -174,7 +162,7 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
           <div className="flex justify-between mt-4">
             <p className="text-xs font-medium text-zinc-400 flex items-center gap-1">
               <span className="material-symbols-outlined text-sm text-green-500 font-bold">verified</span>
-              Datos FOCUS + analitica persistida
+              {budgetError !== null ? 'Abra presupuestos para reintentar' : budgetPerformance === null ? 'Configure un límite mensual' : 'Datos FOCUS + analítica persistida'}
             </p>
             <p className="text-xs text-zinc-500">{budgetPerformance?.forecastCost === undefined ? 'Forecast no disponible' : `Forecast: ${currencyFormatter.format(budgetPerformance.forecastCost)}`}</p>
           </div>
@@ -259,30 +247,7 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
               {loading ? 'Cargando costos...' : 'Sin costos para esta cuenta'}
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorAsIs" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3f3f46" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3f3f46" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorToBe" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                <XAxis dataKey="name" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
-                  itemStyle={{ color: '#fff', fontSize: '13px', fontWeight: '500' }}
-                  formatter={(value) => currencyFormatter.format(Number(value))}
-                />
-                <Area type="monotone" dataKey="asIs" stroke="#52525b" strokeWidth={3} fillOpacity={1} fill="url(#colorAsIs)" />
-                <Area type="monotone" dataKey="toBe" stroke="#FACC15" strokeWidth={3} fillOpacity={1} fill="url(#colorToBe)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <CostHistoryUPlot points={chartData} />
           )}
         </div>
       </div>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import CloudOnboarding from '../components/CloudOnboarding';
 import {
+  configureBillingSource,
   configureFocusSource,
   fetchDataQualityChecks,
   fetchCloudConnections,
@@ -8,6 +10,7 @@ import {
   queueIngestionJob,
   queueTechnicalMetricBackfill,
   type CloudConnectionSummary,
+  type BillingSourceMode,
   type DataQualityCheckItem,
   type DataQualityStatus,
   type IngestionJobHistoryItem,
@@ -47,7 +50,11 @@ const readinessSeverityStyles: Readonly<Record<IngestionReadinessIssue['severity
   BLOCKER: { label: 'Bloqueante', className: 'bg-red-500/15 text-red-300' },
 };
 
-export default function Ingesta({ token }: { readonly token: string }) {
+export default function Ingesta({ token, canManage, onNavigate }: {
+  readonly token: string;
+  readonly canManage: boolean;
+  readonly onNavigate: (view: 'dashboard' | 'cloud_inventory' | 'metricas_tecnicas') => void;
+}) {
   const [jobs, setJobs] = useState<readonly IngestionJobHistoryItem[]>([]);
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
   const [connections, setConnections] = useState<readonly CloudConnectionSummary[]>([]);
@@ -75,6 +82,8 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const [focusMaxObjects, setFocusMaxObjects] = useState('100');
   const [focusReplace, setFocusReplace] = useState(false);
   const [configuringFocus, setConfiguringFocus] = useState(false);
+  const [billingSourceMode, setBillingSourceMode] = useState<BillingSourceMode>('AUTO');
+  const [configuringBillingSource, setConfiguringBillingSource] = useState(false);
   const [sourceType, setSourceType] = useState<IngestionSourceType>('TECHNICAL_METRIC');
   const [targetStart, setTargetStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)));
   const [targetEnd, setTargetEnd] = useState(() => toDatetimeLocal(new Date()));
@@ -155,6 +164,23 @@ export default function Ingesta({ token }: { readonly token: string }) {
   const selectedFocusConnection = connections.find((connection) => connection.id === focusConnectionId);
   const selectedFocusProvider = selectedFocusConnection?.providerCode.toLowerCase();
 
+  const handleConfigureBillingSource = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setConfiguringBillingSource(true);
+    setQueueMessage(null);
+    setError(null);
+
+    try {
+      await configureBillingSource(token, focusConnectionId.trim(), billingSourceMode);
+      setQueueMessage(`Fuente de facturación configurada: ${billingSourceMode}.`);
+      await loadData(() => true);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo configurar la fuente de facturación.');
+    } finally {
+      setConfiguringBillingSource(false);
+    }
+  };
+
   const handleBackfill = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBackfilling(true);
@@ -229,6 +255,14 @@ export default function Ingesta({ token }: { readonly token: string }) {
         </div>
       )}
 
+      <CloudOnboarding
+        token={token}
+        connections={connections}
+        canManage={canManage}
+        onChanged={() => loadData(() => true)}
+        onNavigate={onNavigate}
+      />
+
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
@@ -278,6 +312,8 @@ export default function Ingesta({ token }: { readonly token: string }) {
                   <StatusBadge {...readinessSeverityStyles[issue.severity]} />
                 </div>
                 <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-300">{issue.message}</p>
+                <p className="mt-2 text-xs text-zinc-500">Afecta: {issue.affectedData.join(', ')}.</p>
+                <p className="mt-1 text-xs font-semibold text-tak-yellow">Siguiente acción: {issue.action}</p>
               </div>
             ))}
           </div>
@@ -419,8 +455,30 @@ export default function Ingesta({ token }: { readonly token: string }) {
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-2">
           <span className="material-symbols-outlined text-tak-yellow">folder_managed</span>
-          <h3 className="text-lg font-bold text-white">Configurar fuente FOCUS</h3>
+          <h3 className="text-lg font-bold text-white">Fuente de facturación</h3>
         </div>
+        <form onSubmit={handleConfigureBillingSource} className="border-b border-zinc-800 p-6">
+          <div className="grid gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto] items-end">
+            <label className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Conexión</span>
+              <select value={focusConnectionId} onChange={(event) => setFocusConnectionId(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow" required>
+                {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.name} · {connection.providerCode.toUpperCase()}</option>)}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">Origen</span>
+              <select value={billingSourceMode} onChange={(event) => setBillingSourceMode(event.target.value as BillingSourceMode)} className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow">
+                <option value="AUTO">Automático: FOCUS si está configurado; API directa si no</option>
+                <option value="FOCUS">Solo exportación FOCUS</option>
+                <option value="PROVIDER_API">Solo API del proveedor</option>
+              </select>
+            </label>
+            <button type="submit" disabled={configuringBillingSource || focusConnectionId.trim() === ''} className="inline-flex h-10 items-center justify-center rounded-xl bg-zinc-100 px-4 text-sm font-black text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60">
+              {configuringBillingSource ? 'Guardando' : 'Guardar origen'}
+            </button>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-zinc-500">Cada trabajo conserva una sola procedencia. La configuración FOCUS siguiente solo se usa cuando el origen es FOCUS o AUTO y existe un export válido.</p>
+        </form>
         <form onSubmit={handleConfigureFocus} className="p-6 space-y-4">
           <div className="grid gap-4 lg:grid-cols-4">
             <label className="space-y-2 lg:col-span-2">

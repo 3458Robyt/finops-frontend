@@ -67,21 +67,28 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
   const [allocation, setAllocation] = useState<readonly AllocationSummary[]>([]);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [allocationError, setAllocationError] = useState<string | null>(null);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   useEffect(() => {
-    setSummary(null); setRecommendations([]); setAllocation([]); setError(null);
-    void Promise.all([
-      fetchTechnicalResourceSummary(token, externalResourceId),
-      fetchRecommendations(token, { externalResourceId }),
-      fetchResourceAllocation(token, externalResourceId),
-    ])
-      .then(([resourceResponse, recommendationResponse, allocationResponse]) => {
-        setSummary(resourceResponse.summary);
-        setRecommendations(recommendationResponse.recommendations);
-        setAllocation(allocationResponse.summary);
-      })
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el recurso.'));
+    let active = true;
+    setSummary(null); setRecommendations([]); setAllocation([]); setError(null); setAllocationError(null); setRecommendationsError(null);
+    void (async () => {
+      const [resourceResult, recommendationResult, allocationResult] = await Promise.allSettled([
+        fetchTechnicalResourceSummary(token, externalResourceId),
+        fetchRecommendations(token, { externalResourceId }),
+        fetchResourceAllocation(token, externalResourceId),
+      ]);
+      if (!active) return;
+      if (resourceResult.status === 'fulfilled') setSummary(resourceResult.value.summary);
+      else setError(resourceResult.reason instanceof Error ? resourceResult.reason.message : 'No se pudo cargar el recurso.');
+      if (recommendationResult.status === 'fulfilled') setRecommendations(recommendationResult.value.recommendations);
+      else setRecommendationsError('Las oportunidades relacionadas no están disponibles temporalmente.');
+      if (allocationResult.status === 'fulfilled') setAllocation(allocationResult.value.summary);
+      else setAllocationError('La asignación de costos no está disponible temporalmente.');
+    })();
+    return () => { active = false; };
   }, [externalResourceId, token]);
   if (error !== null) return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
   if (summary === null) return <p className="p-8 text-sm text-zinc-400">Cargando detalle del recurso...</p>;
@@ -100,7 +107,7 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
     <div className="grid gap-4 md:grid-cols-3">
       <MetricCard label="Cobertura técnica" value={`${coverage.coveragePercent.toFixed(0)}%`} detail={`${coverage.totalSamples} muestras`} />
      <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
-      <MetricCard label="Asignación de costo" value={allocation[0]?.dimensions.find((item) => item.allocationKey !== 'UNALLOCATED')?.allocationKey ?? 'Sin asignar'} detail={allocation.length === 0 ? 'No hay costo FOCUS para asignar' : allocation[0]!.period} />
+      <MetricCard label="Asignación de costo" value={allocationError !== null ? 'No disponible' : allocation[0]?.dimensions.find((item) => item.allocationKey !== 'UNALLOCATED')?.allocationKey ?? 'Sin asignar'} detail={allocationError ?? (allocation.length === 0 ? 'No hay costo FOCUS para asignar' : allocation[0]!.period)} />
       <MetricCard label="Última muestra" value={coverage.maxSampledAt !== undefined ? formatDate(coverage.maxSampledAt) : 'Sin muestras'} detail={resource.status} />
     </div>
     <section className={`rounded-2xl border p-5 ${evidence.strength === 'HIGH' ? 'border-green-500/30 bg-green-500/10' : evidence.strength === 'MEDIUM' ? 'border-tak-yellow/30 bg-tak-yellow/10' : 'border-red-500/30 bg-red-500/10'}`}>
@@ -115,7 +122,7 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
       <h3 className="font-black text-white">Oportunidades relacionadas</h3>
       <p className="mt-1 text-sm text-zinc-400">Solo se muestran recomendaciones cuya evidencia apunta exactamente a este recurso.</p>
-      {recommendations.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay oportunidades persistidas para este recurso.</p> : <div className="mt-4 space-y-3">{recommendations.map((recommendation) => <article key={recommendation.id} className="rounded-xl bg-zinc-950 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-white">{recommendation.title}</p><p className="mt-1 text-sm text-zinc-400">{recommendation.description}</p></div><span className="rounded-full bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">{recommendation.status}</span></div><p className="mt-2 text-xs text-tak-yellow">Ahorro estimado: {recommendation.estimatedMonthlySavings !== undefined ? formatCurrency(recommendation.estimatedMonthlySavings, recommendation.currency) : 'Por validar'}</p></article>)}</div>}
+      {recommendationsError !== null ? <p className="mt-3 rounded-xl border border-tak-yellow/30 bg-tak-yellow/10 p-3 text-sm text-tak-yellow">{recommendationsError}</p> : recommendations.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay oportunidades persistidas para este recurso.</p> : <div className="mt-4 space-y-3">{recommendations.map((recommendation) => <article key={recommendation.id} className="rounded-xl bg-zinc-950 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-white">{recommendation.title}</p><p className="mt-1 text-sm text-zinc-400">{recommendation.description}</p></div><span className="rounded-full bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">{recommendation.status}</span></div><p className="mt-2 text-xs text-tak-yellow">Ahorro estimado: {recommendation.estimatedMonthlySavings !== undefined ? formatCurrency(recommendation.estimatedMonthlySavings, recommendation.currency) : 'Por validar'}</p></article>)}</div>}
     </section>
     <button onClick={() => void generateForResource()} disabled={generating || metrics.length === 0 || cost === undefined}
       className="rounded-xl bg-tak-yellow px-4 py-3 text-sm font-black text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50">

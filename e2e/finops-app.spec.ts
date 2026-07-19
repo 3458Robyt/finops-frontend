@@ -27,7 +27,7 @@ test.describe('FinOps app E2E', () => {
 
     await page.getByRole('button', { name: /presupuestos/i }).click();
     await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
-    await page.getByLabel('Periodo').fill('2026-05');
+    await page.getByLabel(/per[ií]odo de presupuesto/i).fill('2026-05');
     await expect(page.getByText(/gasto real/i).first()).toBeVisible();
     await page.getByRole('button', { name: /consola técnica/i }).click();
 
@@ -39,6 +39,16 @@ test.describe('FinOps app E2E', () => {
       expect(selectedTenant).toHaveLength(1);
       await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
     }
+
+    await page.getByRole('button', { name: /ingesta y datos/i }).click();
+    await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /agregar y activar una cuenta cloud/i })).toBeVisible();
+    const cloudConnectionSelector = page.getByLabel('Cuenta configurada');
+    await cloudConnectionSelector.selectOption({ index: 1 });
+    await expect(page.getByText(/acceso seguro de solo lectura/i)).toBeVisible();
+    await expect(page.getByText(/validar capacidades/i)).toBeVisible();
+    await expect(page.getByText(/sincronización inicial/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /abrir inventario/i })).toBeVisible();
 
     await page.getByRole('button', { name: /métricas técnicas/i }).click();
     await expect(page.getByRole('heading', { name: /métricas técnicas/i })).toBeVisible();
