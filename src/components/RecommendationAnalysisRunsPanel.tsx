@@ -61,6 +61,14 @@ const statusLabels: Record<RecommendationAnalysisStatus, string> = {
   CANCELLED: 'Cancelada',
 };
 
+function outcomeLabel(run: RecommendationAnalysisRun): string {
+  if (run.errorCode === 'INSUFFICIENT_EVIDENCE') return 'Evidencia insuficiente';
+  if (run.errorCode === 'NO_NEW_OPPORTUNITIES') return 'Sin oportunidades nuevas';
+  if (run.errorCode === 'AI_AUDIT_REJECTED') return 'Rechazada por el auditor';
+  if (run.errorCode === 'ANALYSIS_PROVIDER_ERROR') return 'Proveedor IA no disponible';
+  return statusLabels[run.status];
+}
+
 export default function RecommendationAnalysisRunsPanel({
   token,
   role,
@@ -230,7 +238,7 @@ export default function RecommendationAnalysisRunsPanel({
               <Metric label="Período disponible" value={`${formatDate(preview.periodStart)} – ${formatDate(preview.periodEnd)}`} />
               <Metric label="Recursos evaluables" value={String(preview.resourcesEvaluated)} />
               <Metric label="Candidatos con evidencia" value={String(preview.candidatesFound)} />
-              <Metric label="Descartados por evidencia" value={String(preview.candidatesSkipped)} />
+              <Metric label="Descartados o aplazados" value={String(preview.candidatesSkipped)} />
             </div>
             <p className="mt-4 text-sm font-bold text-zinc-300">{preview.readinessReport.summary}</p>
             {preview.candidatesFound === 0 && (
@@ -303,7 +311,7 @@ function RunDetail({
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">{statusLabels[run.status]}</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">{outcomeLabel(run)}</p>
           <h3 className="mt-1 text-lg font-black text-white">{stageLabels[run.stage]}</h3>
           <p className="mt-1 text-xs text-zinc-500">Corrida {run.id}</p>
         </div>
@@ -322,7 +330,7 @@ function RunDetail({
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Recursos evaluados" value={String(run.resourcesEvaluated)} />
         <Metric label="Candidatos" value={String(run.candidatesFound)} />
-        <Metric label="Descartados" value={String(run.candidatesSkipped)} />
+        <Metric label="Descartados o aplazados" value={String(run.candidatesSkipped)} />
         <Metric label="Generadas" value={String(run.recommendationsGenerated)} />
         <Metric label="Rechazadas por auditor" value={String(run.recommendationsRejected)} />
         <Metric label="Publicadas" value={String(run.recommendationsPersisted)} />
