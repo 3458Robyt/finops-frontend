@@ -197,8 +197,8 @@ export default function TopHeader({
             <div className="absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-white">Recordatorios de ahorro</p>
-                  <p className="text-[11px] text-zinc-500">Base in-app, sin automatizacion diaria todavia</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-white">Notificaciones FinOps</p>
+                  <p className="text-[11px] text-zinc-500">Alertas, análisis y recordatorios del tenant activo</p>
                 </div>
                 <span className="material-symbols-outlined text-tak-yellow text-lg">savings</span>
               </div>
@@ -207,7 +207,7 @@ export default function TopHeader({
                 {loading ? (
                   <p className="px-4 py-6 text-sm font-bold text-zinc-500">Cargando recordatorios...</p>
                 ) : notifications.length === 0 ? (
-                  <p className="px-4 py-6 text-sm font-bold text-zinc-500">Sin recordatorios de ahorro por ahora.</p>
+                  <p className="px-4 py-6 text-sm font-bold text-zinc-500">Sin notificaciones por ahora.</p>
                 ) : notifications.map((notification) => (
                   <div key={notification.id} className="border-b border-zinc-800 last:border-b-0 p-4">
                     <div className="flex items-start justify-between gap-3">

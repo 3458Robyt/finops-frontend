@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import RecommendationAnalysisRunsPanel from '../components/RecommendationAnalysisRunsPanel';
 import {
   activateAgentProfile,
   backfillAgentContext,
@@ -29,9 +30,10 @@ import {
 interface AgentSettingsProps {
   readonly token: string;
   readonly role: ApiRole;
+  readonly onOpenRecommendation?: (recommendationId: string) => void;
 }
 
-type Tab = 'governance' | 'evidence' | 'channels';
+type Tab = 'analysis' | 'governance' | 'evidence' | 'channels';
 
 const defaultRules: AgentInstructionRules = {
   objective: 'Generar recomendaciones FinOps accionables, auditables y realistas para FinOps Demo.',
@@ -51,6 +53,7 @@ const defaultRules: AgentInstructionRules = {
 };
 
 const tabs: readonly { readonly id: Tab; readonly label: string; readonly icon: string }[] = [
+  { id: 'analysis', label: 'Análisis', icon: 'model_training' },
   { id: 'governance', label: 'Gobierno', icon: 'admin_panel_settings' },
   { id: 'evidence', label: 'Evidencia', icon: 'manage_search' },
   { id: 'channels', label: 'Canales', icon: 'settings_input_component' },
@@ -75,9 +78,10 @@ function listToLines(value: readonly string[]): string {
   return value.join('\n');
 }
 
-export default function AgentSettings({ token, role }: AgentSettingsProps) {
+export default function AgentSettings({ token, role, onOpenRecommendation }: AgentSettingsProps) {
   const canConfigureAgent = role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN';
-  const [activeTab, setActiveTab] = useState<Tab>('governance');
+  const analysisOnly = role === 'VIEWER' || role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER';
+  const [activeTab, setActiveTab] = useState<Tab>('analysis');
   const [profile, setProfile] = useState<AgentInstructionProfile | null>(null);
   const [rules, setRules] = useState<readonly TenantAgentRule[]>([]);
   const [traces, setTraces] = useState<readonly AiContextTrace[]>([]);
@@ -108,6 +112,11 @@ export default function AgentSettings({ token, role }: AgentSettingsProps) {
   const activeTelegramLinks = telegramLinks.filter((link) => link.status === 'ACTIVE').length;
 
   useEffect(() => {
+    if (analysisOnly) {
+      setLoading(false);
+      return;
+    }
+
     let active = true;
     setLoading(true);
     setError(null);
@@ -151,7 +160,7 @@ export default function AgentSettings({ token, role }: AgentSettingsProps) {
     return () => {
       active = false;
     };
-  }, [canConfigureAgent, token]);
+  }, [analysisOnly, canConfigureAgent, token]);
 
   const refreshOutboundDeliveries = async () => {
     const response = await fetchOutboundDeliveries(token);
@@ -349,7 +358,7 @@ export default function AgentSettings({ token, role }: AgentSettingsProps) {
       </header>
 
       <nav className="flex flex-wrap gap-2">
-        {tabs.map((tab) => (
+        {(analysisOnly ? tabs.slice(0, 1) : tabs).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -365,6 +374,14 @@ export default function AgentSettings({ token, role }: AgentSettingsProps) {
 
       {message !== null && <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">{message}</p>}
       {error !== null && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">{error}</p>}
+
+      {activeTab === 'analysis' && (
+        <RecommendationAnalysisRunsPanel
+          token={token}
+          role={role}
+          onOpenRecommendation={onOpenRecommendation}
+        />
+      )}
 
       {activeTab === 'governance' && (
         <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
