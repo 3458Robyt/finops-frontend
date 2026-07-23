@@ -405,7 +405,10 @@ export interface SavingsKpisResponse {
 }
 
 export type InAppNotificationStatus = 'UNREAD' | 'READ' | 'DISMISSED';
-export type InAppNotificationType = 'SAVINGS_REMINDER';
+export type InAppNotificationType =
+  | 'SAVINGS_REMINDER'
+  | 'BUDGET_ALERT'
+  | 'RECOMMENDATION_ANALYSIS_COMPLETED';
 
 export interface InAppNotification {
   readonly id: string;
@@ -1906,6 +1909,153 @@ export async function fetchTechnicalMetricsCoverage(
 ): Promise<TechnicalCoverageResponse> {
   const query = buildTechnicalMetricsQuery(params);
   return apiRequest<TechnicalCoverageResponse>(`/technical-metrics/coverage${query}`, { token });
+}
+
+export type RecommendationAnalysisStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'PARTIAL'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export type RecommendationAnalysisStage =
+  | 'QUEUED'
+  | 'SELECTING_DATA'
+  | 'DETERMINISTIC_ANALYSIS'
+  | 'EVIDENCE_GATE'
+  | 'AI_GENERATION'
+  | 'AI_AUDIT'
+  | 'PERSISTENCE'
+  | 'NOTIFICATION'
+  | 'FINISHED';
+
+export interface RecommendationAnalysisCandidate {
+  readonly candidateId: string;
+  readonly resourceId?: string;
+  readonly readiness: string;
+  readonly outcome: 'ELIGIBLE' | 'SKIPPED' | 'PUBLISHED' | 'REJECTED';
+  readonly reasons: readonly string[];
+  readonly recommendationId?: string;
+}
+
+export interface RecommendationAnalysisRun {
+  readonly id: string;
+  readonly trigger: 'MANUAL' | 'SCHEDULED' | 'POST_INGESTION' | 'RETRY';
+  readonly scope: 'TENANT' | 'RESOURCE';
+  readonly externalResourceId?: string;
+  readonly status: RecommendationAnalysisStatus;
+  readonly stage: RecommendationAnalysisStage;
+  readonly periodStart?: string;
+  readonly periodEnd?: string;
+  readonly evidenceHash?: string;
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  readonly resourcesEvaluated: number;
+  readonly candidatesFound: number;
+  readonly candidatesSkipped: number;
+  readonly recommendationsGenerated: number;
+  readonly recommendationsRejected: number;
+  readonly recommendationsPersisted: number;
+  readonly model?: string;
+  readonly auditorModel?: string;
+  readonly promptTokenEstimate: number;
+  readonly responseTokenEstimate: number;
+  readonly latencyMs?: number;
+  readonly errorCode?: string;
+  readonly errorMessage?: string;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly candidateResults?: readonly RecommendationAnalysisCandidate[];
+  readonly recommendations: readonly {
+    readonly recommendationId: string;
+    readonly candidateId?: string;
+    readonly disposition: 'CREATED' | 'REUSED';
+    readonly title: string;
+  }[];
+}
+
+export interface RecommendationAnalysisPreview {
+  readonly scope: 'TENANT' | 'RESOURCE';
+  readonly externalResourceId?: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly evidenceHash: string;
+  readonly resourcesEvaluated: number;
+  readonly candidatesFound: number;
+  readonly candidatesSkipped: number;
+  readonly readinessReport: {
+    readonly summary: string;
+    readonly candidates: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+    readonly blocked: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+    readonly deferred: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+  };
+}
+
+export async function fetchRecommendationAnalysisPreview(
+  token: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly preview: RecommendationAnalysisPreview }> {
+  return apiRequest('/ai/analysis-runs/readiness', {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function queueRecommendationAnalysis(
+  token: string,
+): Promise<{ readonly success: true; readonly reused: boolean; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest('/ai/analysis-runs', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchRecommendationAnalysisRuns(
+  token: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly runs: readonly RecommendationAnalysisRun[] }> {
+  return apiRequest('/ai/analysis-runs', {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchRecommendationAnalysisRun(
+  token: string,
+  runId: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function cancelRecommendationAnalysis(
+  token: string,
+  runId: string,
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}/cancel`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function retryRecommendationAnalysis(
+  token: string,
+  runId: string,
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}/retry`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
 }
 
 function buildTechnicalMetricsQuery(params: {

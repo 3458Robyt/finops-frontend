@@ -10,6 +10,7 @@ interface FixtureManifest {
   readonly tenants: readonly {
     readonly name: string;
   }[];
+  readonly recommendationIds: readonly string[];
 }
 
 test.describe('FinOps app E2E', () => {
@@ -39,6 +40,113 @@ test.describe('FinOps app E2E', () => {
       expect(selectedTenant).toHaveLength(1);
       await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
     }
+
+    const recommendationId = manifest.recommendationIds[0]!;
+    let analysisQueued = false;
+    let analysisPolls = 0;
+    await page.route('**/api/v1/ai/analysis-runs**', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const baseRun = {
+        id: 'analysis-e2e-1',
+        trigger: 'MANUAL',
+        scope: 'TENANT',
+        status: 'PENDING',
+        stage: 'QUEUED',
+        attempts: 0,
+        maxAttempts: 2,
+        resourcesEvaluated: 1,
+        candidatesFound: 1,
+        candidatesSkipped: 1,
+        recommendationsGenerated: 0,
+        recommendationsRejected: 0,
+        recommendationsPersisted: 0,
+        promptTokenEstimate: 0,
+        responseTokenEstimate: 0,
+        createdAt: '2026-07-23T12:00:00.000Z',
+        updatedAt: '2026-07-23T12:00:00.000Z',
+        recommendations: [],
+      };
+      const completedRun = {
+        ...baseRun,
+        status: 'COMPLETED',
+        stage: 'FINISHED',
+        attempts: 1,
+        recommendationsGenerated: 1,
+        recommendationsPersisted: 1,
+        candidateResults: [{
+          candidateId: 'candidate-1',
+          resourceId: 'fixture-resource',
+          readiness: 'GENERATABLE',
+          outcome: 'PUBLISHED',
+          reasons: ['Evidencia técnica suficiente.'],
+          recommendationId,
+        }],
+        recommendations: [{
+          recommendationId,
+          candidateId: 'candidate-1',
+          disposition: 'CREATED',
+          title: 'Oportunidad auditada de prueba',
+        }],
+      };
+      if (url.pathname.endsWith('/readiness')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            preview: {
+              scope: 'TENANT',
+              periodStart: '2026-05-01T00:00:00.000Z',
+              periodEnd: '2026-06-01T00:00:00.000Z',
+              evidenceHash: 'e2e-hash',
+              resourcesEvaluated: 1,
+              candidatesFound: 1,
+              candidatesSkipped: 1,
+              readinessReport: { summary: 'Hay evidencia auditable.', candidates: [], blocked: [] },
+            },
+          }),
+        });
+        return;
+      }
+      if (request.method() === 'POST' && url.pathname.endsWith('/analysis-runs')) {
+        analysisQueued = true;
+        await route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, reused: false, run: baseRun }),
+        });
+        return;
+      }
+      if (url.pathname.endsWith('/analysis-runs')) {
+        if (analysisQueued) analysisPolls += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            runs: analysisQueued ? [analysisPolls >= 1 ? completedRun : baseRun] : [],
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, run: analysisPolls >= 1 ? completedRun : baseRun }),
+      });
+    });
+
+    await page.getByRole('button', { name: /agente ia/i }).click();
+    await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toBeVisible();
+    await expect(page.getByText(/hay evidencia auditable/i)).toBeVisible();
+    await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
+    await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
+    await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText(/oportunidad auditada de prueba/i)).toBeVisible();
+    await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
+    await expect(page.getByTestId('canonical-evidence-panel')).toBeVisible();
 
     await page.getByRole('button', { name: /ingesta y datos/i }).click();
     await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos', exact: true })).toBeVisible();
