@@ -3,20 +3,20 @@ import uPlot, { type AlignedData } from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { ValueRealizationTrendPoint } from '../services/api';
 
-export default function ValueRealizationTrendUPlot({ points }: { readonly points: readonly ValueRealizationTrendPoint[] }) {
+export default function ValueRealizationTrendUPlot({ points, currency: selectedCurrency }: { readonly points: readonly ValueRealizationTrendPoint[]; readonly currency?: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const plotRef = useRef<uPlot | null>(null);
   const chart = useMemo(() => {
     const ordered = [...points].sort((left, right) => `${left.period}-${left.currency}`.localeCompare(`${right.period}-${right.currency}`));
     const periods = [...new Set(ordered.map((point) => point.period))];
-    const currency = ordered[0]?.currency;
+    const currency = selectedCurrency ?? ordered[0]?.currency;
     const byPeriod = new Map(ordered.filter((point) => point.currency === currency).map((point) => [point.period, point]));
     return {
       labels: periods,
-      data: [periods.map((_period, index) => index), periods.map((period) => byPeriod.get(period)?.verifiedMonthlySavings ?? 0), periods.map((period) => byPeriod.get(period)?.costIncreaseMonthlyAmount ?? 0)] as AlignedData,
+      data: [periods.map((_period, index) => index), periods.map((period) => byPeriod.get(period)?.observedSavings ?? 0), periods.map((period) => byPeriod.get(period)?.verifiedMonthlySavings ?? 0), periods.map((period) => byPeriod.get(period)?.costIncreaseMonthlyAmount ?? 0)] as AlignedData,
       currency: currency ?? 'USD',
     };
-  }, [points]);
+  }, [points, selectedCurrency]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -31,8 +31,9 @@ export default function ValueRealizationTrendUPlot({ points }: { readonly points
       ],
       series: [
         {},
-        { label: 'Ahorro verificado', stroke: '#FACC15', width: 3, fill: 'rgba(250,204,21,.12)' },
-        { label: 'Aumento de costo', stroke: '#fb7185', width: 2 },
+        { label: 'Ahorro observado en ventana', stroke: '#38bdf8', width: 2 },
+        { label: 'Run-rate mensual verificado', stroke: '#FACC15', width: 3, fill: 'rgba(250,204,21,.12)' },
+        { label: 'Aumento mensual de costo', stroke: '#fb7185', width: 2 },
       ],
     }, chart.data, container);
     plotRef.current = plot;

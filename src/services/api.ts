@@ -61,8 +61,13 @@ export interface ValueRealizationItem {
   readonly verifiedMonthlySavings: number;
   readonly costIncreaseMonthlyAmount: number;
   readonly varianceAgainstEstimate: number;
+  readonly coverageRatio?: number;
+  readonly confidenceLevel?: string;
+  readonly billingSource?: string;
+  readonly costBasis?: string;
   readonly measurementStatus?: string;
   readonly executedAt?: string;
+  readonly observationEnd?: string;
   readonly verifiedAt?: string;
   readonly nextAction: string;
   readonly createdAt: string;
