@@ -9,7 +9,7 @@ import {
   type InAppNotification,
 } from '../services/api';
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 interface TopHeaderProps {
   currentView: CurrentView;
   activeTenant: AuthTenant;
@@ -31,6 +31,7 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   ingesta: 'Ingesta y Calidad de Datos',
   metricas_tecnicas: 'Métricas Técnicas',
   master_admin: 'Administracion MSP',
+  value_realization: 'Centro de valor realizado',
 };
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {

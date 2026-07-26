@@ -12,6 +12,71 @@ export type ApiRole =
   | 'CLIENT_VIEWER';
 export type AppRole = 'admin' | 'client';
 
+export interface ValueRealizationFilters {
+  readonly status?: string;
+  readonly currency?: string;
+  readonly provider?: string;
+  readonly cloudAccountId?: string;
+  readonly serviceName?: string;
+  readonly severity?: string;
+  readonly search?: string;
+  readonly onlyIncreases?: boolean;
+  readonly onlyPending?: boolean;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+export interface ValueRealizationCurrencySummary {
+  readonly currency: string;
+  readonly estimatedMonthlySavings: number;
+  readonly reportedMonthlySavings: number;
+  readonly observedSavings: number;
+  readonly projectedMonthlySavings: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly realizationRate: number;
+  readonly varianceAgainstEstimate: number;
+}
+export interface ValueRealizationSummary {
+  readonly generatedAt: string;
+  readonly currencies: readonly ValueRealizationCurrencySummary[];
+  readonly counts: Readonly<Record<string, number>>;
+}
+export interface ValueRealizationItem {
+  readonly recommendationId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly recommendationStatus: string;
+  readonly severity: string;
+  readonly type: string;
+  readonly cloudAccountId: string;
+  readonly cloudAccountName: string;
+  readonly provider: string;
+  readonly serviceName?: string;
+  readonly resourceId?: string;
+  readonly currency: string;
+  readonly estimatedMonthlySavings: number;
+  readonly reportedMonthlySavings: number;
+  readonly observedSavings?: number;
+  readonly projectedMonthlySavings?: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly varianceAgainstEstimate: number;
+  readonly measurementStatus?: string;
+  readonly executedAt?: string;
+  readonly verifiedAt?: string;
+  readonly nextAction: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+export interface ValueRealizationTrendPoint {
+  readonly period: string;
+  readonly currency: string;
+  readonly observedSavings: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly verifiedMeasurements: number;
+}
+
 export type CostAllocationRuleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 export interface CostAllocationRule { readonly id: string; readonly name: string; readonly description?: string; readonly priority: number; readonly status: CostAllocationRuleStatus; readonly cloudAccountId?: string; readonly provider?: string; readonly serviceName?: string; readonly regionId?: string; readonly resourceId?: string; readonly tagKey?: string; readonly tagValue?: string; readonly costCenter?: string; readonly businessUnit?: string; readonly project?: string; readonly team?: string; readonly environment?: string; }
 export type CostAllocationRuleInput = Omit<CostAllocationRule, 'id'>;
@@ -2207,6 +2272,66 @@ export async function retryRecommendationAnalysis(
     token,
     body: JSON.stringify({}),
   });
+}
+
+export async function fetchValueRealizationSummary(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly summary: ValueRealizationSummary }> {
+  return apiRequest(`/value-realization/summary${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchValueRealizationItems(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly page: { readonly items: readonly ValueRealizationItem[]; readonly hasMore: boolean; readonly nextCursor?: string } }> {
+  return apiRequest(`/value-realization/items${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchValueRealizationTrend(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly points: readonly ValueRealizationTrendPoint[] }> {
+  return apiRequest(`/value-realization/trend${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function reconcileValueRealization(token: string, limit = 50): Promise<{ readonly success: true; readonly result: Readonly<Record<string, number | string>> }> {
+  return apiRequest('/value-realization/reconcile', { method: 'POST', token, body: JSON.stringify({ limit }) });
+}
+
+export function valueRealizationExportUrl(filters: ValueRealizationFilters = {}): string {
+  return `${API_BASE_URL}/value-realization/export.csv${buildValueRealizationQuery(filters)}`;
+}
+
+export async function downloadValueRealizationCsv(token: string, filters: ValueRealizationFilters = {}): Promise<Blob> {
+  const response = await fetch(valueRealizationExportUrl(filters), { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new ApiRequestError('No fue posible exportar el valor realizado', { status: response.status });
+  return response.blob();
+}
+
+function buildValueRealizationQuery(filters: ValueRealizationFilters): string {
+  const query = new URLSearchParams();
+  for (const key of ['status', 'currency', 'provider', 'cloudAccountId', 'serviceName', 'severity', 'search', 'cursor'] as const) {
+    const value = filters[key];
+    if (value !== undefined && value !== '') query.set(key, value);
+  }
+  if (filters.onlyIncreases === true) query.set('onlyIncreases', 'true');
+  if (filters.onlyPending === true) query.set('onlyPending', 'true');
+  if (filters.pageSize !== undefined) query.set('pageSize', String(filters.pageSize));
+  const serialized = query.toString();
+  return serialized === '' ? '' : `?${serialized}`;
 }
 
 function buildTechnicalMetricsQuery(params: {
