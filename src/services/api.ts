@@ -354,6 +354,7 @@ export interface RecommendationManualExecution {
   readonly userId: string;
   readonly status: ManualExecutionStatus;
   readonly executedAt?: string;
+  readonly reportedMonthlySavings?: number;
   readonly observedMonthlySavings?: number;
   readonly currency: string;
   readonly notes?: string;
@@ -370,7 +371,7 @@ export interface ManualExecutionResponse {
 
 export interface RecommendationTimelineEvent {
   readonly id: string;
-  readonly type: 'RECOMMENDATION_CREATED' | 'PLAN_GENERATED' | 'DECISION_RECORDED' | 'MANUAL_EXECUTION_RECORDED' | 'LEARNING_EVENT';
+  readonly type: 'RECOMMENDATION_CREATED' | 'PLAN_GENERATED' | 'DECISION_RECORDED' | 'MANUAL_EXECUTION_RECORDED' | 'SAVINGS_MEASUREMENT' | 'LEARNING_EVENT';
   readonly title: string;
   readonly description: string;
   readonly createdAt: string;
@@ -387,6 +388,9 @@ export interface SavingsKpisResponse {
   readonly savings: {
     readonly estimatedMonthlySavings: number;
     readonly observedMonthlySavings: number;
+    readonly userReportedMonthlySavings: number;
+    readonly verifiedMonthlySavings: number;
+    readonly costIncreaseMonthlyAmount: number;
     readonly confirmedMonthlySavings: number;
     readonly missedSavingsAmount: number;
     readonly currency: string;
@@ -663,6 +667,97 @@ export interface CloudConnectionSummary {
 export interface CloudConnectionsResponse {
   readonly success: true;
   readonly connections: readonly CloudConnectionSummary[];
+}
+
+export type SavingsMeasurementStatus =
+  | 'WAITING_FOR_DATA'
+  | 'READY'
+  | 'CALCULATED'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'FAILED';
+
+export interface SavingsMeasurement {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly recommendationId: string;
+  readonly manualExecutionId: string;
+  readonly executionPlanId?: string;
+  readonly status: SavingsMeasurementStatus;
+  readonly scope: string;
+  readonly provider: string;
+  readonly cloudAccountId: string;
+  readonly resourceId?: string;
+  readonly serviceName?: string;
+  readonly executedAt: string;
+  readonly baselineStart: string;
+  readonly baselineEnd: string;
+  readonly observationStart: string;
+  readonly observationEnd: string;
+  readonly windowDays: number;
+  readonly baselineCoveredDays: number;
+  readonly observationCoveredDays: number;
+  readonly coverageRatio: number;
+  readonly billingSource: string;
+  readonly costBasis?: 'EFFECTIVE' | 'BILLED';
+  readonly currency: string;
+  readonly baselineCost?: number;
+  readonly observationCost?: number;
+  readonly baselineDailyCost?: number;
+  readonly observationDailyCost?: number;
+  readonly observedSavings?: number;
+  readonly projectedMonthlySavings?: number;
+  readonly costIncreaseMonthlyAmount?: number;
+  readonly baselineQuantity?: number;
+  readonly observationQuantity?: number;
+  readonly consumedUnit?: string;
+  readonly calculationMethod: 'COST_DELTA' | 'UNIT_NORMALIZED';
+  readonly baselineUnitCost?: number;
+  readonly observationUnitCost?: number;
+  readonly quantityChangeRatio?: number;
+  readonly confidence?: number;
+  readonly confidenceLevel?: string;
+  readonly technicalValidationStatus: string;
+  readonly reasons: readonly string[];
+  readonly formula?: unknown;
+  readonly evidence?: unknown;
+  readonly evidenceHash: string;
+  readonly calculationVersion: string;
+  readonly verificationNote?: string;
+  readonly rejectionReason?: string;
+  readonly calculatedAt?: string;
+  readonly verifiedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface SavingsMeasurementReadiness {
+  readonly recommendationId: string;
+  readonly manualExecutionId?: string;
+  readonly status: SavingsMeasurementStatus | 'NO_EXECUTION';
+  readonly windowDays: number;
+  readonly baselineStart?: string;
+  readonly baselineEnd?: string;
+  readonly observationStart?: string;
+  readonly observationEnd?: string;
+  readonly availableThrough?: string;
+  readonly reasons: readonly string[];
+}
+
+export interface SavingsMeasurementReadinessResponse {
+  readonly success: true;
+  readonly readiness: SavingsMeasurementReadiness;
+}
+
+export interface SavingsMeasurementResponse {
+  readonly success: true;
+  readonly measurement: SavingsMeasurement;
+}
+
+export interface SavingsMeasurementsResponse {
+  readonly success: true;
+  readonly measurements: readonly SavingsMeasurement[];
 }
 
 export interface CloudProviderCatalogEntry {
@@ -1188,6 +1283,7 @@ export async function submitManualExecution(
     readonly executionPlanId?: string;
     readonly status: ManualExecutionStatus;
     readonly executedAt?: string;
+    readonly reportedMonthlySavings?: number;
     readonly observedMonthlySavings?: number;
     readonly currency?: string;
     readonly notes?: string;
@@ -1200,6 +1296,61 @@ export async function submitManualExecution(
       token,
       body: JSON.stringify(input),
     },
+  );
+}
+
+export async function fetchSavingsMeasurementReadiness(
+  token: string,
+  recommendationId: string,
+): Promise<SavingsMeasurementReadinessResponse> {
+  return apiRequest<SavingsMeasurementReadinessResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/readiness`,
+    { token },
+  );
+}
+
+export async function createSavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  input: { readonly manualExecutionId: string; readonly windowDays?: 7 | 14 | 30 },
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements`,
+    { method: 'POST', token, body: JSON.stringify(input) },
+  );
+}
+
+export async function fetchSavingsMeasurements(
+  token: string,
+  recommendationId: string,
+): Promise<SavingsMeasurementsResponse> {
+  return apiRequest<SavingsMeasurementsResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements`,
+    { token },
+  );
+}
+
+export async function verifySavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  measurementId: string,
+  note?: string,
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/${encodeURIComponent(measurementId)}/verify`,
+    { method: 'POST', token, body: JSON.stringify(note === undefined ? {} : { note }) },
+  );
+}
+
+export async function rejectSavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  measurementId: string,
+  reason: string,
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/${encodeURIComponent(measurementId)}/reject`,
+    { method: 'POST', token, body: JSON.stringify({ reason }) },
   );
 }
 

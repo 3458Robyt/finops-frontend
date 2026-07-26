@@ -126,8 +126,8 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
   const dashboardBudget = budgets.find((budget) => budget.scope === 'TENANT');
   const budgetUsage = budgetPerformance?.consumedPercent ?? 0;
   const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * 0.14);
-  const observedSavings = savingsKpis?.observedMonthlySavings ?? 0;
-  const roi = totalCost > 0 ? roundCurrency((observedSavings / totalCost) * 100) : 0;
+  const verifiedSavings = savingsKpis?.verifiedMonthlySavings ?? savingsKpis?.confirmedMonthlySavings ?? 0;
+  const roi = totalCost > 0 ? roundCurrency((verifiedSavings / totalCost) * 100) : 0;
   const openOpportunities = opportunities.filter((opportunity) => opportunity.status === 'OPEN').length;
   const acceptanceRate = adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0;
   const topUnitEconomics = unitEconomics.slice(0, 3);
@@ -188,7 +188,7 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
             <span className="material-symbols-outlined text-green-500 text-2xl lg:text-3xl">account_balance_wallet</span>
           </div>
           <div>
-            <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Adopcion / Ahorro real</h3>
+            <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Adopcion / Ahorro verificado</h3>
             <p className="text-2xl lg:text-3xl font-bold text-white">{loading ? '...' : `${roi.toFixed(1)}%`}</p>
             <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-green-500/20">
               {acceptanceRate.toFixed(0)}% aceptacion
