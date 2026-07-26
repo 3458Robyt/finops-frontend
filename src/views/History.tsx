@@ -29,7 +29,7 @@ export default function History({ token }: { readonly token: string }) {
           setRecommendations(recommendationResponse.recommendations);
           setSummary({
             estimated: savingsResponse.savings.estimatedMonthlySavings,
-            observed: savingsResponse.savings.observedMonthlySavings,
+            observed: savingsResponse.savings.verifiedMonthlySavings,
             acceptanceRate: adoptionResponse.adoption.acceptanceRate,
           });
         }
@@ -111,7 +111,7 @@ export default function History({ token }: { readonly token: string }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 border-t border-zinc-800">
             <SummaryCard label="Ahorro estimado" value={`$${summary.estimated.toFixed(2)}`} />
-            <SummaryCard label="Ahorro observado" value={`$${summary.observed.toFixed(2)}`} />
+            <SummaryCard label="Ahorro verificado" value={`$${summary.observed.toFixed(2)}`} />
             <SummaryCard label="Aceptacion" value={`${(summary.acceptanceRate * 100).toFixed(0)}%`} />
           </div>
         </div>
