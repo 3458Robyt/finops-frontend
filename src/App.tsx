@@ -13,12 +13,13 @@ import MasterAdmin from './views/MasterAdmin';
 import CloudInventory, { CloudResourceDetail } from './views/CloudInventory';
 import Budgets from './views/Budgets';
 import CostAllocation from './views/CostAllocation';
+import ValueRealization from './views/ValueRealization';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
@@ -93,6 +94,7 @@ case 'ingesta': return <Ingesta token={authSession.accessToken} canManage={['MAS
 case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
 case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
 case 'cost_allocation': return <CostAllocation token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
+case 'value_realization': return <ValueRealization token={authSession.accessToken} canReconcile={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenRecommendation={(id) => { setSelectedResourceType(id); setCurrentView('resource_detail'); }} />;
 case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(id) => { setSelectedCloudResourceId(id); setCurrentView('cloud_resource_detail'); }} />;
 case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
