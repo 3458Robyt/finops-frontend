@@ -190,7 +190,7 @@ test.describe('FinOps app E2E', () => {
     await page.locator('input').last().fill('31.75');
     await page.locator('textarea').last().fill('Ejecución manual validada en el entorno de prueba.');
     await page.getByRole('button', { name: /guardar ejecuci[oó]n manual/i }).click();
-    await expect(page.getByText(/ejecuci[oó]n manual registrada y kpi actualizado/i)).toBeVisible();
+    await expect(page.getByText(/ejecuci[oó]n registrada\. el ahorro se calculara/i)).toBeVisible();
     await expect(page.getByText(/recomendaci[oó]n aprobada/i)).toBeVisible();
     await expect(page.getByText('Ejecucion manual registrada', { exact: true })).toBeVisible();
 

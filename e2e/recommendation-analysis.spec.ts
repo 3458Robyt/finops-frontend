@@ -173,6 +173,20 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
       return json(route, { success: true, executionPlan: null });
     }
+    if (path.endsWith('/recommendations/rec-1/savings-measurements/readiness')) {
+      return json(route, {
+        success: true,
+        readiness: {
+          recommendationId: 'rec-1',
+          status: 'NO_EXECUTION',
+          windowDays: 7,
+          reasons: ['Aún no existe una ejecución manual.'],
+        },
+      });
+    }
+    if (path.endsWith('/recommendations/rec-1/savings-measurements')) {
+      return json(route, { success: true, measurements: [] });
+    }
     if (path.endsWith('/recommendations/rec-1/timeline')) {
       return json(route, { success: true, timeline: [] });
     }
