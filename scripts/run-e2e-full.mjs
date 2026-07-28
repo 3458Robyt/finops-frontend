@@ -27,7 +27,10 @@ async function isReachable(url) {
   }
 }
 
-async function waitFor(url, timeoutMs = 60_000) {
+// The TypeScript backend startup compiles the full composition root locally;
+// keep the E2E timeout above the observed cold-start ceiling without changing
+// the production runtime.
+async function waitFor(url, timeoutMs = 180_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await isReachable(url)) return;
@@ -59,7 +62,7 @@ function start(childCommand, args, env, cwd) {
   const child = spawn(spec.file, spec.args, {
     cwd,
     env,
-    stdio: 'ignore',
+    stdio: process.env.E2E_DEBUG === 'true' ? 'inherit' : 'ignore',
     detached: false,
     windowsHide: true,
   });
