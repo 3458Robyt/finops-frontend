@@ -135,4 +135,5 @@ try {
 } finally {
   await stop(frontend);
   await stop(backend);
+  await run(command('npm'), ['run', 'test:fixtures:cleanup'], { cwd: backendDir, env: fixtureEnv });
 }
