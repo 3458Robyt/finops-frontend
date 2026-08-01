@@ -153,7 +153,6 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByRole('heading', { name: /agregar y activar una cuenta cloud/i })).toBeVisible();
     const cloudConnectionSelector = page.getByLabel('Cuenta configurada');
     await cloudConnectionSelector.selectOption({ index: 1 });
-    console.log(`E2E onboarding state after selecting connection:\n${await page.locator('body').innerText()}`);
     await expect(page.getByText(/acceso seguro de solo lectura/i)).toBeVisible();
     await expect(page.getByText(/validar capacidades/i)).toBeVisible();
     await expect(page.getByText(/sincronización inicial/i)).toBeVisible();
