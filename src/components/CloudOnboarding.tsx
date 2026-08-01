@@ -193,7 +193,7 @@ export default function CloudOnboarding({ token, connections, canManage, onChang
         <div className="space-y-5">
           <div>
             <label htmlFor="onboarding-connection" className="text-xs font-bold uppercase tracking-widest text-zinc-500">Cuenta configurada</label>
-            <select id="onboarding-connection" value={selectedId} onChange={(event) => { setDetail(null); setSelectedId(event.target.value); }} className={inputClass}>
+            <select id="onboarding-connection" value={selectedId} onChange={(event) => { const nextId = event.target.value; if (nextId === selectedId) return; setDetail(null); setSelectedId(nextId); }} className={inputClass}>
               <option value="">Selecciona una conexión</option>
               {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.name} · {connection.providerCode.toUpperCase()}</option>)}
             </select>
