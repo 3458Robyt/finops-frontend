@@ -3,6 +3,11 @@ import {
   fetchLatestRecommendationExecutionPlan,
   fetchRecommendationById,
   fetchRecommendationTimeline,
+  fetchSavingsMeasurementReadiness,
+  fetchSavingsMeasurements,
+  createSavingsMeasurement,
+  verifySavingsMeasurement,
+  rejectSavingsMeasurement,
   generateRecommendationExecutionPlan,
   submitManualExecution,
   submitRecommendationDecision,
@@ -13,6 +18,8 @@ import {
   type RecommendationFeedbackReason,
   type RecommendationSeverity,
   type RecommendationTimelineEvent,
+  type SavingsMeasurement,
+  type SavingsMeasurementReadiness,
 } from '../services/api';
 
 interface ResourceDetailProps {
@@ -129,6 +136,11 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState<string | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
+  const [measurementReadiness, setMeasurementReadiness] = useState<SavingsMeasurementReadiness | null>(null);
+  const [measurements, setMeasurements] = useState<readonly SavingsMeasurement[]>([]);
+  const [measurementLoading, setMeasurementLoading] = useState(false);
+  const [measurementError, setMeasurementError] = useState<string | null>(null);
+  const [measurementActionLoading, setMeasurementActionLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -140,6 +152,9 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
     setDecisionNote('');
     setDecisionReasonCode('');
     setDecisionMode(null);
+    setMeasurementReadiness(null);
+    setMeasurements([]);
+    setMeasurementError(null);
     setPlanLookupLoading(true);
 
     fetchRecommendationById(token, recommendationId)
@@ -153,11 +168,17 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
         if (active) {
           setExecutionPlan(response.executionPlan);
         }
-        return fetchRecommendationTimeline(token, recommendationId);
+        return Promise.all([
+          fetchRecommendationTimeline(token, recommendationId),
+          fetchSavingsMeasurementReadiness(token, recommendationId),
+          fetchSavingsMeasurements(token, recommendationId),
+        ]);
       })
-      .then((response) => {
+      .then(([timelineResponse, readinessResponse, measurementsResponse]) => {
         if (active) {
-          setTimeline(response.timeline);
+          setTimeline(timelineResponse.timeline);
+          setMeasurementReadiness(readinessResponse.readiness);
+          setMeasurements(measurementsResponse.measurements);
         }
       })
       .catch((requestError) => {
@@ -307,7 +328,7 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
     const parsedSavings = manualSavings.trim() === '' ? undefined : Number.parseFloat(manualSavings);
 
     if (parsedSavings !== undefined && (!Number.isFinite(parsedSavings) || parsedSavings < 0)) {
-      setManualError('El ahorro observado debe ser un numero mayor o igual a cero.');
+      setManualError('El ahorro reportado debe ser un numero mayor o igual a cero.');
       return;
     }
 
@@ -320,7 +341,7 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
         executionPlanId: executionPlan.id,
         status: manualStatus,
         executedAt: new Date().toISOString(),
-        ...(parsedSavings !== undefined ? { observedMonthlySavings: parsedSavings } : {}),
+        ...(parsedSavings !== undefined ? { reportedMonthlySavings: parsedSavings } : {}),
         currency: recommendation.currency,
         ...(manualNotes.trim() !== '' ? { notes: manualNotes.trim() } : {}),
       });
@@ -329,15 +350,96 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
         setRecommendation(response.recommendation);
       }
 
-      const timelineResponse = await fetchRecommendationTimeline(token, recommendation.id);
+      if (response.execution.status === 'EXECUTED' || response.execution.status === 'PARTIAL') {
+        setMeasurementLoading(true);
+        try {
+          await createSavingsMeasurement(token, recommendation.id, {
+            manualExecutionId: response.execution.id,
+            windowDays: 7,
+          });
+        } catch (measurementRequestError) {
+          setMeasurementError(measurementRequestError instanceof Error ? measurementRequestError.message : 'No fue posible preparar la medicion');
+        } finally {
+          setMeasurementLoading(false);
+        }
+      }
+      const [timelineResponse, readinessResponse, measurementsResponse] = await Promise.all([
+        fetchRecommendationTimeline(token, recommendation.id),
+        fetchSavingsMeasurementReadiness(token, recommendation.id),
+        fetchSavingsMeasurements(token, recommendation.id),
+      ]);
       setTimeline(timelineResponse.timeline);
-      setManualMessage('Ejecucion manual registrada y KPI actualizado.');
+      setMeasurementReadiness(readinessResponse.readiness);
+      setMeasurements(measurementsResponse.measurements);
+      setManualMessage('Ejecucion registrada. El ahorro se calculara cuando exista una ventana posterior comparable.');
       setManualSavings('');
       setManualNotes('');
     } catch (requestError) {
       setManualError(requestError instanceof Error ? requestError.message : 'No fue posible registrar la ejecucion manual');
     } finally {
       setManualLoading(false);
+    }
+  };
+
+  const refreshSavingsMeasurements = async () => {
+    const [readinessResponse, measurementsResponse, timelineResponse] = await Promise.all([
+      fetchSavingsMeasurementReadiness(token, recommendation.id),
+      fetchSavingsMeasurements(token, recommendation.id),
+      fetchRecommendationTimeline(token, recommendation.id),
+    ]);
+    setMeasurementReadiness(readinessResponse.readiness);
+    setMeasurements(measurementsResponse.measurements);
+    setTimeline(timelineResponse.timeline);
+  };
+
+  const handleVerifyMeasurement = async () => {
+    const measurement = measurements[0];
+    if (measurement === undefined) return;
+    setMeasurementActionLoading(true);
+    setMeasurementError(null);
+    try {
+      await verifySavingsMeasurement(token, recommendation.id, measurement.id);
+      await refreshSavingsMeasurements();
+    } catch (requestError) {
+      setMeasurementError(requestError instanceof Error ? requestError.message : 'No fue posible verificar la medicion');
+    } finally {
+      setMeasurementActionLoading(false);
+    }
+  };
+
+  const handleCalculateMeasurement = async () => {
+    const manualExecutionId = measurements[0]?.manualExecutionId ?? measurementReadiness?.manualExecutionId;
+    if (manualExecutionId === undefined) return;
+    const readinessWindow = measurementReadiness?.windowDays;
+    const windowDays: 7 | 14 | 30 = measurements[0]?.windowDays === 14 || measurements[0]?.windowDays === 30
+      ? measurements[0].windowDays
+      : readinessWindow === 14 ? 14 : readinessWindow === 30 ? 30 : 7;
+    setMeasurementActionLoading(true);
+    setMeasurementError(null);
+    try {
+      await createSavingsMeasurement(token, recommendation.id, { manualExecutionId, windowDays });
+      await refreshSavingsMeasurements();
+    } catch (requestError) {
+      setMeasurementError(requestError instanceof Error ? requestError.message : 'No fue posible calcular la medicion');
+    } finally {
+      setMeasurementActionLoading(false);
+    }
+  };
+
+  const handleRejectMeasurement = async () => {
+    const measurement = measurements[0];
+    if (measurement === undefined) return;
+    const reason = window.prompt('Indica por que se rechaza la medicion:', 'La evidencia no es suficiente para confirmar el ahorro.');
+    if (reason === null || reason.trim() === '') return;
+    setMeasurementActionLoading(true);
+    setMeasurementError(null);
+    try {
+      await rejectSavingsMeasurement(token, recommendation.id, measurement.id, reason.trim());
+      await refreshSavingsMeasurements();
+    } catch (requestError) {
+      setMeasurementError(requestError instanceof Error ? requestError.message : 'No fue posible rechazar la medicion');
+    } finally {
+      setMeasurementActionLoading(false);
     }
   };
 
@@ -546,6 +648,22 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
               />
             )}
             <TimelinePanel events={timeline} />
+          </div>
+        )}
+        {(measurementReadiness !== null || measurements.length > 0) && (
+          <div className="mt-8">
+            <SavingsMeasurementPanel
+              readiness={measurementReadiness}
+              measurement={measurements[0]}
+              loading={measurementLoading}
+              actionLoading={measurementActionLoading}
+              error={measurementError}
+              canVerify={canApproveRecommendation(apiRole)}
+              canCalculate={canRegisterManualExecution}
+              onCalculate={() => void handleCalculateMeasurement()}
+              onVerify={() => void handleVerifyMeasurement()}
+              onReject={() => void handleRejectMeasurement()}
+            />
           </div>
         )}
       </div>
@@ -908,13 +1026,13 @@ function ManualExecutionPanel({
           </select>
         </label>
         <label className="block">
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Ahorro observado mensual ({currency})</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Ahorro reportado por el usuario ({currency})</span>
           <input
             value={savings}
             onChange={(event) => onSavingsChange(event.target.value)}
             inputMode="decimal"
             className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-bold text-zinc-100 outline-none focus:border-tak-yellow/60"
-            placeholder="0.00"
+          placeholder="Opcional; no es una verificacion"
           />
         </label>
         <label className="block">
@@ -938,6 +1056,108 @@ function ManualExecutionPanel({
       </div>
     </div>
   );
+}
+
+function SavingsMeasurementPanel({
+  readiness,
+  measurement,
+  loading,
+  actionLoading,
+  error,
+  canVerify,
+  canCalculate,
+  onCalculate,
+  onVerify,
+  onReject,
+}: {
+  readonly readiness: SavingsMeasurementReadiness | null;
+  readonly measurement?: SavingsMeasurement;
+  readonly loading: boolean;
+  readonly actionLoading: boolean;
+  readonly error: string | null;
+  readonly canVerify: boolean;
+  readonly canCalculate: boolean;
+  readonly onCalculate: () => void;
+  readonly onVerify: () => void;
+  readonly onReject: () => void;
+}) {
+  const status = measurement?.status ?? readiness?.status ?? 'NO_EXECUTION';
+  const statusLabel: Record<string, string> = {
+    NO_EXECUTION: 'Sin ejecución medible',
+    WAITING_FOR_DATA: 'Esperando datos posteriores',
+    READY: 'Lista para calcular',
+    CALCULATED: 'Calculada, pendiente de verificación humana',
+    INSUFFICIENT_EVIDENCE: 'Evidencia insuficiente',
+    VERIFIED: 'Ahorro verificado',
+    REJECTED: 'Medición rechazada',
+    FAILED: 'Error de medición',
+  };
+  const isIncrease = (measurement?.costIncreaseMonthlyAmount ?? 0) > 0;
+  const tone = status === 'VERIFIED'
+    ? 'border-green-500/30 bg-green-500/5'
+    : status === 'INSUFFICIENT_EVIDENCE' || isIncrease
+      ? 'border-amber-500/30 bg-amber-500/5'
+      : 'border-cyan-500/20 bg-cyan-500/5';
+
+  return (
+    <section className={`rounded-3xl border p-6 md:p-8 ${tone}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Medición verificable del ahorro</p>
+          <h4 className="mt-2 text-xl font-black text-white">Resultado después de ejecutar</h4>
+        </div>
+        <span className="rounded-full bg-zinc-950/60 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-200">{statusLabel[status] ?? status}</span>
+      </div>
+      {readiness !== null && readiness.reasons.length > 0 && (
+        <ul className="mt-5 space-y-2 text-xs font-medium text-zinc-400">
+          {readiness.reasons.map((reason) => <li key={reason}>• {reason}</li>)}
+        </ul>
+      )}
+      {measurement === undefined ? (
+        <p className="mt-5 text-sm font-medium text-zinc-400">Registra una ejecución con fecha para preparar la comparación de costos.</p>
+      ) : (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <MetricCard label="Ventana" value={`${measurement.windowDays} días · ${measurement.observationCoveredDays}/${measurement.windowDays} posteriores`} />
+          <MetricCard label="Antes" value={measurement.baselineCost === undefined ? 'Sin datos' : `${measurement.currency} ${measurement.baselineCost.toFixed(2)}`} />
+          <MetricCard label="Después" value={measurement.observationCost === undefined ? 'Sin datos' : `${measurement.currency} ${measurement.observationCost.toFixed(2)}`} />
+          <MetricCard label={isIncrease ? 'Aumento observado' : 'Ahorro observado'} value={measurement.observedSavings === undefined ? 'Sin cálculo' : `${measurement.currency} ${Math.abs(measurement.observedSavings).toFixed(2)}`} />
+          <MetricCard label={isIncrease ? 'Aumento mensual' : 'Ahorro mensual proyectado'} value={isIncrease ? `${measurement.currency} ${(measurement.costIncreaseMonthlyAmount ?? 0).toFixed(2)}` : measurement.projectedMonthlySavings === undefined ? 'Sin cálculo' : `${measurement.currency} ${measurement.projectedMonthlySavings.toFixed(2)}`} />
+        </div>
+      )}
+      {measurement !== undefined && (
+        <div className="mt-5 space-y-2 text-xs text-zinc-400">
+          <p>Ejecución: {formatDateTime(measurement.executedAt)} · Base: {formatDateTime(measurement.baselineStart)} → {formatDateTime(measurement.baselineEnd)} · Posterior: {formatDateTime(measurement.observationStart)} → {formatDateTime(measurement.observationEnd)}</p>
+          <p>Fuente: {measurement.billingSource} · Base de costo: {measurement.costBasis ?? 'no disponible'} · Cobertura: {(measurement.coverageRatio * 100).toFixed(0)}%</p>
+          <p>Consumo: {measurement.baselineQuantity?.toFixed(2) ?? 'sin dato'} → {measurement.observationQuantity?.toFixed(2) ?? 'sin dato'} {measurement.consumedUnit ?? ''}</p>
+          <p>Confianza: {measurement.confidenceLevel ?? 'no disponible'} · Validación técnica: {measurement.technicalValidationStatus}</p>
+          <p>Método: {measurement.calculationMethod === 'UNIT_NORMALIZED' ? 'costo por unidad normalizado' : 'diferencia de costo'}{measurement.consumedUnit !== undefined ? ` · Unidad: ${measurement.consumedUnit}` : ''}</p>
+          {measurement.quantityChangeRatio !== undefined && <p>Cambio de volumen: {(measurement.quantityChangeRatio * 100).toFixed(1)}%</p>}
+          <p>Fórmula: costo diario base = costo base / días base; costo diario posterior = costo posterior / días posteriores; proyección mensual = diferencia diaria × 30,4375.</p>
+          {measurement.reasons.length > 0 && <p className="text-amber-200">{measurement.reasons.join(' ')}</p>}
+        </div>
+      )}
+      {error !== null && <p className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs font-bold text-red-300">{error}</p>}
+      {canCalculate && measurementReadinessCanCalculate(status) && (
+        <button onClick={onCalculate} disabled={actionLoading || loading} className="mt-6 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-cyan-200 disabled:opacity-50">
+          {actionLoading ? 'Calculando...' : measurement === undefined ? 'Calcular ahorro' : 'Recalcular con datos disponibles'}
+        </button>
+      )}
+      {measurement !== undefined && canVerify && (measurement.status === 'CALCULATED' || measurement.status === 'INSUFFICIENT_EVIDENCE') && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button onClick={onVerify} disabled={actionLoading || loading || measurement.status !== 'CALCULATED'} className="rounded-2xl bg-green-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-950 disabled:opacity-50">
+            {actionLoading ? 'Guardando...' : 'Verificar ahorro'}
+          </button>
+          <button onClick={onReject} disabled={actionLoading || loading} className="rounded-2xl border border-zinc-700 bg-zinc-950/40 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-200 disabled:opacity-50">
+            Rechazar medición
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function measurementReadinessCanCalculate(status: string): boolean {
+  return status === 'READY' || status === 'WAITING_FOR_DATA' || status === 'CALCULATED' || status === 'INSUFFICIENT_EVIDENCE';
 }
 
 function TimelinePanel({ events }: { readonly events: readonly RecommendationTimelineEvent[] }) {

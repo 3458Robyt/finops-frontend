@@ -12,6 +12,76 @@ export type ApiRole =
   | 'CLIENT_VIEWER';
 export type AppRole = 'admin' | 'client';
 
+export interface ValueRealizationFilters {
+  readonly status?: string;
+  readonly currency?: string;
+  readonly provider?: string;
+  readonly cloudAccountId?: string;
+  readonly serviceName?: string;
+  readonly severity?: string;
+  readonly search?: string;
+  readonly onlyIncreases?: boolean;
+  readonly onlyPending?: boolean;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+export interface ValueRealizationCurrencySummary {
+  readonly currency: string;
+  readonly estimatedMonthlySavings: number;
+  readonly reportedMonthlySavings: number;
+  readonly observedSavings: number;
+  readonly projectedMonthlySavings: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly realizationRate: number;
+  readonly varianceAgainstEstimate: number;
+}
+export interface ValueRealizationSummary {
+  readonly generatedAt: string;
+  readonly currencies: readonly ValueRealizationCurrencySummary[];
+  readonly counts: Readonly<Record<string, number>>;
+}
+export interface ValueRealizationItem {
+  readonly recommendationId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly recommendationStatus: string;
+  readonly severity: string;
+  readonly type: string;
+  readonly cloudAccountId: string;
+  readonly cloudAccountName: string;
+  readonly provider: string;
+  readonly serviceName?: string;
+  readonly resourceId?: string;
+  readonly currency: string;
+  readonly estimatedMonthlySavings: number;
+  readonly reportedMonthlySavings: number;
+  readonly observedSavings?: number;
+  readonly projectedMonthlySavings?: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly varianceAgainstEstimate: number;
+  readonly coverageRatio?: number;
+  readonly confidenceLevel?: string;
+  readonly billingSource?: string;
+  readonly costBasis?: string;
+  readonly measurementStatus?: string;
+  readonly executedAt?: string;
+  readonly observationEnd?: string;
+  readonly verifiedAt?: string;
+  readonly nextAction: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+export interface ValueRealizationTrendPoint {
+  readonly period: string;
+  readonly currency: string;
+  readonly observedSavings: number;
+  readonly verifiedMonthlySavings: number;
+  readonly costIncreaseMonthlyAmount: number;
+  readonly verifiedMeasurements: number;
+}
+
 export type CostAllocationRuleStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
 export interface CostAllocationRule { readonly id: string; readonly name: string; readonly description?: string; readonly priority: number; readonly status: CostAllocationRuleStatus; readonly cloudAccountId?: string; readonly provider?: string; readonly serviceName?: string; readonly regionId?: string; readonly resourceId?: string; readonly tagKey?: string; readonly tagValue?: string; readonly costCenter?: string; readonly businessUnit?: string; readonly project?: string; readonly team?: string; readonly environment?: string; }
 export type CostAllocationRuleInput = Omit<CostAllocationRule, 'id'>;
@@ -354,6 +424,7 @@ export interface RecommendationManualExecution {
   readonly userId: string;
   readonly status: ManualExecutionStatus;
   readonly executedAt?: string;
+  readonly reportedMonthlySavings?: number;
   readonly observedMonthlySavings?: number;
   readonly currency: string;
   readonly notes?: string;
@@ -370,7 +441,7 @@ export interface ManualExecutionResponse {
 
 export interface RecommendationTimelineEvent {
   readonly id: string;
-  readonly type: 'RECOMMENDATION_CREATED' | 'PLAN_GENERATED' | 'DECISION_RECORDED' | 'MANUAL_EXECUTION_RECORDED' | 'LEARNING_EVENT';
+  readonly type: 'RECOMMENDATION_CREATED' | 'PLAN_GENERATED' | 'DECISION_RECORDED' | 'MANUAL_EXECUTION_RECORDED' | 'SAVINGS_MEASUREMENT' | 'LEARNING_EVENT';
   readonly title: string;
   readonly description: string;
   readonly createdAt: string;
@@ -387,6 +458,9 @@ export interface SavingsKpisResponse {
   readonly savings: {
     readonly estimatedMonthlySavings: number;
     readonly observedMonthlySavings: number;
+    readonly userReportedMonthlySavings: number;
+    readonly verifiedMonthlySavings: number;
+    readonly costIncreaseMonthlyAmount: number;
     readonly confirmedMonthlySavings: number;
     readonly missedSavingsAmount: number;
     readonly currency: string;
@@ -405,7 +479,10 @@ export interface SavingsKpisResponse {
 }
 
 export type InAppNotificationStatus = 'UNREAD' | 'READ' | 'DISMISSED';
-export type InAppNotificationType = 'SAVINGS_REMINDER';
+export type InAppNotificationType =
+  | 'SAVINGS_REMINDER'
+  | 'BUDGET_ALERT'
+  | 'RECOMMENDATION_ANALYSIS_COMPLETED';
 
 export interface InAppNotification {
   readonly id: string;
@@ -660,6 +737,97 @@ export interface CloudConnectionSummary {
 export interface CloudConnectionsResponse {
   readonly success: true;
   readonly connections: readonly CloudConnectionSummary[];
+}
+
+export type SavingsMeasurementStatus =
+  | 'WAITING_FOR_DATA'
+  | 'READY'
+  | 'CALCULATED'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'FAILED';
+
+export interface SavingsMeasurement {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly recommendationId: string;
+  readonly manualExecutionId: string;
+  readonly executionPlanId?: string;
+  readonly status: SavingsMeasurementStatus;
+  readonly scope: string;
+  readonly provider: string;
+  readonly cloudAccountId: string;
+  readonly resourceId?: string;
+  readonly serviceName?: string;
+  readonly executedAt: string;
+  readonly baselineStart: string;
+  readonly baselineEnd: string;
+  readonly observationStart: string;
+  readonly observationEnd: string;
+  readonly windowDays: number;
+  readonly baselineCoveredDays: number;
+  readonly observationCoveredDays: number;
+  readonly coverageRatio: number;
+  readonly billingSource: string;
+  readonly costBasis?: 'EFFECTIVE' | 'BILLED';
+  readonly currency: string;
+  readonly baselineCost?: number;
+  readonly observationCost?: number;
+  readonly baselineDailyCost?: number;
+  readonly observationDailyCost?: number;
+  readonly observedSavings?: number;
+  readonly projectedMonthlySavings?: number;
+  readonly costIncreaseMonthlyAmount?: number;
+  readonly baselineQuantity?: number;
+  readonly observationQuantity?: number;
+  readonly consumedUnit?: string;
+  readonly calculationMethod: 'COST_DELTA' | 'UNIT_NORMALIZED';
+  readonly baselineUnitCost?: number;
+  readonly observationUnitCost?: number;
+  readonly quantityChangeRatio?: number;
+  readonly confidence?: number;
+  readonly confidenceLevel?: string;
+  readonly technicalValidationStatus: string;
+  readonly reasons: readonly string[];
+  readonly formula?: unknown;
+  readonly evidence?: unknown;
+  readonly evidenceHash: string;
+  readonly calculationVersion: string;
+  readonly verificationNote?: string;
+  readonly rejectionReason?: string;
+  readonly calculatedAt?: string;
+  readonly verifiedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface SavingsMeasurementReadiness {
+  readonly recommendationId: string;
+  readonly manualExecutionId?: string;
+  readonly status: SavingsMeasurementStatus | 'NO_EXECUTION';
+  readonly windowDays: number;
+  readonly baselineStart?: string;
+  readonly baselineEnd?: string;
+  readonly observationStart?: string;
+  readonly observationEnd?: string;
+  readonly availableThrough?: string;
+  readonly reasons: readonly string[];
+}
+
+export interface SavingsMeasurementReadinessResponse {
+  readonly success: true;
+  readonly readiness: SavingsMeasurementReadiness;
+}
+
+export interface SavingsMeasurementResponse {
+  readonly success: true;
+  readonly measurement: SavingsMeasurement;
+}
+
+export interface SavingsMeasurementsResponse {
+  readonly success: true;
+  readonly measurements: readonly SavingsMeasurement[];
 }
 
 export interface CloudProviderCatalogEntry {
@@ -1185,6 +1353,7 @@ export async function submitManualExecution(
     readonly executionPlanId?: string;
     readonly status: ManualExecutionStatus;
     readonly executedAt?: string;
+    readonly reportedMonthlySavings?: number;
     readonly observedMonthlySavings?: number;
     readonly currency?: string;
     readonly notes?: string;
@@ -1197,6 +1366,61 @@ export async function submitManualExecution(
       token,
       body: JSON.stringify(input),
     },
+  );
+}
+
+export async function fetchSavingsMeasurementReadiness(
+  token: string,
+  recommendationId: string,
+): Promise<SavingsMeasurementReadinessResponse> {
+  return apiRequest<SavingsMeasurementReadinessResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/readiness`,
+    { token },
+  );
+}
+
+export async function createSavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  input: { readonly manualExecutionId: string; readonly windowDays?: 7 | 14 | 30 },
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements`,
+    { method: 'POST', token, body: JSON.stringify(input) },
+  );
+}
+
+export async function fetchSavingsMeasurements(
+  token: string,
+  recommendationId: string,
+): Promise<SavingsMeasurementsResponse> {
+  return apiRequest<SavingsMeasurementsResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements`,
+    { token },
+  );
+}
+
+export async function verifySavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  measurementId: string,
+  note?: string,
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/${encodeURIComponent(measurementId)}/verify`,
+    { method: 'POST', token, body: JSON.stringify(note === undefined ? {} : { note }) },
+  );
+}
+
+export async function rejectSavingsMeasurement(
+  token: string,
+  recommendationId: string,
+  measurementId: string,
+  reason: string,
+): Promise<SavingsMeasurementResponse> {
+  return apiRequest<SavingsMeasurementResponse>(
+    `/recommendations/${encodeURIComponent(recommendationId)}/savings-measurements/${encodeURIComponent(measurementId)}/reject`,
+    { method: 'POST', token, body: JSON.stringify({ reason }) },
   );
 }
 
@@ -1906,6 +2130,213 @@ export async function fetchTechnicalMetricsCoverage(
 ): Promise<TechnicalCoverageResponse> {
   const query = buildTechnicalMetricsQuery(params);
   return apiRequest<TechnicalCoverageResponse>(`/technical-metrics/coverage${query}`, { token });
+}
+
+export type RecommendationAnalysisStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'PARTIAL'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export type RecommendationAnalysisStage =
+  | 'QUEUED'
+  | 'SELECTING_DATA'
+  | 'DETERMINISTIC_ANALYSIS'
+  | 'EVIDENCE_GATE'
+  | 'AI_GENERATION'
+  | 'AI_AUDIT'
+  | 'PERSISTENCE'
+  | 'NOTIFICATION'
+  | 'FINISHED';
+
+export interface RecommendationAnalysisCandidate {
+  readonly candidateId: string;
+  readonly resourceId?: string;
+  readonly readiness: string;
+  readonly outcome: 'ELIGIBLE' | 'SKIPPED' | 'PUBLISHED' | 'REJECTED';
+  readonly reasons: readonly string[];
+  readonly recommendationId?: string;
+}
+
+export interface RecommendationAnalysisRun {
+  readonly id: string;
+  readonly trigger: 'MANUAL' | 'SCHEDULED' | 'POST_INGESTION' | 'RETRY';
+  readonly scope: 'TENANT' | 'RESOURCE';
+  readonly externalResourceId?: string;
+  readonly status: RecommendationAnalysisStatus;
+  readonly stage: RecommendationAnalysisStage;
+  readonly periodStart?: string;
+  readonly periodEnd?: string;
+  readonly evidenceHash?: string;
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  readonly resourcesEvaluated: number;
+  readonly candidatesFound: number;
+  readonly candidatesSkipped: number;
+  readonly recommendationsGenerated: number;
+  readonly recommendationsRejected: number;
+  readonly recommendationsPersisted: number;
+  readonly model?: string;
+  readonly auditorModel?: string;
+  readonly promptTokenEstimate: number;
+  readonly responseTokenEstimate: number;
+  readonly latencyMs?: number;
+  readonly errorCode?: string;
+  readonly errorMessage?: string;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly candidateResults?: readonly RecommendationAnalysisCandidate[];
+  readonly recommendations: readonly {
+    readonly recommendationId: string;
+    readonly candidateId?: string;
+    readonly disposition: 'CREATED' | 'REUSED';
+    readonly title: string;
+  }[];
+}
+
+export interface RecommendationAnalysisPreview {
+  readonly scope: 'TENANT' | 'RESOURCE';
+  readonly externalResourceId?: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly evidenceHash: string;
+  readonly resourcesEvaluated: number;
+  readonly candidatesFound: number;
+  readonly candidatesSkipped: number;
+  readonly readinessReport: {
+    readonly summary: string;
+    readonly candidates: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+    readonly blocked: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+    readonly deferred: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+  };
+}
+
+export async function fetchRecommendationAnalysisPreview(
+  token: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly preview: RecommendationAnalysisPreview }> {
+  return apiRequest('/ai/analysis-runs/readiness', {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function queueRecommendationAnalysis(
+  token: string,
+): Promise<{ readonly success: true; readonly reused: boolean; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest('/ai/analysis-runs', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchRecommendationAnalysisRuns(
+  token: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly runs: readonly RecommendationAnalysisRun[] }> {
+  return apiRequest('/ai/analysis-runs', {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchRecommendationAnalysisRun(
+  token: string,
+  runId: string,
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function cancelRecommendationAnalysis(
+  token: string,
+  runId: string,
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}/cancel`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function retryRecommendationAnalysis(
+  token: string,
+  runId: string,
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+  return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}/retry`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchValueRealizationSummary(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly summary: ValueRealizationSummary }> {
+  return apiRequest(`/value-realization/summary${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchValueRealizationItems(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly page: { readonly items: readonly ValueRealizationItem[]; readonly hasMore: boolean; readonly nextCursor?: string } }> {
+  return apiRequest(`/value-realization/items${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function fetchValueRealizationTrend(
+  token: string,
+  filters: ValueRealizationFilters = {},
+  options: { readonly signal?: AbortSignal } = {},
+): Promise<{ readonly success: true; readonly points: readonly ValueRealizationTrendPoint[] }> {
+  return apiRequest(`/value-realization/trend${buildValueRealizationQuery(filters)}`, {
+    token,
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  });
+}
+
+export async function reconcileValueRealization(token: string, limit = 50): Promise<{ readonly success: true; readonly result: Readonly<Record<string, number | string>> }> {
+  return apiRequest('/value-realization/reconcile', { method: 'POST', token, body: JSON.stringify({ limit }) });
+}
+
+export function valueRealizationExportUrl(filters: ValueRealizationFilters = {}): string {
+  return `${API_BASE_URL}/value-realization/export.csv${buildValueRealizationQuery(filters)}`;
+}
+
+export async function downloadValueRealizationCsv(token: string, filters: ValueRealizationFilters = {}): Promise<Blob> {
+  const response = await fetch(valueRealizationExportUrl(filters), { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new ApiRequestError('No fue posible exportar el valor realizado', { status: response.status });
+  return response.blob();
+}
+
+function buildValueRealizationQuery(filters: ValueRealizationFilters): string {
+  const query = new URLSearchParams();
+  for (const key of ['status', 'currency', 'provider', 'cloudAccountId', 'serviceName', 'severity', 'search', 'cursor'] as const) {
+    const value = filters[key];
+    if (value !== undefined && value !== '') query.set(key, value);
+  }
+  if (filters.onlyIncreases === true) query.set('onlyIncreases', 'true');
+  if (filters.onlyPending === true) query.set('onlyPending', 'true');
+  if (filters.pageSize !== undefined) query.set('pageSize', String(filters.pageSize));
+  const serialized = query.toString();
+  return serialized === '' ? '' : `?${serialized}`;
 }
 
 function buildTechnicalMetricsQuery(params: {

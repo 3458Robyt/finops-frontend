@@ -1,8 +1,8 @@
 
 type Role = 'admin' | 'client';
 type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation';
-type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'budgets' | 'cost_allocation';
+type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
+type NavView = 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'budgets' | 'cost_allocation' | 'value_realization';
 
 interface NavItem {
   id: NavView;
@@ -30,9 +30,10 @@ export default function BottomNav({ currentView, onViewChange, currentRole, apiR
     { id: 'cloud_inventory', icon: 'inventory_2', label: 'Inventario', roles: ['admin'] },
     { id: 'budgets', icon: 'account_balance_wallet', label: 'Presupuesto', roles: ['admin', 'client'] },
     { id: 'cost_allocation', icon: 'account_tree', label: 'Asignación', roles: ['admin', 'client'] },
+    { id: 'value_realization', icon: 'query_stats', label: 'Valor', roles: ['admin', 'client'] },
     { id: 'chat', icon: 'smart_toy', label: 'IA', roles: ['admin', 'client'] },
 { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
-{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin'] },
+{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente', roles: ['admin', 'client'] },
 { id: 'master_admin', icon: 'admin_panel_settings', label: 'MSP', roles: ['admin'], masterOnly: true },
 { id: 'profile', icon: 'person', label: 'Perfil', roles: ['admin', 'client'] },
 ];
