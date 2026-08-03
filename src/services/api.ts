@@ -1764,6 +1764,57 @@ export interface IngestionReadinessResponse {
   };
 }
 
+export type ResourceLinkReasonCode =
+  | 'EMPTY_RESOURCE_ID'
+  | 'INVENTORY_RESOURCE_NOT_FOUND'
+  | 'CONNECTION_NOT_AVAILABLE'
+  | 'AMBIGUOUS_RESOURCE_ID'
+  | 'SERVICE_LEVEL_COST'
+  | 'INVALID_EXISTING_REFERENCE';
+
+export interface ResourceLinkageTableCoverage {
+  readonly total: number;
+  readonly eligible: number;
+  readonly linked: number;
+  readonly unresolved: number;
+  readonly coveragePercent: number;
+  readonly reasons: Partial<Record<ResourceLinkReasonCode, number>>;
+}
+
+export interface ResourceLinkageResourceCoverage {
+  readonly id: string;
+  readonly externalResourceId: string;
+  readonly provider: string;
+  readonly serviceName: string;
+  readonly resourceType: string;
+  readonly status: string;
+  readonly costMetrics: number;
+  readonly metricSamples: number;
+  readonly recommendations: number;
+  readonly coverage: 'COST_AND_TECHNICAL' | 'COST_ONLY' | 'TECHNICAL_ONLY' | 'INVENTORY_ONLY';
+}
+
+export interface ResourceLinkageReadinessResponse {
+  readonly success: true;
+  readonly readiness: {
+    readonly generatedAt: string;
+    readonly status: 'READY' | 'PARTIAL' | 'BLOCKED' | 'NO_DATA';
+    readonly inventoryResources: number;
+    readonly linkedResourcesWithCost: number;
+    readonly linkedResourcesWithMetrics: number;
+    readonly linkedResourcesWithBoth: number;
+    readonly costs: ResourceLinkageTableCoverage;
+    readonly metrics: ResourceLinkageTableCoverage;
+    readonly recommendations: ResourceLinkageTableCoverage;
+    readonly resources: readonly ResourceLinkageResourceCoverage[];
+    readonly latestReconciliation?: {
+      readonly observedAt: string;
+      readonly status: string;
+      readonly details?: Readonly<Record<string, unknown>>;
+    };
+  };
+}
+
 /**
  * Obtiene el historial de trabajos de ingesta del tenant autenticado.
  * El backend acota `limit` al rango [1, 200] (por defecto 50).
@@ -1790,6 +1841,10 @@ export async function fetchDataQualityChecks(
 
 export async function fetchIngestionReadiness(token: string): Promise<IngestionReadinessResponse> {
   return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', { token });
+}
+
+export async function fetchResourceLinkageReadiness(token: string): Promise<ResourceLinkageReadinessResponse> {
+  return apiRequest<ResourceLinkageReadinessResponse>('/ingestion/resource-linkage?limit=50', { token });
 }
 
 /**

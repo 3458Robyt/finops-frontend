@@ -7,6 +7,7 @@ import {
   fetchCloudConnections,
   fetchIngestionHistory,
   fetchIngestionReadiness,
+  fetchResourceLinkageReadiness,
   queueIngestionJob,
   queueTechnicalMetricBackfill,
   type CloudConnectionSummary,
@@ -18,6 +19,8 @@ import {
   type IngestionReadinessConnectionSummary,
   type IngestionReadinessIssue,
   type IngestionSourceType,
+  type ResourceLinkageReadinessResponse,
+  type ResourceLinkReasonCode,
 } from '../services/api';
 
 /** Etiquetas en español para el tipo de fuente de ingesta. */
@@ -50,6 +53,29 @@ const readinessSeverityStyles: Readonly<Record<IngestionReadinessIssue['severity
   BLOCKER: { label: 'Bloqueante', className: 'bg-red-500/15 text-red-300' },
 };
 
+const resourceLinkageStatusStyles: Readonly<Record<ResourceLinkageReadinessResponse['readiness']['status'], { readonly label: string; readonly className: string }>> = {
+  READY: { label: 'Trazabilidad lista', className: 'bg-green-500/15 text-green-300' },
+  PARTIAL: { label: 'Cobertura parcial', className: 'bg-tak-yellow/15 text-tak-yellow' },
+  BLOCKED: { label: 'Bloqueada', className: 'bg-red-500/15 text-red-300' },
+  NO_DATA: { label: 'Sin datos', className: 'bg-zinc-800 text-zinc-400' },
+};
+
+const resourceLinkageCoverageLabels: Readonly<Record<ResourceLinkageReadinessResponse['readiness']['resources'][number]['coverage'], string>> = {
+  COST_AND_TECHNICAL: 'Costo + técnica',
+  COST_ONLY: 'Solo costo',
+  TECHNICAL_ONLY: 'Solo técnica',
+  INVENTORY_ONLY: 'Solo inventario',
+};
+
+const resourceLinkReasonLabels: Readonly<Record<ResourceLinkReasonCode, string>> = {
+  EMPTY_RESOURCE_ID: 'Identificador vacío',
+  INVENTORY_RESOURCE_NOT_FOUND: 'No existe en inventario',
+  CONNECTION_NOT_AVAILABLE: 'Sin conexión cloud',
+  AMBIGUOUS_RESOURCE_ID: 'Identificador ambiguo',
+  SERVICE_LEVEL_COST: 'Costo a nivel de servicio',
+  INVALID_EXISTING_REFERENCE: 'Referencia existente inválida',
+};
+
 export default function Ingesta({ token, canManage, onNavigate }: {
   readonly token: string;
   readonly canManage: boolean;
@@ -62,6 +88,7 @@ export default function Ingesta({ token, canManage, onNavigate }: {
   const [readinessGeneratedAt, setReadinessGeneratedAt] = useState<string | null>(null);
   const [readinessConnections, setReadinessConnections] = useState<readonly IngestionReadinessConnectionSummary[]>([]);
   const [readinessIssues, setReadinessIssues] = useState<readonly IngestionReadinessIssue[]>([]);
+  const [resourceLinkage, setResourceLinkage] = useState<ResourceLinkageReadinessResponse['readiness'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueing, setQueueing] = useState(false);
@@ -93,11 +120,12 @@ export default function Ingesta({ token, canManage, onNavigate }: {
     setError(null);
 
     try {
-      const [connectionsResponse, historyResponse, qualityResponse, readinessResponse] = await Promise.all([
+      const [connectionsResponse, historyResponse, qualityResponse, readinessResponse, resourceLinkageResponse] = await Promise.all([
       fetchCloudConnections(token),
       fetchIngestionHistory(token),
       fetchDataQualityChecks(token),
       fetchIngestionReadiness(token),
+      fetchResourceLinkageReadiness(token),
       ]);
       if (active()) {
         setConnections(connectionsResponse.connections);
@@ -107,6 +135,7 @@ export default function Ingesta({ token, canManage, onNavigate }: {
         setReadinessGeneratedAt(readinessResponse.readiness.generatedAt);
         setReadinessConnections(readinessResponse.readiness.connections);
         setReadinessIssues(readinessResponse.readiness.issues);
+        setResourceLinkage(resourceLinkageResponse.readiness);
         const defaultConnectionId = connectionsResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '';
         setCloudConnectionId((current) => current === '' ? defaultConnectionId : current);
         setBackfillConnectionId((current) => current === '' ? defaultConnectionId : current);
@@ -121,6 +150,7 @@ export default function Ingesta({ token, canManage, onNavigate }: {
         setReadinessGeneratedAt(null);
         setReadinessConnections([]);
         setReadinessIssues([]);
+        setResourceLinkage(null);
         setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
       }
     } finally {
@@ -319,6 +349,64 @@ export default function Ingesta({ token, canManage, onNavigate }: {
           </div>
         </div>
       </section>
+
+      {resourceLinkage !== null && (
+        <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+          <div className="flex flex-col gap-3 border-b border-zinc-800 p-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-tak-yellow">account_tree</span>
+                <h3 className="text-lg font-bold text-white">Trazabilidad normalizada por recurso</h3>
+              </div>
+              <p className="mt-1 max-w-3xl text-xs leading-relaxed text-zinc-500">
+                Mide si costos, métricas y recomendaciones apuntan al mismo recurso inventariado. Un costo sin vínculo no se mezcla con métricas por nombre.
+              </p>
+            </div>
+            <StatusBadge {...resourceLinkageStatusStyles[resourceLinkage.status]} />
+          </div>
+          <div className="grid gap-3 p-6 sm:grid-cols-2 xl:grid-cols-4">
+            <CoverageCard label="Recursos inventariados" value={String(resourceLinkage.inventoryResources)} detail="Identidad canónica" />
+            <CoverageCard label="Costos enlazados" value={`${resourceLinkage.costs.coveragePercent}%`} detail={`${resourceLinkage.costs.linked} de ${resourceLinkage.costs.eligible} elegibles`} />
+            <CoverageCard label="Métricas enlazadas" value={`${resourceLinkage.metrics.coveragePercent}%`} detail={`${resourceLinkage.metrics.linked} de ${resourceLinkage.metrics.eligible}`} />
+            <CoverageCard label="Recursos con costo y técnica" value={String(resourceLinkage.linkedResourcesWithBoth)} detail="Base mínima para IA técnica" />
+          </div>
+          <div className="grid gap-6 border-t border-zinc-800 p-6 lg:grid-cols-[1.4fr_0.8fr]">
+            <div>
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-zinc-500">Muestra de inventario cruzado</p>
+              <div className="overflow-x-auto rounded-2xl border border-zinc-800">
+                <table className="w-full min-w-[640px] text-left">
+                  <thead className="bg-zinc-950/60 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    <tr><th className="p-3">Recurso</th><th className="p-3">Cobertura</th><th className="p-3">Costos</th><th className="p-3">Métricas</th><th className="p-3">Recomendaciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {resourceLinkage.resources.length === 0 ? (
+                      <tr><td colSpan={5} className="p-4 text-sm text-zinc-500">Todavía no hay recursos inventariados.</td></tr>
+                    ) : resourceLinkage.resources.map((resource) => (
+                      <tr key={resource.id} className="border-t border-zinc-800/70 text-sm">
+                        <td className="p-3"><p className="font-bold text-white">{resource.externalResourceId}</p><p className="text-xs text-zinc-500">{resource.serviceName} · {resource.provider.toUpperCase()}</p></td>
+                        <td className="p-3 text-xs font-bold text-zinc-300">{resourceLinkageCoverageLabels[resource.coverage]}</td>
+                        <td className="p-3 text-zinc-300">{resource.costMetrics}</td>
+                        <td className="p-3 text-zinc-300">{resource.metricSamples}</td>
+                        <td className="p-3 text-zinc-300">{resource.recommendations}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Razones de no vínculo</p>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">Estos registros quedan fuera de la evidencia técnica hasta que exista una identidad exacta.</p>
+              </div>
+              <CoverageReasons label="Costos" reasons={resourceLinkage.costs.reasons} />
+              <CoverageReasons label="Métricas" reasons={resourceLinkage.metrics.reasons} />
+              <CoverageReasons label="Recomendaciones" reasons={resourceLinkage.recommendations.reasons} />
+              {resourceLinkage.latestReconciliation !== undefined && <p className="text-[11px] text-zinc-600">Última reconciliación: {formatDateTime(resourceLinkage.latestReconciliation.observedAt)}</p>}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
         <div className="p-6 border-b border-zinc-800 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -709,6 +797,38 @@ function ReadinessLine({ label, value }: { readonly label: string; readonly valu
     <div>
       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{label}</p>
       <p className="mt-1 text-xs font-medium text-zinc-300">{value}</p>
+    </div>
+  );
+}
+
+function CoverageCard({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail: string }) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{label}</p>
+      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+    </div>
+  );
+}
+
+function CoverageReasons({
+  label,
+  reasons,
+}: {
+  readonly label: string;
+  readonly reasons: Partial<Record<ResourceLinkReasonCode, number>>;
+}) {
+  const entries = Object.entries(reasons).filter(([, count]) => typeof count === 'number' && count > 0) as [ResourceLinkReasonCode, number][];
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <p className="text-xs font-bold text-zinc-300">{label}</p>
+      {entries.length === 0 ? (
+        <p className="mt-2 text-xs text-green-300">Sin registros pendientes.</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+          {entries.map(([reason, count]) => <li key={reason} className="flex justify-between gap-3"><span>{resourceLinkReasonLabels[reason]}</span><span className="font-bold text-tak-yellow">{count}</span></li>)}
+        </ul>
+      )}
     </div>
   );
 }
