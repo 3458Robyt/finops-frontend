@@ -1113,7 +1113,7 @@ export async function updateCostAllocationRule(token: string, ruleId: string, in
 export async function previewCostAllocationRule(token: string, rule: CostAllocationRuleInput, period: string): Promise<{ readonly success: true; readonly preview: AllocationPreview }> { return apiRequest('/cost-allocation/preview', { method: 'POST', token, body: JSON.stringify({ rule, period }) }); }
 export async function activateCostAllocationRule(token: string, ruleId: string): Promise<{ readonly success: true; readonly rule: CostAllocationRule }> { return apiRequest(`/cost-allocation/rules/${encodeURIComponent(ruleId)}/activate`, { method: 'POST', token }); }
 export async function archiveCostAllocationRule(token: string, ruleId: string): Promise<{ readonly success: true; readonly rule: CostAllocationRule }> { return apiRequest(`/cost-allocation/rules/${encodeURIComponent(ruleId)}/archive`, { method: 'POST', token }); }
-export async function fetchResourceAllocation(token: string, resourceId: string): Promise<{ readonly success: true; readonly summary: readonly AllocationSummary[] }> { return apiRequest(`/cost-allocation/resource/${encodeURIComponent(resourceId)}`, { token }); }
+export async function fetchResourceAllocation(token: string, resourceId: string, cloudResourceId?: string): Promise<{ readonly success: true; readonly summary: readonly AllocationSummary[] }> { const query = cloudResourceId === undefined ? '' : `?cloudResourceId=${encodeURIComponent(cloudResourceId)}`; return apiRequest(`/cost-allocation/resource/${encodeURIComponent(resourceId)}${query}`, { token }); }
 export async function downloadCostAllocationCsv(token: string, period: string): Promise<string> { const response = await fetch(`${API_BASE_URL}/cost-allocation/export.csv?period=${encodeURIComponent(period)}`, { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error(`No fue posible exportar el CSV (${response.status})`); return response.text(); }
 
 export async function fetchBudgets(token: string, filters: { readonly period?: string; readonly cloudAccountId?: string; readonly serviceName?: string } = {}): Promise<BudgetsResponse> {
@@ -1243,11 +1243,14 @@ export async function fetchCosts(
 
 export async function fetchRecommendations(
   token: string,
-  filters: { readonly externalResourceId?: string } = {},
+  filters: { readonly externalResourceId?: string; readonly cloudResourceId?: string } = {},
 ): Promise<RecommendationsResponse> {
   const params = new URLSearchParams();
   if (filters.externalResourceId !== undefined) {
     params.set('externalResourceId', filters.externalResourceId);
+  }
+  if (filters.cloudResourceId !== undefined) {
+    params.set('cloudResourceId', filters.cloudResourceId);
   }
   const query = params.size > 0 ? `?${params.toString()}` : '';
 
@@ -1478,11 +1481,16 @@ export async function generateAiRecommendations(
   token: string,
   persist = false,
   externalResourceId?: string,
+  cloudResourceId?: string,
 ): Promise<AiRecommendationGenerationResponse> {
   return apiRequest<AiRecommendationGenerationResponse>('/ai/recommendations/generate', {
     method: 'POST',
     token,
-    body: JSON.stringify({ persist, ...(externalResourceId !== undefined ? { externalResourceId } : {}) }),
+    body: JSON.stringify({
+      persist,
+      ...(externalResourceId !== undefined ? { externalResourceId } : {}),
+      ...(cloudResourceId !== undefined ? { cloudResourceId } : {}),
+    }),
   });
 }
 
@@ -1772,17 +1780,35 @@ export type ResourceLinkReasonCode =
   | 'SERVICE_LEVEL_COST'
   | 'INVALID_EXISTING_REFERENCE';
 
+export type ResourceEvidenceStatus =
+  | 'EVIDENCE_COMPLETE'
+  | 'COST_ONLY'
+  | 'TECHNICAL_ONLY'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'STALE_DATA';
+
+export type ResourceFreshnessStatus = 'FRESH' | 'STALE' | 'NO_DATA';
+
+export interface ResourceFreshness {
+  readonly inventory: { readonly status: ResourceFreshnessStatus; readonly observedAt?: string };
+  readonly costs: { readonly status: ResourceFreshnessStatus; readonly observedAt?: string };
+  readonly metrics: { readonly status: ResourceFreshnessStatus; readonly observedAt?: string };
+}
+
 export interface ResourceLinkageTableCoverage {
   readonly total: number;
   readonly eligible: number;
   readonly linked: number;
+  readonly notEligible: number;
   readonly unresolved: number;
+  readonly ambiguous: number;
   readonly coveragePercent: number;
   readonly reasons: Partial<Record<ResourceLinkReasonCode, number>>;
 }
 
 export interface ResourceLinkageResourceCoverage {
   readonly id: string;
+  readonly cloudConnectionId: string;
   readonly externalResourceId: string;
   readonly provider: string;
   readonly serviceName: string;
@@ -1792,6 +1818,22 @@ export interface ResourceLinkageResourceCoverage {
   readonly metricSamples: number;
   readonly recommendations: number;
   readonly coverage: 'COST_AND_TECHNICAL' | 'COST_ONLY' | 'TECHNICAL_ONLY' | 'INVENTORY_ONLY';
+  readonly evidenceStatus: ResourceEvidenceStatus;
+  readonly freshness: ResourceFreshness;
+  readonly latestCostAt?: string;
+  readonly latestMetricAt?: string;
+}
+
+export interface ResourceLinkageConnectionReadiness {
+  readonly id: string;
+  readonly name: string;
+  readonly provider: string;
+  readonly inventoryResources: number;
+  readonly costs: ResourceLinkageTableCoverage;
+  readonly metrics: ResourceLinkageTableCoverage;
+  readonly recommendations: ResourceLinkageTableCoverage;
+  readonly freshness: ResourceFreshness;
+  readonly status: 'READY' | 'PARTIAL' | 'BLOCKED' | 'NO_DATA';
 }
 
 export interface ResourceLinkageReadinessResponse {
@@ -1807,6 +1849,9 @@ export interface ResourceLinkageReadinessResponse {
     readonly metrics: ResourceLinkageTableCoverage;
     readonly recommendations: ResourceLinkageTableCoverage;
     readonly resources: readonly ResourceLinkageResourceCoverage[];
+    readonly connections: readonly ResourceLinkageConnectionReadiness[];
+    readonly freshness: ResourceFreshness;
+    readonly technicalRecommendationBlockers: readonly string[];
     readonly latestReconciliation?: {
       readonly observedAt: string;
       readonly status: string;
@@ -1887,6 +1932,7 @@ export type CloudResourceStatus = 'ACTIVE' | 'STOPPED' | 'TERMINATED' | 'UNKNOWN
 
 export interface CloudResourceItem {
   readonly id: string;
+  readonly cloudConnectionId?: string;
   readonly provider: string;
   readonly externalResourceId: string;
   readonly name?: string;
@@ -1896,6 +1942,15 @@ export interface CloudResourceItem {
   readonly status: CloudResourceStatus;
   readonly firstSeenAt: string;
   readonly lastSeenAt: string;
+  readonly lineage?: {
+    readonly status: ResourceEvidenceStatus;
+    readonly linkedCostCount: number;
+    readonly linkedMetricSampleCount: number;
+    readonly linkedRecommendationCount: number;
+    readonly latestCostAt?: string;
+    readonly latestMetricAt?: string;
+    readonly freshness: ResourceFreshness;
+  };
 }
 
 export interface ResourceMetricSampleItem {
@@ -1960,6 +2015,7 @@ export interface TechnicalMetricSummaryItem {
   readonly provider: string;
   readonly externalResourceId: string;
   readonly cloudResourceId?: string;
+  readonly cloudConnectionId?: string;
   readonly resourceType?: string;
   readonly serviceName?: string;
   readonly metricName: string;
@@ -1993,6 +2049,8 @@ export interface TechnicalMetricKpi {
 
 export interface TechnicalMetricResourceSummary {
   readonly externalResourceId: string;
+  readonly cloudResourceId?: string;
+  readonly cloudConnectionId?: string;
   readonly provider: string;
   readonly name?: string;
   readonly serviceName?: string;
@@ -2040,6 +2098,7 @@ export interface TechnicalMetricsOverview {
 export interface TechnicalMetricSeriesPoint {
   readonly bucketStart: string;
   readonly externalResourceId: string;
+  readonly cloudResourceId?: string;
   readonly metricName: string;
   readonly metricUnit?: string;
   readonly avg: number;
@@ -2123,9 +2182,11 @@ export async function fetchTechnicalResources(
 export async function fetchTechnicalResourceSummary(
   token: string,
   externalResourceId: string,
+  cloudResourceId?: string,
 ): Promise<TechnicalResourceSummaryResponse> {
+  const query = cloudResourceId === undefined ? '' : `?cloudResourceId=${encodeURIComponent(cloudResourceId)}`;
   return apiRequest<TechnicalResourceSummaryResponse>(
-    `/technical-metrics/resources/${encodeURIComponent(externalResourceId)}/summary`,
+    `/technical-metrics/resources/${encodeURIComponent(externalResourceId)}/summary${query}`,
     { token },
   );
 }
@@ -2148,6 +2209,7 @@ export async function fetchTechnicalMetricsOverview(
     readonly startDate?: string;
     readonly endDate?: string;
     readonly externalResourceId?: string;
+    readonly cloudResourceId?: string;
     readonly metricNames?: readonly string[];
   } = {},
 ): Promise<TechnicalOverviewResponse> {
@@ -2161,6 +2223,7 @@ export async function fetchTechnicalMetricSeries(
     readonly startDate?: string;
     readonly endDate?: string;
     readonly externalResourceId?: string;
+    readonly cloudResourceId?: string;
     readonly metricNames?: readonly string[];
     readonly bucket?: TechnicalMetricBucket;
     readonly cursor?: string;
@@ -2181,6 +2244,7 @@ export async function fetchTechnicalMetricsCoverage(
     readonly startDate?: string;
     readonly endDate?: string;
     readonly externalResourceId?: string;
+    readonly cloudResourceId?: string;
   } = {},
 ): Promise<TechnicalCoverageResponse> {
   const query = buildTechnicalMetricsQuery(params);
@@ -2221,6 +2285,7 @@ export interface RecommendationAnalysisRun {
   readonly trigger: 'MANUAL' | 'SCHEDULED' | 'POST_INGESTION' | 'RETRY';
   readonly scope: 'TENANT' | 'RESOURCE';
   readonly externalResourceId?: string;
+  readonly cloudResourceId?: string;
   readonly status: RecommendationAnalysisStatus;
   readonly stage: RecommendationAnalysisStage;
   readonly periodStart?: string;
@@ -2398,6 +2463,7 @@ function buildTechnicalMetricsQuery(params: {
   readonly startDate?: string;
   readonly endDate?: string;
   readonly externalResourceId?: string;
+  readonly cloudResourceId?: string;
   readonly metricNames?: readonly string[];
   readonly bucket?: TechnicalMetricBucket;
   readonly cursor?: string;
@@ -2413,6 +2479,9 @@ function buildTechnicalMetricsQuery(params: {
   }
   if (params.externalResourceId !== undefined) {
     query.set('externalResourceId', params.externalResourceId);
+  }
+  if (params.cloudResourceId !== undefined) {
+    query.set('cloudResourceId', params.cloudResourceId);
   }
   if (params.metricNames !== undefined && params.metricNames.length > 0) {
     query.set('metricNames', params.metricNames.join(','));

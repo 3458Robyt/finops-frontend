@@ -26,6 +26,7 @@ function App() {
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
   const [selectedCloudResourceId, setSelectedCloudResourceId] = useState<string | null>(null);
+  const [selectedCloudResourceCanonicalId, setSelectedCloudResourceCanonicalId] = useState<string | null>(null);
 
   const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
 
@@ -95,8 +96,8 @@ case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToke
 case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
 case 'cost_allocation': return <CostAllocation token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
 case 'value_realization': return <ValueRealization token={authSession.accessToken} canReconcile={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenRecommendation={(id) => { setSelectedResourceType(id); setCurrentView('resource_detail'); }} />;
-case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(id) => { setSelectedCloudResourceId(id); setCurrentView('cloud_resource_detail'); }} />;
-case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} onBack={() => setCurrentView('cloud_inventory')} />;
+case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(resource) => { setSelectedCloudResourceId(resource.externalResourceId); setSelectedCloudResourceCanonicalId(resource.id); setCurrentView('cloud_resource_detail'); }} />;
+case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} cloudResourceId={selectedCloudResourceCanonicalId ?? undefined} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
 : <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;

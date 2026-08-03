@@ -13,8 +13,16 @@ import {
 
 interface CloudInventoryProps {
   readonly token: string;
-  readonly onOpenResource: (externalResourceId: string) => void;
+  readonly onOpenResource: (resource: CloudResourceItem) => void;
 }
+
+const evidenceStatusLabels: Readonly<Record<NonNullable<CloudResourceItem['lineage']>['status'], string>> = {
+  EVIDENCE_COMPLETE: 'Completa',
+  COST_ONLY: 'Solo costo',
+  TECHNICAL_ONLY: 'Solo métricas',
+  INSUFFICIENT_EVIDENCE: 'Insuficiente',
+  STALE_DATA: 'Desactualizada',
+};
 
 export default function CloudInventory({ token, onOpenResource }: CloudInventoryProps) {
   const [resources, setResources] = useState<readonly CloudResourceItem[]>([]);
@@ -49,12 +57,14 @@ export default function CloudInventory({ token, onOpenResource }: CloudInventory
     </div>
     {error !== null && <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>}
     <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-      <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b border-zinc-800 bg-zinc-950/50 text-xs uppercase tracking-wider text-zinc-500"><tr><th className="p-4">Recurso</th><th>Proveedor</th><th>Servicio</th><th>Región</th><th>Estado</th><th>Última vez visto</th><th /></tr></thead>
+      <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">
+        <thead className="border-b border-zinc-800 bg-zinc-950/50 text-xs uppercase tracking-wider text-zinc-500"><tr><th className="p-4">Recurso</th><th>Proveedor</th><th>Servicio</th><th>Región</th><th>Evidencia</th><th>Estado</th><th>Última vez visto</th><th /></tr></thead>
         <tbody>{filtered.map((resource) => <tr key={resource.id} className="border-b border-zinc-800/70 text-zinc-300">
           <td className="p-4"><p className="font-bold text-white">{resource.name ?? resource.externalResourceId}</p><p className="max-w-[260px] truncate text-xs text-zinc-500">{resource.externalResourceId}</p></td>
-          <td>{resource.provider}</td><td>{resource.serviceName}<p className="text-xs text-zinc-500">{resource.resourceType}</p></td><td>{resource.regionId ?? '—'}</td><td>{resource.status}</td><td>{formatDate(resource.lastSeenAt)}</td>
-          <td className="p-4 text-right"><button onClick={() => onOpenResource(resource.externalResourceId)} className="rounded-lg bg-tak-yellow px-3 py-2 text-xs font-black text-zinc-950">Ver detalle</button></td>
+          <td>{resource.provider}</td><td>{resource.serviceName}<p className="text-xs text-zinc-500">{resource.resourceType}</p></td><td>{resource.regionId ?? '—'}</td>
+          <td><p className="font-bold text-white">{resource.lineage !== undefined ? evidenceStatusLabels[resource.lineage.status] : 'Sin evaluar'}</p><p className="text-xs text-zinc-500">{resource.lineage !== undefined ? `${resource.lineage.linkedCostCount} costos · ${resource.lineage.linkedMetricSampleCount} métricas` : 'Requiere readiness'}</p></td>
+          <td>{resource.status}</td><td>{formatDate(resource.lastSeenAt)}</td>
+          <td className="p-4 text-right"><button onClick={() => onOpenResource(resource)} className="rounded-lg bg-tak-yellow px-3 py-2 text-xs font-black text-zinc-950">Ver detalle</button></td>
         </tr>)}</tbody>
       </table></div>
       {filtered.length === 0 && <p className="p-8 text-center text-sm text-zinc-500">No hay recursos que coincidan con los filtros.</p>}
@@ -62,7 +72,7 @@ export default function CloudInventory({ token, onOpenResource }: CloudInventory
   </div>;
 }
 
-export function CloudResourceDetail({ token, externalResourceId, onBack }: { readonly token: string; readonly externalResourceId: string; readonly onBack: () => void }) {
+export function CloudResourceDetail({ token, externalResourceId, cloudResourceId, onBack }: { readonly token: string; readonly externalResourceId: string; readonly cloudResourceId?: string; readonly onBack: () => void }) {
   const [summary, setSummary] = useState<TechnicalResourceSummary | null>(null);
   const [allocation, setAllocation] = useState<readonly AllocationSummary[]>([]);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
@@ -76,9 +86,9 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
     setSummary(null); setRecommendations([]); setAllocation([]); setError(null); setAllocationError(null); setRecommendationsError(null);
     void (async () => {
       const [resourceResult, recommendationResult, allocationResult] = await Promise.allSettled([
-        fetchTechnicalResourceSummary(token, externalResourceId),
-        fetchRecommendations(token, { externalResourceId }),
-        fetchResourceAllocation(token, externalResourceId),
+        fetchTechnicalResourceSummary(token, externalResourceId, cloudResourceId),
+        fetchRecommendations(token, { externalResourceId, ...(cloudResourceId === undefined ? {} : { cloudResourceId }) }),
+        fetchResourceAllocation(token, externalResourceId, cloudResourceId),
       ]);
       if (!active) return;
       if (resourceResult.status === 'fulfilled') setSummary(resourceResult.value.summary);
@@ -89,14 +99,14 @@ export function CloudResourceDetail({ token, externalResourceId, onBack }: { rea
       else setAllocationError('La asignación de costos no está disponible temporalmente.');
     })();
     return () => { active = false; };
-  }, [externalResourceId, token]);
+  }, [cloudResourceId, externalResourceId, token]);
   if (error !== null) return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
   if (summary === null) return <p className="p-8 text-sm text-zinc-400">Cargando detalle del recurso...</p>;
   const { resource, coverage, metrics, cost, evidence } = summary;
   const generateForResource = async () => {
     setGenerating(true); setAiMessage(null); setError(null);
     try {
-      const response = await generateAiRecommendations(token, false, resource.externalResourceId);
+      const response = await generateAiRecommendations(token, false, resource.externalResourceId, resource.id);
       setAiMessage(`Análisis auditado generado: ${response.recommendations.length} oportunidad(es) en vista previa.`);
     } catch (cause: unknown) { setError(cause instanceof Error ? cause.message : 'No se pudo analizar el recurso con IA.'); }
     finally { setGenerating(false); }

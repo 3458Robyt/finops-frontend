@@ -67,6 +67,30 @@ const resourceLinkageCoverageLabels: Readonly<Record<ResourceLinkageReadinessRes
   INVENTORY_ONLY: 'Solo inventario',
 };
 
+const resourceEvidenceLabels: Readonly<Record<ResourceLinkageReadinessResponse['readiness']['resources'][number]['evidenceStatus'], string>> = {
+  EVIDENCE_COMPLETE: 'Evidencia completa',
+  COST_ONLY: 'Solo costo',
+  TECHNICAL_ONLY: 'Solo métricas',
+  INSUFFICIENT_EVIDENCE: 'Evidencia insuficiente',
+  STALE_DATA: 'Datos desactualizados',
+};
+
+const technicalBlockerLabels: Readonly<Record<string, string>> = {
+  NO_NORMALIZED_INVENTORY: 'No existe inventario normalizado compatible.',
+  NO_RESOURCE_WITH_COST_AND_TECHNICAL_EVIDENCE: 'No hay un recurso con costo y métricas enlazados.',
+  UNLINKED_COST_EVIDENCE: 'Existen costos elegibles sin vínculo exacto.',
+  UNLINKED_TECHNICAL_EVIDENCE: 'Existen métricas sin vínculo exacto.',
+  INVENTORY_NOT_FRESH: 'El inventario no está actualizado.',
+  COST_DATA_NOT_FRESH: 'Los costos disponibles están desactualizados.',
+  TECHNICAL_METRICS_NOT_FRESH: 'Las métricas técnicas están desactualizadas.',
+};
+
+const freshnessLabels: Readonly<Record<'FRESH' | 'STALE' | 'NO_DATA', string>> = {
+  FRESH: 'Actualizado',
+  STALE: 'Desactualizado',
+  NO_DATA: 'Sin datos',
+};
+
 const resourceLinkReasonLabels: Readonly<Record<ResourceLinkReasonCode, string>> = {
   EMPTY_RESOURCE_ID: 'Identificador vacío',
   INVENTORY_RESOURCE_NOT_FOUND: 'No existe en inventario',
@@ -370,13 +394,46 @@ export default function Ingesta({ token, canManage, onNavigate }: {
             <CoverageCard label="Métricas enlazadas" value={`${resourceLinkage.metrics.coveragePercent}%`} detail={`${resourceLinkage.metrics.linked} de ${resourceLinkage.metrics.eligible}`} />
             <CoverageCard label="Recursos con costo y técnica" value={String(resourceLinkage.linkedResourcesWithBoth)} detail="Base mínima para IA técnica" />
           </div>
+          <div className="grid gap-3 border-t border-zinc-800 p-6 sm:grid-cols-3">
+            <FreshnessCard label="Inventario" signal={resourceLinkage.freshness.inventory} />
+            <FreshnessCard label="Costos" signal={resourceLinkage.freshness.costs} />
+            <FreshnessCard label="Métricas" signal={resourceLinkage.freshness.metrics} />
+          </div>
+          {resourceLinkage.technicalRecommendationBlockers.length > 0 && (
+            <div className="border-t border-zinc-800 bg-red-500/5 p-6">
+              <p className="text-xs font-black uppercase tracking-widest text-red-300">Bloqueadores para recomendaciones técnicas</p>
+              <ul className="mt-3 grid gap-2 md:grid-cols-2">
+                {resourceLinkage.technicalRecommendationBlockers.map((blocker) => (
+                  <li key={blocker} className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+                    {technicalBlockerLabels[blocker] ?? blocker}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="grid gap-6 border-t border-zinc-800 p-6 lg:grid-cols-[1.4fr_0.8fr]">
             <div>
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-zinc-500">Readiness por conexión</p>
+              <div className="mb-6 grid gap-3 md:grid-cols-2">
+                {resourceLinkage.connections.length === 0 ? <p className="text-sm text-zinc-500">No hay conexiones registradas.</p> : resourceLinkage.connections.map((connection) => (
+                  <article key={connection.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div><p className="font-bold text-white">{connection.name}</p><p className="text-xs text-zinc-500">{connection.provider.toUpperCase()} · {connection.inventoryResources} recursos</p></div>
+                      <StatusBadge {...resourceLinkageStatusStyles[connection.status]} />
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                      <ReadinessLine label="Costos" value={`${connection.costs.coveragePercent}%`} />
+                      <ReadinessLine label="Métricas" value={`${connection.metrics.coveragePercent}%`} />
+                      <ReadinessLine label="IA técnica" value={connection.recommendations.linked > 0 ? 'Con evidencia' : 'Sin vínculo'} />
+                    </div>
+                  </article>
+                ))}
+              </div>
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-zinc-500">Muestra de inventario cruzado</p>
               <div className="overflow-x-auto rounded-2xl border border-zinc-800">
                 <table className="w-full min-w-[640px] text-left">
                   <thead className="bg-zinc-950/60 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                    <tr><th className="p-3">Recurso</th><th className="p-3">Cobertura</th><th className="p-3">Costos</th><th className="p-3">Métricas</th><th className="p-3">Recomendaciones</th></tr>
+                    <tr><th className="p-3">Recurso</th><th className="p-3">Evidencia</th><th className="p-3">Costos</th><th className="p-3">Métricas</th><th className="p-3">Recomendaciones</th></tr>
                   </thead>
                   <tbody>
                     {resourceLinkage.resources.length === 0 ? (
@@ -384,7 +441,7 @@ export default function Ingesta({ token, canManage, onNavigate }: {
                     ) : resourceLinkage.resources.map((resource) => (
                       <tr key={resource.id} className="border-t border-zinc-800/70 text-sm">
                         <td className="p-3"><p className="font-bold text-white">{resource.externalResourceId}</p><p className="text-xs text-zinc-500">{resource.serviceName} · {resource.provider.toUpperCase()}</p></td>
-                        <td className="p-3 text-xs font-bold text-zinc-300">{resourceLinkageCoverageLabels[resource.coverage]}</td>
+                        <td className="p-3 text-xs font-bold text-zinc-300"><p>{resourceEvidenceLabels[resource.evidenceStatus]}</p><p className="mt-1 text-[10px] font-medium text-zinc-500">{resourceLinkageCoverageLabels[resource.coverage]}</p></td>
                         <td className="p-3 text-zinc-300">{resource.costMetrics}</td>
                         <td className="p-3 text-zinc-300">{resource.metricSamples}</td>
                         <td className="p-3 text-zinc-300">{resource.recommendations}</td>
@@ -807,6 +864,25 @@ function CoverageCard({ label, value, detail }: { readonly label: string; readon
       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{label}</p>
       <p className="mt-2 text-2xl font-black text-white">{value}</p>
       <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+    </div>
+  );
+}
+
+function FreshnessCard({
+  label,
+  signal,
+}: {
+  readonly label: string;
+  readonly signal: { readonly status: 'FRESH' | 'STALE' | 'NO_DATA'; readonly observedAt?: string };
+}) {
+  const className = signal.status === 'FRESH'
+    ? 'text-green-300'
+    : signal.status === 'STALE' ? 'text-tak-yellow' : 'text-zinc-500';
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Frescura · {label}</p>
+      <p className={`mt-2 text-sm font-black ${className}`}>{freshnessLabels[signal.status]}</p>
+      <p className="mt-1 text-xs text-zinc-500">{signal.observedAt !== undefined ? formatDateTime(signal.observedAt) : 'No se ha observado información.'}</p>
     </div>
   );
 }
