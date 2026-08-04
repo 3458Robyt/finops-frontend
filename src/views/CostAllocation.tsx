@@ -89,7 +89,7 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
     const hasClosed = closures.some((closure) => closure.status === 'CLOSED');
     const replacementReason = hasClosed ? window.prompt('Indique el motivo para reemplazar el cierre anterior:') : undefined;
     if (hasClosed && (replacementReason === null || (replacementReason ?? '').trim() === '')) { setError('El motivo del reemplazo es obligatorio.'); return; }
-    try { const response = await closeCostAllocationPeriod(token, period, replacementReason === null ? undefined : replacementReason); setClosures(response.closures); setError(null); }
+    try { await closeCostAllocationPeriod(token, period, replacementReason === null ? undefined : replacementReason); await load(); setError(null); }
     catch (cause) { setError(message(cause, 'No fue posible cerrar el período')); }
   };
 
