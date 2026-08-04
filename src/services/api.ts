@@ -95,9 +95,9 @@ export interface AllocationPreview { readonly summary: readonly AllocationSummar
 export interface CostAllocationClosure { readonly id: string; readonly tenantId: string; readonly period: string; readonly currency: string; readonly version: number; readonly status: CostAllocationClosureStatus; readonly sourceTotal: number; readonly allocatedTotal: number; readonly sharedTotal: number; readonly unallocatedTotal: number; readonly sourceHash: string; readonly rulesHash: string; readonly results: readonly AllocationBreakdown[]; readonly replacementReason?: string; readonly closedByUserId: string; readonly createdAt: string; }
 
 export type BudgetScope = 'TENANT' | 'CLOUD_ACCOUNT' | 'SERVICE' | 'ALLOCATION_DESTINATION';
-export type BudgetHealth = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'EXCEEDED';
+export type BudgetHealth = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'EXCEEDED' | 'UNAVAILABLE';
 export interface Budget { readonly id: string; readonly scope: BudgetScope; readonly scopeKey: string; readonly cloudAccountId?: string; readonly serviceName?: string; readonly periodStart: string; readonly amount: number; readonly currency: string; readonly warningThreshold: number; readonly criticalThreshold: number; readonly exceededThreshold: number; readonly status: 'ACTIVE' | 'ARCHIVED'; }
-export interface BudgetPerformance { readonly budget: Budget; readonly actualCost: number; readonly remainingBudget: number; readonly consumedPercent: number; readonly forecastCost?: number; readonly varianceAmount?: number; readonly variancePercent?: number; readonly health: BudgetHealth; readonly estimatedDepletionDate?: string; }
+export interface BudgetPerformance { readonly budget: Budget; readonly actualCost: number; readonly actualCostAvailable: boolean; readonly actualCostSource: 'COST_METRICS' | 'CLOSED_ALLOCATION' | 'NO_CLOSED_ALLOCATION'; readonly remainingBudget: number; readonly consumedPercent: number; readonly forecastCost?: number; readonly varianceAmount?: number; readonly variancePercent?: number; readonly health: BudgetHealth; readonly estimatedDepletionDate?: string; }
 export interface BudgetsResponse { readonly success: true; readonly budgets: readonly Budget[]; }
 export interface CostDataOptions {
   readonly periods: readonly { readonly period: string; readonly metricCount: number }[];
