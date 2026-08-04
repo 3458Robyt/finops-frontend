@@ -18,6 +18,7 @@ test('crea, previsualiza, cierra y consulta una asignación SPLIT', async ({ pag
     if (path.endsWith('/analytics/efficiency-insights')) return json(route, { success: true, insights: [] });
     if (path.endsWith('/analytics/recompute')) return json(route, { success: true, anomalies: [], usageInsights: [] });
     if (path.endsWith('/costs/options')) return json(route, { success: true, options: { periods: [{ period, metricCount: 2 }], latestPeriod: period, cloudAccounts: [{ id: 'account-1', name: 'OCI de prueba', provider: 'OCI' }], services: ['Compute'], regions: ['us-ashburn-1'], currencies: ['USD'] } });
+    if (path.endsWith('/budgets')) return json(route, { success: true, budgets: [{ id: 'budget-1', scope: 'ALLOCATION_DESTINATION', scopeKey: 'Equipo A', periodStart: `${period}-01`, amount: 80, currency: 'USD', warningThreshold: 0.8, criticalThreshold: 0.9, exceededThreshold: 1, status: 'ACTIVE' }] });
     if (path.endsWith('/value-realization/destinations')) return json(route, { success: true, destinations: [] });
     if (path.endsWith('/cost-allocation/rules')) {
       if (request.method() === 'POST') {
@@ -69,6 +70,7 @@ test('crea, previsualiza, cierra y consulta una asignación SPLIT', async ({ pag
   await page.getByRole('button', { name: 'Previsualizar', exact: true }).click();
   await expect(page.getByText('Previsualización sin guardar')).toBeVisible();
   await expect(page.getByText('100.0000 % de 100 %')).toBeVisible();
+  await expect(page.getByTestId('allocation-destination-financial-summary')).toContainText('USD 80.00');
   expect(previewed).toBe(true);
 
   await page.getByRole('button', { name: 'Guardar borrador', exact: true }).click();

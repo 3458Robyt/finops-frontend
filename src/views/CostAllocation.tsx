@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { CostAllocationRuleForm } from './CostAllocationRuleForm';
 import { readCostAllocationRule, toCostAllocationInput } from './costAllocationUi';
 import { CostAllocationSharedTotals } from './CostAllocationSharedTotals';
-import { activateCostAllocationRule, archiveCostAllocationRule, closeCostAllocationPeriod, compareCostAllocationClosures, createCostAllocationRule, downloadCostAllocationCsv, fetchCostAllocationClosure, fetchCostAllocationClosures, fetchCostAllocationComparison, fetchCostAllocationRules, fetchCostAllocationSummary, fetchCostDataOptions, fetchUnallocatedCosts, fetchValueRealizationDestinations, previewCostAllocationRule, updateCostAllocationRule, type AllocationPreview, type AllocationSummary, type CostAllocationClosure, type CostAllocationRule, type CostAllocationRuleInput, type CostDataOptions, type ValueRealizationDestinationSummary } from '../services/api';
+import { activateCostAllocationRule, archiveCostAllocationRule, closeCostAllocationPeriod, compareCostAllocationClosures, createCostAllocationRule, downloadCostAllocationCsv, fetchBudgets, fetchCostAllocationClosure, fetchCostAllocationClosures, fetchCostAllocationComparison, fetchCostAllocationRules, fetchCostAllocationSummary, fetchCostDataOptions, fetchUnallocatedCosts, fetchValueRealizationDestinations, previewCostAllocationRule, updateCostAllocationRule, type AllocationPreview, type AllocationSummary, type Budget, type CostAllocationClosure, type CostAllocationRule, type CostAllocationRuleInput, type CostDataOptions, type ValueRealizationDestinationSummary } from '../services/api';
 
 type Filters = { readonly cloudAccountId?: string; readonly serviceName?: string; readonly currency?: string; readonly destination?: string };
 
@@ -13,6 +13,8 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
   const [summary, setSummary] = useState<readonly AllocationSummary[]>([]);
   const [previousSummary, setPreviousSummary] = useState<readonly AllocationSummary[]>([]);
   const [closures, setClosures] = useState<readonly CostAllocationClosure[]>([]);
+  const [previousClosures, setPreviousClosures] = useState<readonly CostAllocationClosure[]>([]);
+  const [budgets, setBudgets] = useState<readonly Budget[]>([]);
   const [selectedClosure, setSelectedClosure] = useState<CostAllocationClosure | null>(null);
   const [closureComparison, setClosureComparison] = useState<{ readonly current: CostAllocationClosure; readonly previous?: CostAllocationClosure } | null>(null);
   const [unallocated, setUnallocated] = useState<readonly UnallocatedItem[]>([]);
@@ -30,13 +32,17 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
         fetchCostAllocationComparison(token, period, { ...filters, allocationKey: filters.destination }),
         fetchUnallocatedCosts(token, period, filters),
         fetchCostAllocationClosures(token, period),
+        fetchCostAllocationClosures(token, previousPeriod(period)),
+        fetchBudgets(token, { period, ...(filters.cloudAccountId === undefined ? {} : { cloudAccountId: filters.cloudAccountId }), ...(filters.serviceName === undefined ? {} : { serviceName: filters.serviceName }) }),
       ]);
-      const [ruleResult, summaryResult, comparisonResult, unallocatedResult, closureResult] = results;
+      const [ruleResult, summaryResult, comparisonResult, unallocatedResult, closureResult, previousClosureResult, budgetResult] = results;
       if (ruleResult.status === 'fulfilled') setRules(ruleResult.value.rules);
       if (summaryResult.status === 'fulfilled') setSummary(summaryResult.value.summary);
       if (comparisonResult.status === 'fulfilled') setPreviousSummary(comparisonResult.value.comparison.previousSummary);
       if (unallocatedResult.status === 'fulfilled') setUnallocated(unallocatedResult.value.items);
       if (closureResult.status === 'fulfilled') setClosures(closureResult.value.closures);
+      if (previousClosureResult.status === 'fulfilled') setPreviousClosures(previousClosureResult.value.closures);
+      if (budgetResult.status === 'fulfilled') setBudgets(budgetResult.value.budgets);
       setError(results.some((result) => result.status === 'rejected') ? 'Algunos bloques no pudieron actualizarse. Los datos disponibles permanecen visibles.' : null);
     } catch (cause) { setError(message(cause, 'No fue posible cargar la asignación de costos')); }
   }, [filters, period, token]);
@@ -45,6 +51,7 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
   useEffect(() => { void fetchCostDataOptions(token, period).then((response) => setOptions(response.options)).catch(() => setOptions(null)); }, [period, token]);
   useEffect(() => { void fetchValueRealizationDestinations(token, period, filters.currency).then((response) => setDestinationSavings(response.destinations)).catch(() => setDestinationSavings([])); }, [filters.currency, period, token]);
   const visibleSummary = useMemo(() => summary.filter((item) => (filters.currency === undefined || item.currency === filters.currency) && (filters.destination === undefined || item.dimensions.some((dimension) => dimension.allocationKey.toLowerCase().includes(filters.destination!.toLowerCase())))), [filters.currency, filters.destination, summary]);
+  const destinationRows = useMemo(() => buildDestinationFinancialRows({ summary, previousSummary, closures, previousClosures, budgets, savings: destinationSavings, useClosed: filters.cloudAccountId === undefined && filters.serviceName === undefined, currency: filters.currency, destination: filters.destination }), [budgets, closures, destinationSavings, filters.cloudAccountId, filters.currency, filters.destination, filters.serviceName, previousClosures, previousSummary, summary]);
   const closureStatus = closures.some((closure) => closure.status === 'CLOSED') ? 'CERRADO' : closures.some((closure) => closure.status === 'REPLACED') ? 'REEMPLAZADO' : visibleSummary.length > 0 ? 'LISTO' : 'ABIERTO';
 
   const create = async (event: FormEvent<HTMLFormElement>) => {
@@ -92,7 +99,7 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
     <div className="grid gap-2 md:grid-cols-4"><select aria-label="Cuenta cloud" value={filters.cloudAccountId ?? ''} onChange={(event) => setFilters((value) => ({ ...value, cloudAccountId: blank(event.target.value) }))} className={fieldClass}><option value="">Todas las cuentas</option>{(options?.cloudAccounts ?? []).map((account) => <option key={account.id} value={account.id}>{account.name} · {account.provider}</option>)}</select><select aria-label="Servicio" value={filters.serviceName ?? ''} onChange={(event) => setFilters((value) => ({ ...value, serviceName: blank(event.target.value) }))} className={fieldClass}><option value="">Todos los servicios</option>{(options?.services ?? []).map((service) => <option key={service}>{service}</option>)}</select><select aria-label="Moneda" value={filters.currency ?? ''} onChange={(event) => setFilters((value) => ({ ...value, currency: blank(event.target.value) }))} className={fieldClass}><option value="">Todas las monedas</option>{(options?.currencies ?? []).map((currency) => <option key={currency}>{currency}</option>)}</select><input value={filters.destination ?? ''} onChange={(event) => setFilters((value) => ({ ...value, destination: blank(event.target.value) }))} placeholder="Centro, proyecto, equipo o ambiente" className={fieldClass}/></div>
     {error !== null && <p className="rounded border border-red-500/40 p-3 text-red-300">{error}</p>}
     {creating && <CostAllocationRuleForm onSubmit={create} options={options}/>} {preview !== null && <section className="rounded-xl border border-tak-yellow/40 bg-tak-yellow/10 p-4"><div className="flex justify-between gap-4"><div><h2 className="font-bold">Previsualización sin guardar</h2><p className="text-sm text-zinc-300">Muestra la cobertura que tendría esta regla en {period}; no modifica costos ni reglas.</p></div><button onClick={() => setPreview(null)} className="text-sm">Cerrar</button></div><p className="mt-2 text-sm">Coincidiría con {preview.metricCount} líneas y {preview.resourceCount} recursos. Reglas usadas: {preview.rulesUsed.length === 0 ? 'ninguna' : preview.rulesUsed.map((rule) => `${rule.name} · v${rule.configurationVersion}`).join(' | ')}.</p><AllocationCards summary={preview.summary}/><p className="mt-2 text-xs text-zinc-400">Período anterior: {preview.previousSummary.map((item) => `${item.currency} ${item.totalCost.toFixed(2)}`).join(' · ') || 'sin datos'}.</p>{preview.examples.length > 0 && <p className="mt-3 text-xs text-zinc-400">Ejemplos: {preview.examples.map((item) => `${item.currency} ${item.cost.toFixed(2)} · ${item.serviceName}`).join(' | ')}</p>}<div className="mt-4 rounded border border-zinc-700/60 bg-zinc-950/30 p-3"><h3 className="font-bold">Impacto financiero</h3>{preview.financialImpact.budgets.length === 0 ? <p className="mt-1 text-xs text-zinc-400">No hay presupuestos por destino para este período.</p> : <div className="mt-2 space-y-1 text-xs">{preview.financialImpact.budgets.map((item) => <p key={`${item.currency}-${item.allocationKey}`}>{item.currency} · {item.allocationKey}: gasto proyectado {item.projectedCost.toFixed(2)} de {item.budgetAmount.toFixed(2)} ({item.consumedPercent.toFixed(1)}%).</p>)}</div>}<p className="mt-2 text-xs text-zinc-400">Ahorro con evidencia cerrada — potencial: {savingsByCurrency(preview.financialImpact.savings, 'potentialSavings')} · aprobado: {savingsByCurrency(preview.financialImpact.savings, 'approvedSavings')} · verificado: {savingsByCurrency(preview.financialImpact.savings, 'verifiedSavings')}. No se proyecta ahorro nuevo hasta cerrar y ejecutar.</p></div></section>}
-    <AllocationCards summary={visibleSummary}/><CostAllocationSharedTotals summary={visibleSummary}/>
+    <AllocationCards summary={visibleSummary}/><CostAllocationSharedTotals summary={visibleSummary}/><DestinationFinancialSummary rows={destinationRows}/>
     <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Estado del período</h2><p className="mt-1 text-sm text-zinc-400">Checklist previo al cierre de {period}.</p></div><span className="rounded border border-tak-yellow/40 px-3 py-1 text-sm font-bold text-tak-yellow">{closureStatus}</span></div><ul className="mt-3 grid gap-2 text-sm text-zinc-300 md:grid-cols-2"><li>{visibleSummary.length > 0 ? '✓' : '○'} Fuente de costos disponible para el período.</li><li>{rules.some((rule) => rule.status === 'ACTIVE') ? '✓' : '○'} Reglas activas cargadas y filtradas por tenant.</li><li>{visibleSummary.every(totalsBalance) ? '✓' : '○'} Totales separados por moneda.</li><li>{unallocated.length === 0 ? '✓' : '!' } Costos sin asignar: {unallocated.length === 0 ? 'ninguno detectado' : 'se confirmarán explícitamente al cerrar'}.</li><li className="md:col-span-2 text-zinc-500">Los trabajos de facturación activos y la inmutabilidad de la fuente se validan en el backend al confirmar el cierre.</li></ul></section>
     <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Valor financiero por destino</h2><p className="text-sm text-zinc-400">Solo incluye ahorros vinculados a una línea de costo cerrada, recurso canónico y hash de métrica exactos.</p></div><span className="text-xs text-zinc-500">Sin evidencia exacta no se atribuye ahorro.</span></div>{destinationSavings.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay ahorros atribuibles por destino para este período.</p> : <div className="mt-3 space-y-2">{destinationSavings.filter((item) => filters.destination === undefined || item.allocationKey.toLowerCase().includes(filters.destination.toLowerCase())).map((item) => <div key={`${item.currency}-${item.allocationKey}`} className="grid gap-2 border-b border-zinc-800 py-3 text-sm md:grid-cols-5"><span className="font-medium">{item.allocationKey === 'UNALLOCATED' ? 'Sin asignar' : item.allocationKey}<small className="block text-xs text-zinc-500">{item.attributedRecommendations} oportunidades con evidencia</small></span><span>{item.currency} {item.potentialSavings.toFixed(2)}<small className="block text-xs text-zinc-500">Potencial</small></span><span>{item.currency} {item.approvedSavings.toFixed(2)}<small className="block text-xs text-zinc-500">Aprobado</small></span><span className="text-tak-yellow">{item.currency} {item.verifiedSavings.toFixed(2)}<small className="block text-xs text-zinc-500">Verificado</small></span><span className="text-sky-200">{item.currency} {item.observedSavings.toFixed(2)}<small className="block text-xs text-zinc-500">Observado</small></span></div>)}</div>}</section>
     <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Comparación de cobertura mensual</h2><p className="text-sm text-zinc-400">Compara cuánto gasto tiene una dimensión y cuánto sigue sin asignar.</p></div>{canManage && <button onClick={() => void closePeriod()} className="rounded bg-tak-yellow px-3 py-2 text-sm font-bold text-zinc-950">Cerrar período</button>}</div>{visibleSummary.map((item) => { const previous = previousSummary.find((candidate) => candidate.currency === item.currency); const delta = item.coveragePercent - (previous?.coveragePercent ?? 0); return <p key={item.currency} className="mt-2 text-sm">{item.currency}: {item.coveragePercent.toFixed(1)}% este mes · {previous?.coveragePercent.toFixed(1) ?? 'sin datos'}% mes anterior <b className={delta >= 0 ? 'text-green-300' : 'text-red-300'}>({delta >= 0 ? '+' : ''}{delta.toFixed(1)} pp)</b></p>; })}</section>
@@ -105,6 +112,62 @@ export default function CostAllocation({ token, canManage }: { readonly token: s
   </div>;
 }
 
+type DestinationFinancialRow = {
+  readonly allocationKey: string;
+  readonly currency: string;
+  readonly currentCost?: number;
+  readonly currentSource: 'CLOSED' | 'LIVE' | 'NONE';
+  readonly previousCost?: number;
+  readonly variation?: number;
+  readonly variationPercent?: number;
+  readonly budgetAmount?: number;
+  readonly budgetConsumed?: number;
+  readonly budgetConsumedPercent?: number;
+  readonly potentialSavings: number;
+  readonly approvedSavings: number;
+  readonly verifiedSavings: number;
+  readonly observedSavings: number;
+};
+
+function DestinationFinancialSummary({ rows }: { readonly rows: readonly DestinationFinancialRow[] }) {
+  return <section data-testid="allocation-destination-financial-summary" className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Resumen financiero por destino</h2><p className="text-sm text-zinc-400">Costo actual, comparación, presupuesto y ahorro en una sola vista. El costo actual usa el cierre más reciente; sin cierre se muestra como dato en vivo, no como cifra financiera cerrada.</p></div><span className="text-xs text-zinc-500">El ahorro solo usa evidencia exacta.</span></div>{rows.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay destinos con datos para este período.</p> : <div className="mt-3 space-y-2">{rows.map((row) => <article key={`${row.currency}-${row.allocationKey}`} className="rounded border border-zinc-800 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><b>{row.allocationKey === 'UNALLOCATED' ? 'Sin asignar' : row.allocationKey}</b><span className="text-xs text-zinc-500">{row.currency} · {row.currentSource === 'CLOSED' ? 'Cierre vigente' : row.currentSource === 'LIVE' ? 'En vivo, sin cierre' : 'Sin costo actual'}</span></div><div className="mt-3 grid gap-3 text-sm md:grid-cols-4"><p>Costo actual: <b>{formatAmount(row.currentCost, row.currency)}</b><small className="block text-xs text-zinc-500">Anterior: {formatAmount(row.previousCost, row.currency)}</small></p><p>Variación: <b className={row.variation === undefined ? 'text-zinc-300' : row.variation >= 0 ? 'text-red-300' : 'text-green-300'}>{formatSignedAmount(row.variation, row.currency)}</b><small className="block text-xs text-zinc-500">{row.variationPercent === undefined ? 'Sin base comparable' : `${row.variationPercent.toFixed(1)} %`}</small></p><p>Presupuesto: <b>{formatAmount(row.budgetAmount, row.currency)}</b><small className="block text-xs text-zinc-500">Consumido: {row.budgetConsumedPercent === undefined ? 'Sin presupuesto o cierre' : `${row.budgetConsumedPercent.toFixed(1)} % (${formatAmount(row.budgetConsumed, row.currency)})`}</small></p><p>Ahorro: <b>{formatAmount(row.potentialSavings, row.currency)}</b><small className="block text-xs text-zinc-500">Potencial · aprobado {formatAmount(row.approvedSavings, row.currency)} · verificado {formatAmount(row.verifiedSavings, row.currency)} · acumulado {formatAmount(row.observedSavings, row.currency)}</small></p></div></article>)}</div>}</section>;
+}
+
+function buildDestinationFinancialRows(input: { readonly summary: readonly AllocationSummary[]; readonly previousSummary: readonly AllocationSummary[]; readonly closures: readonly CostAllocationClosure[]; readonly previousClosures: readonly CostAllocationClosure[]; readonly budgets: readonly Budget[]; readonly savings: readonly ValueRealizationDestinationSummary[]; readonly useClosed: boolean; readonly currency?: string; readonly destination?: string }): readonly DestinationFinancialRow[] {
+  const currentLive = summaryCosts(input.summary);
+  const previousLive = summaryCosts(input.previousSummary);
+  const currentClosed = input.useClosed ? closureCosts(input.closures) : new Map<string, number>();
+  const previousClosed = input.useClosed ? closureCosts(input.previousClosures) : new Map<string, number>();
+  const budgetTotals = new Map<string, number>();
+  for (const budget of input.budgets) if (budget.status === 'ACTIVE' && budget.scope === 'ALLOCATION_DESTINATION') addAmount(budgetTotals, keyOf(budget.currency, budget.scopeKey), budget.amount);
+  const savings = new Map<string, { potentialSavings: number; approvedSavings: number; verifiedSavings: number; observedSavings: number }>();
+  for (const item of input.savings) {
+    const key = keyOf(item.currency, item.allocationKey);
+    const current = savings.get(key) ?? { potentialSavings: 0, approvedSavings: 0, verifiedSavings: 0, observedSavings: 0 };
+    savings.set(key, { potentialSavings: current.potentialSavings + item.potentialSavings, approvedSavings: current.approvedSavings + item.approvedSavings, verifiedSavings: current.verifiedSavings + item.verifiedSavings, observedSavings: current.observedSavings + item.observedSavings });
+  }
+  const keys = new Set([...currentLive.keys(), ...previousLive.keys(), ...currentClosed.keys(), ...previousClosed.keys(), ...budgetTotals.keys(), ...savings.keys()]);
+  return [...keys].map((key) => {
+    const [currency, allocationKey] = key.split('\u0000');
+    const closedCost = currentClosed.get(key);
+    const currentCost = closedCost ?? currentLive.get(key);
+    const previousCost = previousClosed.get(key) ?? previousLive.get(key);
+    const variation = currentCost === undefined || previousCost === undefined ? undefined : currentCost - previousCost;
+    const budgetAmount = budgetTotals.get(key);
+    const budgetConsumed = budgetAmount === undefined || currentCost === undefined ? undefined : currentCost;
+    const savingsRow = savings.get(key) ?? { potentialSavings: 0, approvedSavings: 0, verifiedSavings: 0, observedSavings: 0 };
+    const currentSource: DestinationFinancialRow['currentSource'] = closedCost !== undefined ? 'CLOSED' : currentCost !== undefined ? 'LIVE' : 'NONE';
+    return { allocationKey: allocationKey ?? '', currency: currency ?? '', currentCost, currentSource, previousCost, variation, variationPercent: variation === undefined || previousCost === undefined || previousCost === 0 ? undefined : variation / Math.abs(previousCost) * 100, budgetAmount, budgetConsumed, budgetConsumedPercent: budgetAmount === undefined || budgetAmount === 0 || budgetConsumed === undefined ? undefined : budgetConsumed / budgetAmount * 100, ...savingsRow };
+  }).filter((row) => (input.currency === undefined || row.currency === input.currency) && (input.destination === undefined || row.allocationKey.toLowerCase().includes(input.destination.toLowerCase()))).sort((left, right) => (right.currentCost ?? -1) - (left.currentCost ?? -1));
+}
+
+function summaryCosts(items: readonly AllocationSummary[]): Map<string, number> { const values = new Map<string, number>(); for (const item of items) for (const dimension of item.dimensions) addAmount(values, keyOf(item.currency, dimension.allocationKey), dimension.cost); return values; }
+function closureCosts(closures: readonly CostAllocationClosure[]): Map<string, number> { const latest = new Map<string, CostAllocationClosure>(); for (const closure of closures) if (closure.status === 'CLOSED' && (latest.get(closure.currency)?.version ?? 0) < closure.version) latest.set(closure.currency, closure); const values = new Map<string, number>(); for (const closure of latest.values()) for (const result of closure.results) addAmount(values, keyOf(closure.currency, result.allocationKey), result.cost); return values; }
+function keyOf(currency: string, allocationKey: string): string { return `${currency}\u0000${allocationKey}`; }
+function addAmount(values: Map<string, number>, key: string, amount: number): void { values.set(key, (values.get(key) ?? 0) + amount); }
+function formatAmount(value: number | undefined, currency: string): string { return value === undefined ? '—' : `${currency} ${value.toFixed(2)}`; }
+function formatSignedAmount(value: number | undefined, currency: string): string { return value === undefined ? '—' : `${value >= 0 ? '+' : '-'}${formatAmount(Math.abs(value), currency)}`; }
+
 function AllocationCards({ summary }: { readonly summary: readonly AllocationSummary[] }) { return <section className="grid gap-3 md:grid-cols-3">{summary.map((item) => <article key={item.currency} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"><p className="text-xs uppercase text-zinc-500">{item.currency} · Cobertura</p><p className="text-3xl font-black">{item.coveragePercent.toFixed(1)}%</p><p className="text-sm text-zinc-400">Total {item.currency} {item.totalCost.toFixed(2)} · Asignado {item.currency} {item.allocatedCost.toFixed(2)} · Sin asignar {item.currency} {item.unallocatedCost.toFixed(2)}</p></article>)}</section>; }
 function criterion(rule: CostAllocationRule): string { return [rule.cloudAccountId, rule.provider, rule.serviceName, rule.regionId, rule.resourceId, rule.tagKey === undefined ? undefined : `${rule.tagKey}=${rule.tagValue}`].filter(Boolean).join(' · '); }
 function target(rule: CostAllocationRule): string { return [rule.costCenter, rule.businessUnit, rule.project, rule.team, rule.environment].filter(Boolean).join(' · '); }
@@ -112,6 +175,7 @@ function labelStatus(status: CostAllocationRule['status']): string { return stat
 function blank(value: string): string | undefined { const trimmed = value.trim(); return trimmed === '' ? undefined : trimmed; }
 function message(cause: unknown, fallback: string): string { return cause instanceof Error ? cause.message : fallback; }
 function currentMonth(): string { const date = new Date(); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
+function previousPeriod(value: string): string { const [year, month] = value.split('-').map(Number); const date = new Date(Date.UTC(year!, month! - 2, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
 function formatClosureDate(value: string): string { return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
 function totalsBalance(item: AllocationSummary): boolean { return Math.abs(item.totalCost - item.allocatedCost - item.unallocatedCost) < 0.000001; }
 function savingsByCurrency(items: readonly ValueRealizationDestinationSummary[], field: 'potentialSavings' | 'approvedSavings' | 'verifiedSavings'): string { const totals = new Map<string, number>(); for (const item of items) totals.set(item.currency, (totals.get(item.currency) ?? 0) + item[field]); return [...totals.entries()].map(([currency, value]) => `${currency} ${value.toFixed(2)}`).join(' · ') || 'sin evidencia exacta'; }
