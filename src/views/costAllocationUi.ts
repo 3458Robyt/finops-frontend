@@ -13,6 +13,7 @@ export function readCostAllocationRule(form: FormData): CostAllocationRuleInput 
 
 export function toCostAllocationInput(rule: CostAllocationRule): CostAllocationRuleInput {
   return { name: rule.name, priority: rule.priority, status: rule.status, allocationMode: rule.allocationMode, allocationTargets: rule.allocationTargets, configurationVersion: rule.configurationVersion,
+    ...(rule.configurationHash === undefined ? {} : { configurationHash: rule.configurationHash }),
     ...(rule.description === undefined ? {} : { description: rule.description }), ...(rule.cloudAccountId === undefined ? {} : { cloudAccountId: rule.cloudAccountId }), ...(rule.provider === undefined ? {} : { provider: rule.provider }), ...(rule.serviceName === undefined ? {} : { serviceName: rule.serviceName }), ...(rule.regionId === undefined ? {} : { regionId: rule.regionId }), ...(rule.resourceId === undefined ? {} : { resourceId: rule.resourceId }), ...(rule.tagKey === undefined ? {} : { tagKey: rule.tagKey }), ...(rule.tagValue === undefined ? {} : { tagValue: rule.tagValue }), ...(rule.costCenter === undefined ? {} : { costCenter: rule.costCenter }), ...(rule.businessUnit === undefined ? {} : { businessUnit: rule.businessUnit }), ...(rule.project === undefined ? {} : { project: rule.project }), ...(rule.team === undefined ? {} : { team: rule.team }), ...(rule.environment === undefined ? {} : { environment: rule.environment }) };
 }
 
