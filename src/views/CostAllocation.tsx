@@ -154,7 +154,7 @@ function buildDestinationFinancialRows(input: { readonly summary: readonly Alloc
     const previousCost = previousClosed.get(key) ?? previousLive.get(key);
     const variation = currentCost === undefined || previousCost === undefined ? undefined : currentCost - previousCost;
     const budgetAmount = budgetTotals.get(key);
-    const budgetConsumed = budgetAmount === undefined || currentCost === undefined ? undefined : currentCost;
+    const budgetConsumed = budgetAmount === undefined || closedCost === undefined ? undefined : closedCost;
     const savingsRow = savings.get(key) ?? { potentialSavings: 0, approvedSavings: 0, verifiedSavings: 0, observedSavings: 0 };
     const currentSource: DestinationFinancialRow['currentSource'] = closedCost !== undefined ? 'CLOSED' : currentCost !== undefined ? 'LIVE' : 'NONE';
     return { allocationKey: allocationKey ?? '', currency: currency ?? '', currentCost, currentSource, previousCost, variation, variationPercent: variation === undefined || previousCost === undefined || previousCost === 0 ? undefined : variation / Math.abs(previousCost) * 100, budgetAmount, budgetConsumed, budgetConsumedPercent: budgetAmount === undefined || budgetAmount === 0 || budgetConsumed === undefined ? undefined : budgetConsumed / budgetAmount * 100, ...savingsRow };

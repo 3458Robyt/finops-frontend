@@ -80,6 +80,7 @@ test('crea, previsualiza, cierra y consulta una asignación SPLIT', async ({ pag
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByRole('button', { name: 'Cerrar período', exact: true }).click();
   await expect(page.getByText('Cierres reproducibles')).toBeVisible();
+  await expect(page.getByTestId('allocation-destination-financial-summary')).toContainText('62.5 %');
   expect(closed).toBe(true);
 
   await page.getByRole('button', { name: 'Ver detalle', exact: true }).click();
