@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import {
   dismissNotification,
   fetchNotifications,
@@ -16,7 +17,6 @@ interface TopHeaderProps {
   availableTenants: readonly AuthTenant[];
   onTenantChange: (tenantId: string) => Promise<void>;
   role: ApiRole;
-  token: string;
 }
 
 const viewTitles: Partial<Record<CurrentView, string>> = {
@@ -46,8 +46,8 @@ export default function TopHeader({
   availableTenants,
   onTenantChange,
   role,
-  token,
 }: TopHeaderProps) {
+  const token = useAccessToken();
   const [notifications, setNotifications] = useState<readonly InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);

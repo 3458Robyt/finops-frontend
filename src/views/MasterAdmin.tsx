@@ -1,3 +1,4 @@
+import { useAccessToken } from '../auth/authSession';
 import { Field, FormPanel, Metric, StatusBadge } from './master-admin/masterAdminPresentation';
 import { accessRoleLabels, inputClass, primaryButtonClass } from './master-admin/masterAdminUi';
 import { useMasterAdminController } from './master-admin/useMasterAdminController';
@@ -5,11 +6,11 @@ import type { StaffCreateRole } from './master-admin/useMasterAdminController';
 import type { MasterAdminAssignmentRole } from '../services/api';
 
 export interface MasterAdminProps {
-  token: string;
   onTenantsChanged: () => Promise<void>;
 }
 
-export default function MasterAdmin({ token, onTenantsChanged }: MasterAdminProps) {
+export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
+  const token = useAccessToken();
   const {
     tenants, users, assignments, activeTenants, suspendedTenants, assignableUsers,
     loading, saving, message, error, tenantName, tenantSlug, userName, userEmail,

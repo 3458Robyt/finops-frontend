@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import { fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice } from '../services/api';
 import MfaSecurityPanel from '../components/profile/MfaSecurityPanel';
 
@@ -7,12 +8,12 @@ interface ToggleProps {
   onChange: () => void;
 }
 
-export default function Profile({ onLogout, currentRole, user, token }: {
+export default function Profile({ onLogout, currentRole, user }: {
   onLogout: () => void | Promise<void>;
   currentRole: 'admin' | 'client';
   user: ApiUser;
-  token: string;
 }) {
+  const token = useAccessToken();
 const [notifications, setNotifications] = useState(true);
 const [persistent, setPersistent] = useState(false);
 const [sessions, setSessions] = useState<readonly AuthSessionDevice[]>([]);
@@ -110,7 +111,7 @@ const revokeSession = async (session: AuthSessionDevice) => {
           </div>
           <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <MfaSecurityPanel token={token} />
+              <MfaSecurityPanel />
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Recordatorios de ahorro</p>

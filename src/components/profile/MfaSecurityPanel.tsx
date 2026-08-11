@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useAccessToken } from '../../auth/authSession';
 import { fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
 import MfaRecoveryCodesDialog from './MfaRecoveryCodesDialog';
 
-export default function MfaSecurityPanel({ token }: { readonly token: string }) {
+export default function MfaSecurityPanel() {
+  const token = useAccessToken();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [code, setCode] = useState('');

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAccessToken } from '../../auth/authSession';
 import {
   fetchTechnicalMetricsCoverage,
   fetchTechnicalMetricSamples,
@@ -23,7 +24,8 @@ import {
   type SeriesMeta,
 } from './technicalMetricsModel';
 
-export function useTechnicalMetricsController(token: string) {
+export function useTechnicalMetricsController() {
+  const token = useAccessToken();
   const [overview, setOverview] = useState<TechnicalMetricsOverview | null>(null);
   const [coverage, setCoverage] = useState<TechnicalMetricCoverage | null>(null);
   const [series, setSeries] = useState<readonly TechnicalMetricSeriesPoint[]>([]);

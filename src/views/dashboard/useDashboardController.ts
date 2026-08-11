@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAccessToken } from '../../auth/authSession';
 import {
   fetchAdoptionKpis,
   fetchAnalyticsEfficiencyInsights,
@@ -62,7 +63,8 @@ export interface DashboardControllerState {
   readonly missedSavingsAmount: number;
 }
 
-export function useDashboardController(token: string): DashboardControllerState {
+export function useDashboardController(): DashboardControllerState {
+  const token = useAccessToken();
   const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);

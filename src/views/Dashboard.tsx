@@ -3,11 +3,10 @@ import { useDashboardController } from './dashboard/useDashboardController';
 import { currencyFormatter, formatCompactNumber } from './dashboard/dashboardPresentation';
 
 export interface DashboardProps {
-  readonly token: string;
   readonly onOpenBudgets?: () => void;
 }
 
-export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
+export default function Dashboard({ onOpenBudgets }: DashboardProps) {
   const {
     loading,
     error,
@@ -25,7 +24,7 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
     acceptanceRate,
     topUnitEconomics,
     missedSavingsAmount,
-  } = useDashboardController(token);
+  } = useDashboardController();
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">

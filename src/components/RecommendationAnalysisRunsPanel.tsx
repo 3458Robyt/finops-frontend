@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 
 import {
   cancelRecommendationAnalysis,
@@ -15,7 +16,6 @@ import {
 } from '../services/api';
 
 interface Props {
-  readonly token: string;
   readonly role: ApiRole;
   readonly onOpenRecommendation?: (recommendationId: string) => void;
 }
@@ -70,10 +70,10 @@ function outcomeLabel(run: RecommendationAnalysisRun): string {
 }
 
 export default function RecommendationAnalysisRunsPanel({
-  token,
   role,
   onOpenRecommendation,
 }: Props) {
+  const token = useAccessToken();
   const canManage = managerRoles.has(role);
   const [preview, setPreview] = useState<RecommendationAnalysisPreview | null>(null);
   const [runs, setRuns] = useState<readonly RecommendationAnalysisRun[]>([]);

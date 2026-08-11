@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import ValueRealizationTrendUPlot from '../components/ValueRealizationTrendUPlot';
 import {
   fetchValueRealizationItems,
@@ -12,12 +13,13 @@ import {
   type ValueRealizationTrendPoint,
 } from '../services/api';
 
-interface Props { readonly token: string; readonly canReconcile: boolean; readonly onOpenRecommendation: (id: string) => void; }
+interface Props { readonly canReconcile: boolean; readonly onOpenRecommendation: (id: string) => void; }
 
 const money = (value: number, currency: string) => new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const statusLabels: Record<string, string> = { NO_EXECUTION: 'Sin ejecución', WAITING_FOR_DATA: 'Esperando datos', READY: 'Listo para calcular', CALCULATED: 'Calculado', INSUFFICIENT_EVIDENCE: 'Evidencia insuficiente', VERIFIED: 'Verificado', REJECTED: 'Rechazado' };
 
-export default function ValueRealization({ token, canReconcile, onOpenRecommendation }: Props) {
+export default function ValueRealization({ canReconcile, onOpenRecommendation }: Props) {
+  const token = useAccessToken();
   const [summary, setSummary] = useState<ValueRealizationSummary | null>(null);
   const [items, setItems] = useState<readonly ValueRealizationItem[]>([]);
   const [trend, setTrend] = useState<readonly ValueRealizationTrendPoint[]>([]);

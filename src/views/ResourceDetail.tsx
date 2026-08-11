@@ -19,7 +19,6 @@ import { currencyFormatter, severityLabel } from './resource-detail/resourceDeta
 
 interface ResourceDetailProps {
   readonly recommendationId: string;
-  readonly token: string;
   readonly apiRole: ApiRole;
   readonly onBack: () => void;
 }
@@ -31,7 +30,7 @@ function canApproveRecommendation(role: ApiRole): boolean {
   return isOperationalRole(role) || role === 'CLIENT_APPROVER';
 }
 
-export default function ResourceDetail({ recommendationId, token, apiRole, onBack }: ResourceDetailProps) {
+export default function ResourceDetail({ recommendationId, apiRole, onBack }: ResourceDetailProps) {
   const {
     recommendation, loading, error, executionPlan, planLoading, planLookupLoading, planError,
     decisionLoading, decisionError, decisionLearningStatus, decisionNote, decisionReasonCode, decisionMode,
@@ -41,7 +40,7 @@ export default function ResourceDetail({ recommendationId, token, apiRole, onBac
     setManualStatus, setManualSavings, setManualNotes,
     handleReviewPlan, openDecisionModal, handleDecision, handleManualExecution,
     handleVerifyMeasurement, handleCalculateMeasurement, handleRejectMeasurement,
-  } = useResourceDetailController(token, recommendationId);
+  } = useResourceDetailController(recommendationId);
 
   const evidence = useMemo(
     () => readEvidence(recommendation?.evidence),

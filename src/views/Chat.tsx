@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import {
   ApiRequestError,
   generateAiRecommendations,
@@ -6,10 +7,6 @@ import {
   type AiChatMessage,
   type Recommendation,
 } from '../services/api';
-
-interface ChatProps {
-  readonly token: string;
-}
 
 interface UiMessage extends AiChatMessage {
   readonly id: string;
@@ -21,7 +18,8 @@ const quickPrompts = [
   'Que acciones priorizarias para reducir costos?',
 ] as const;
 
-export default function Chat({ token }: ChatProps) {
+export default function Chat() {
+  const token = useAccessToken();
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: 'welcome',

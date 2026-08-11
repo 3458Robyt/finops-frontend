@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAccessToken } from '../../auth/authSession';
 import {
   createSavingsMeasurement,
   fetchLatestRecommendationExecutionPlan,
@@ -17,7 +18,8 @@ import {
 const defaultApprovalReason: RecommendationFeedbackReason = 'APPROVED_HIGH_CONFIDENCE';
 const defaultRejectionReason: RecommendationFeedbackReason = 'REJECTED_INSUFFICIENT_EVIDENCE';
 
-export function useResourceDetailController(token: string, recommendationId: string) {
+export function useResourceDetailController(recommendationId: string) {
+  const token = useAccessToken();
   const [recommendation, setRecommendation] = useState<Awaited<ReturnType<typeof fetchRecommendationById>>['recommendation'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

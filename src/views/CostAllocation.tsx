@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import { CostAllocationRuleForm } from './CostAllocationRuleForm';
 import { readCostAllocationRule, toCostAllocationInput } from './costAllocationUi';
 import { CostAllocationSharedTotals } from './CostAllocationSharedTotals';
@@ -6,7 +7,8 @@ import { activateCostAllocationRule, archiveCostAllocationRule, closeCostAllocat
 
 type Filters = { readonly cloudAccountId?: string; readonly serviceName?: string; readonly currency?: string; readonly destination?: string };
 
-export default function CostAllocation({ token, canManage }: { readonly token: string; readonly canManage: boolean }) {
+export default function CostAllocation({ canManage }: { readonly canManage: boolean }) {
+  const token = useAccessToken();
   const [period, setPeriod] = useState(currentMonth());
   const [filters, setFilters] = useState<Filters>({});
   const [rules, setRules] = useState<readonly CostAllocationRule[]>([]);

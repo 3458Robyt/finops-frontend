@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog';
+import { AuthSessionProvider } from './auth/AuthSessionContext';
 import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, setAccessToken, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
@@ -104,38 +105,38 @@ availableTenants: response.availableTenants,
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
-      case 'console': return <Console token={authSession.accessToken} onResourceSelect={(id) => {
+      case 'dashboard': return <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
+      case 'console': return <Console onResourceSelect={(id) => {
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
-      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} token={authSession.accessToken} apiRole={authSession.user.role as ApiRole} onBack={() => setCurrentView('console')} />;
-      case 'chat': return <Chat token={authSession.accessToken} />;
-      case 'history': return <History token={authSession.accessToken} />;
+      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} apiRole={authSession.user.role as ApiRole} onBack={() => setCurrentView('console')} />;
+      case 'chat': return <Chat />;
+      case 'history': return <History />;
 case 'agent_settings': return <AgentSettings
-  token={authSession.accessToken}
   role={authSession.user.role}
   onOpenRecommendation={(recommendationId) => {
     setSelectedResourceType(recommendationId);
     setCurrentView('resource_detail');
   }}
 />;
-case 'ingesta': return <Ingesta token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
-case 'metricas_tecnicas': return <MetricasTecnicas token={authSession.accessToken} />;
-case 'budgets': return <Budgets token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
-case 'cost_allocation': return <CostAllocation token={authSession.accessToken} canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
-case 'value_realization': return <ValueRealization token={authSession.accessToken} canReconcile={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenRecommendation={(id) => { setSelectedResourceType(id); setCurrentView('resource_detail'); }} />;
-case 'cloud_inventory': return <CloudInventory token={authSession.accessToken} onOpenResource={(resource) => { setSelectedCloudResourceId(resource.externalResourceId); setSelectedCloudResourceCanonicalId(resource.id); setCurrentView('cloud_resource_detail'); }} />;
-case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.accessToken} externalResourceId={selectedCloudResourceId ?? ''} cloudResourceId={selectedCloudResourceCanonicalId ?? undefined} onBack={() => setCurrentView('cloud_inventory')} />;
+case 'ingesta': return <Ingesta canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
+      case 'metricas_tecnicas': return <MetricasTecnicas />;
+case 'budgets': return <Budgets canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
+case 'cost_allocation': return <CostAllocation canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} />;
+case 'value_realization': return <ValueRealization canReconcile={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenRecommendation={(id) => { setSelectedResourceType(id); setCurrentView('resource_detail'); }} />;
+case 'cloud_inventory': return <CloudInventory onOpenResource={(resource) => { setSelectedCloudResourceId(resource.externalResourceId); setSelectedCloudResourceCanonicalId(resource.id); setCurrentView('cloud_resource_detail'); }} />;
+case 'cloud_resource_detail': return <CloudResourceDetail externalResourceId={selectedCloudResourceId ?? ''} cloudResourceId={selectedCloudResourceCanonicalId ?? undefined} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
-? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
-: <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
-case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} token={authSession.accessToken} />;
-      default: return <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
+? <MasterAdmin onTenantsChanged={refreshAccessibleTenants} />
+: <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
+case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
+      default: return <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
     }
   };
 
   return (
+    <AuthSessionProvider session={authSession}>
     <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
 {mfaRecoveryCodes !== null && <MfaRecoveryCodesDialog codes={mfaRecoveryCodes} onClose={() => setMfaRecoveryCodes(null)} />}
 <Sidebar currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} user={authSession.user} />
@@ -148,7 +149,6 @@ case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole
           availableTenants={authSession.availableTenants}
           onTenantChange={handleTenantChange}
           role={authSession.user.role}
-          token={authSession.accessToken}
         />
         <main className="flex-1 p-4 lg:p-10 pb-24 lg:pb-10 custom-scrollbar overflow-x-hidden">
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">Cargando módulo…</div>}>
@@ -157,6 +157,7 @@ case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole
         </main>
       </div>
     </div>
+    </AuthSessionProvider>
   );
 }
 

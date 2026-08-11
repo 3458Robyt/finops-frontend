@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import { fetchAdoptionKpis, fetchRecommendations, fetchSavingsKpis, type Recommendation } from '../services/api';
 
 interface IntegrationCardProps {
@@ -7,7 +8,8 @@ interface IntegrationCardProps {
   status: boolean;
 }
 
-export default function History({ token }: { readonly token: string }) {
+export default function History() {
+  const token = useAccessToken();
   const [activeTab, setActiveTab] = useState('audit');
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [summary, setSummary] = useState({

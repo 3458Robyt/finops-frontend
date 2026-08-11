@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import {
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsOpportunities,
@@ -10,7 +11,6 @@ import {
 } from '../services/api';
 
 interface ConsoleProps {
-  readonly token: string;
   readonly onResourceSelect?: (id: string) => void;
 }
 
@@ -27,7 +27,8 @@ const severityWeight: Record<Recommendation['severity'], number> = {
   LOW: 1,
 };
 
-export default function Console({ token, onResourceSelect }: ConsoleProps) {
+export default function Console({ onResourceSelect }: ConsoleProps) {
+  const token = useAccessToken();
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);

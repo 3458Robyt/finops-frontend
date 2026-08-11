@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import RecommendationAnalysisRunsPanel from '../components/RecommendationAnalysisRunsPanel';
 import { AgentSettingsChannels } from '../components/agent/AgentSettingsChannels';
 import { AgentSettingsEvidence } from '../components/agent/AgentSettingsEvidence';
@@ -34,7 +35,6 @@ import {
 } from '../services/api';
 
 interface AgentSettingsProps {
-  readonly token: string;
   readonly role: ApiRole;
   readonly onOpenRecommendation?: (recommendationId: string) => void;
 }
@@ -75,7 +75,8 @@ function listToLines(value: readonly string[]): string {
   return value.join('\n');
 }
 
-export default function AgentSettings({ token, role, onOpenRecommendation }: AgentSettingsProps) {
+export default function AgentSettings({ role, onOpenRecommendation }: AgentSettingsProps) {
+  const token = useAccessToken();
   const canConfigureAgent = role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN';
   const analysisOnly = role === 'VIEWER' || role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER';
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
@@ -374,7 +375,6 @@ export default function AgentSettings({ token, role, onOpenRecommendation }: Age
 
       {activeTab === 'analysis' && (
         <RecommendationAnalysisRunsPanel
-          token={token}
           role={role}
           onOpenRecommendation={onOpenRecommendation}
         />

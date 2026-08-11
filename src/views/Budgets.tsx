@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import { archiveBudget, createBudget, evaluateBudgets, fetchBudgetAlerts, fetchBudgetPerformance, fetchBudgets, fetchCostDataOptions, updateBudget, type Budget, type BudgetPerformance, type BudgetScope, type CostDataOptions } from '../services/api';
 
 type Alert = { readonly id: string; readonly level: string; readonly createdAt: string };
 
-export default function Budgets({ token, canManage, onOpenAllocation }: { readonly token: string; readonly canManage: boolean; readonly onOpenAllocation: () => void }) {
+export default function Budgets({ canManage, onOpenAllocation }: { readonly canManage: boolean; readonly onOpenAllocation: () => void }) {
+  const token = useAccessToken();
   const [period, setPeriod] = useState(currentMonth()); const [cloudAccountId, setCloudAccountId] = useState(''); const [serviceName, setServiceName] = useState('');
   const [options, setOptions] = useState<CostDataOptions | null>(null); const [budgets, setBudgets] = useState<readonly Budget[]>([]); const [performance, setPerformance] = useState<Record<string, BudgetPerformance>>({}); const [alerts, setAlerts] = useState<Record<string, readonly Alert[]>>({});
   const [creating, setCreating] = useState(false); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [notice, setNotice] = useState<string | null>(null);

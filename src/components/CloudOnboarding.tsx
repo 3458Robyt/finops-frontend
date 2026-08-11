@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import {
   activateCloudConnection,
   cancelPendingCloudIngestion,
@@ -36,13 +37,13 @@ const capabilityLabels: Record<string, string> = {
   IDENTITY: 'Identidad', INVENTORY: 'Inventario', COSTS: 'Costos', METRICS: 'Métricas', STORAGE: 'Storage FOCUS',
 };
 
-export default function CloudOnboarding({ token, connections, canManage, onChanged, onNavigate }: {
-  readonly token: string;
+export default function CloudOnboarding({ connections, canManage, onChanged, onNavigate }: {
   readonly connections: readonly CloudConnectionSummary[];
   readonly canManage: boolean;
   readonly onChanged: () => Promise<void>;
   readonly onNavigate: (view: 'dashboard' | 'cloud_inventory' | 'metricas_tecnicas') => void;
 }) {
+  const token = useAccessToken();
   const [providers, setProviders] = useState<readonly CloudProviderCatalogEntry[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [detail, setDetail] = useState<CloudOnboardingDetail | null>(null);

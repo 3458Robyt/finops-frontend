@@ -13,14 +13,14 @@ import {
 } from './technical-metrics/technicalMetricsPresentation';
 import { useTechnicalMetricsController } from './technical-metrics/useTechnicalMetricsController';
 
-export default function MetricasTecnicas({ token }: { readonly token: string }) {
+export default function MetricasTecnicas() {
   const {
     overview, coverage, samples, selectedResource, selectedGroup, range, bucket, drilldownWindow,
     loadingOverview, loadingMoreSeries, error, metricOptions, activeMetric, selectedMetricMeta, filteredKpis,
     visibleSeries, visibleSeriesMeta, visibleLoadingSeries, topResourceCost, selectedCoverageMetric,
     setSelectedResource, setSelectedGroup, setSelectedMetric, setRange, setBucket, setDrilldownWindow,
     handleDrilldown, loadNextSeriesPage,
-  } = useTechnicalMetricsController(token);
+  } = useTechnicalMetricsController();
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">

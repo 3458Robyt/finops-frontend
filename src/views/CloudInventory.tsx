@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import {
   fetchTechnicalResourceSummary,
   fetchTechnicalResources,
@@ -12,7 +13,6 @@ import {
 } from '../services/api';
 
 interface CloudInventoryProps {
-  readonly token: string;
   readonly onOpenResource: (resource: CloudResourceItem) => void;
 }
 
@@ -24,7 +24,8 @@ const evidenceStatusLabels: Readonly<Record<NonNullable<CloudResourceItem['linea
   STALE_DATA: 'Desactualizada',
 };
 
-export default function CloudInventory({ token, onOpenResource }: CloudInventoryProps) {
+export default function CloudInventory({ onOpenResource }: CloudInventoryProps) {
+  const token = useAccessToken();
   const [resources, setResources] = useState<readonly CloudResourceItem[]>([]);
   const [query, setQuery] = useState('');
   const [provider, setProvider] = useState('ALL');
@@ -72,7 +73,8 @@ export default function CloudInventory({ token, onOpenResource }: CloudInventory
   </div>;
 }
 
-export function CloudResourceDetail({ token, externalResourceId, cloudResourceId, onBack }: { readonly token: string; readonly externalResourceId: string; readonly cloudResourceId?: string; readonly onBack: () => void }) {
+export function CloudResourceDetail({ externalResourceId, cloudResourceId, onBack }: { readonly externalResourceId: string; readonly cloudResourceId?: string; readonly onBack: () => void }) {
+  const token = useAccessToken();
   const [summary, setSummary] = useState<TechnicalResourceSummary | null>(null);
   const [allocation, setAllocation] = useState<readonly AllocationSummary[]>([]);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);

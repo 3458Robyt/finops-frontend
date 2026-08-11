@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAccessToken } from '../auth/authSession';
 import CloudOnboarding from '../components/CloudOnboarding';
 import { DataQualityPanel, IngestionHistoryPanel } from '../components/ingestion/IngestionActivityPanels';
 import BillingSourcePanel, { type FocusFormState } from '../components/ingestion/BillingSourcePanel';
@@ -25,11 +26,11 @@ import {
   type ResourceLinkageReadinessResponse,
 } from '../services/api';
 
-export default function Ingesta({ token, canManage, onNavigate }: {
-  readonly token: string;
+export default function Ingesta({ canManage, onNavigate }: {
   readonly canManage: boolean;
   readonly onNavigate: (view: 'dashboard' | 'cloud_inventory' | 'metricas_tecnicas') => void;
 }) {
+  const token = useAccessToken();
   const [jobs, setJobs] = useState<readonly IngestionJobHistoryItem[]>([]);
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
   const [connections, setConnections] = useState<readonly CloudConnectionSummary[]>([]);
@@ -248,7 +249,6 @@ export default function Ingesta({ token, canManage, onNavigate }: {
       )}
 
       <CloudOnboarding
-        token={token}
         connections={connections}
         canManage={canManage}
         onChanged={() => loadData(() => true)}
