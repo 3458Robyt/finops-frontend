@@ -1,15 +1,23 @@
-import { useState } from 'react';
-import type { ApiUser } from '../services/api';
+import { useEffect, useState } from 'react';
+import { fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice } from '../services/api';
 
 interface ToggleProps {
   checked: boolean;
   onChange: () => void;
 }
 
-export default function Profile({ onLogout, currentRole, user }: { onLogout: () => void, currentRole: 'admin' | 'client', user: ApiUser }) {
+export default function Profile({ onLogout, currentRole, user, token }: {
+  onLogout: () => void | Promise<void>;
+  currentRole: 'admin' | 'client';
+  user: ApiUser;
+  token: string;
+}) {
 const [twoFactor, setTwoFactor] = useState(true);
 const [notifications, setNotifications] = useState(true);
 const [persistent, setPersistent] = useState(false);
+const [sessions, setSessions] = useState<readonly AuthSessionDevice[]>([]);
+const [sessionError, setSessionError] = useState<string | null>(null);
+const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
 const displayName = user.name.trim() !== '' ? user.name : user.email;
 const initials = displayName
 .split(/\s+/)
@@ -17,6 +25,32 @@ const initials = displayName
 .slice(0, 2)
 .map((part) => part[0]?.toUpperCase() ?? '')
 .join('') || user.email.slice(0, 2).toUpperCase();
+
+useEffect(() => {
+  let cancelled = false;
+  void fetchAuthSessions(token)
+    .then((response) => {
+      if (!cancelled) setSessions(response.sessions);
+    })
+    .catch(() => {
+      if (!cancelled) setSessionError('No fue posible cargar las sesiones activas.');
+    });
+  return () => { cancelled = true; };
+}, [token]);
+
+const revokeSession = async (session: AuthSessionDevice) => {
+  if (session.isCurrent) return;
+  setRevokingSessionId(session.id);
+  setSessionError(null);
+  try {
+    await revokeAuthSession(token, session.id);
+    setSessions((current) => current.filter((item) => item.id !== session.id));
+  } catch {
+    setSessionError('No fue posible revocar esa sesión.');
+  } finally {
+    setRevokingSessionId(null);
+  }
+};
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -118,33 +152,20 @@ const initials = displayName
             <h3 className="text-lg font-bold text-white">Sesiones Activas</h3>
           </div>
           <div className="p-6 space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-zinc-950 rounded-2xl border border-zinc-800/50">
-              <div className="size-10 bg-tak-yellow/10 flex items-center justify-center rounded-xl shrink-0">
-                <span className="material-symbols-outlined text-tak-yellow">laptop_mac</span>
+            {sessionError !== null && <p className="text-xs text-red-400">{sessionError}</p>}
+            {sessions.length === 0 && sessionError === null && <p className="text-xs text-zinc-500">No hay sesiones activas adicionales.</p>}
+            {sessions.map((session) => (
+              <div key={session.id} className={`flex items-start gap-4 p-4 rounded-2xl border ${session.isCurrent ? 'bg-zinc-950 border-zinc-800/50' : 'bg-zinc-950/50 border-zinc-800/30'}`}>
+                <div className={`size-10 flex items-center justify-center rounded-xl shrink-0 ${session.isCurrent ? 'bg-tak-yellow/10 text-tak-yellow' : 'bg-zinc-800 text-zinc-400'}`}>
+                  <span className="material-symbols-outlined">{session.isCurrent ? 'laptop_mac' : 'devices'}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-bold truncate ${session.isCurrent ? 'text-white' : 'text-zinc-400'}`}>{session.userAgent ?? 'Cliente desconocido'}</p>
+                  <p className="text-[10px] text-zinc-500 mt-1 uppercase">{session.isCurrent ? 'Sesión actual' : `IP ${session.ipAddress ?? 'no disponible'}`}</p>
+                </div>
+                {session.isCurrent ? <span className="size-2 rounded-full bg-green-500 animate-pulse mt-1" /> : <button onClick={() => void revokeSession(session)} disabled={revokingSessionId === session.id} className="text-[10px] font-black uppercase text-red-400 hover:text-red-300 disabled:opacity-50">Revocar</button>}
               </div>
-              <div className="flex-1">
-                <p className="text-xs font-bold text-white">MacBook Pro - Bogotá, CO</p>
-                <p className="text-[10px] text-zinc-500 mt-1 uppercase">Chrome • En línea ahora</p>
-              </div>
-              <span className="size-2 rounded-full bg-green-500 animate-pulse mt-1"></span>
-            </div>
-            
-            <div className="flex items-start gap-4 p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800/30">
-              <div className="size-10 bg-zinc-800 flex items-center justify-center rounded-xl shrink-0 text-zinc-400">
-                <span className="material-symbols-outlined">smartphone</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-bold text-zinc-400">iPhone 15 - Bogotá, CO</p>
-                <p className="text-[10px] text-zinc-500 mt-1 uppercase">App TAK • Hace 2 horas</p>
-              </div>
-            </div>
-            
-            <div className="pt-2">
-              <button className="text-xs font-bold text-tak-yellow/80 hover:text-tak-yellow transition-colors uppercase tracking-widest flex items-center gap-1">
-                Ver todo el historial de acceso
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       </div>

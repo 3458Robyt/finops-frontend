@@ -1,23 +1,25 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import Login from './views/Login';
-import Dashboard from './views/Dashboard';
-import Console from './views/Console';
-import Chat from './views/Chat';
-import History from './views/History';
-import Profile from './views/Profile';
-import ResourceDetail from './views/ResourceDetail';
-import AgentSettings from './views/AgentSettings';
-import Ingesta from './views/Ingesta';
-import MetricasTecnicas from './views/MetricasTecnicas';
-import MasterAdmin from './views/MasterAdmin';
-import CloudInventory, { CloudResourceDetail } from './views/CloudInventory';
-import Budgets from './views/Budgets';
-import CostAllocation from './views/CostAllocation';
-import ValueRealization from './views/ValueRealization';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
-import { fetchAccessibleTenants, login, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
+import { fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
+
+const Dashboard = lazy(() => import('./views/Dashboard'));
+const Console = lazy(() => import('./views/Console'));
+const Chat = lazy(() => import('./views/Chat'));
+const History = lazy(() => import('./views/History'));
+const Profile = lazy(() => import('./views/Profile'));
+const ResourceDetail = lazy(() => import('./views/ResourceDetail'));
+const AgentSettings = lazy(() => import('./views/AgentSettings'));
+const Ingesta = lazy(() => import('./views/Ingesta'));
+const MetricasTecnicas = lazy(() => import('./views/MetricasTecnicas'));
+const MasterAdmin = lazy(() => import('./views/MasterAdmin'));
+const CloudInventory = lazy(() => import('./views/CloudInventory'));
+const CloudResourceDetail = lazy(() => import('./views/CloudInventory').then((module) => ({ default: module.CloudResourceDetail })));
+const Budgets = lazy(() => import('./views/Budgets'));
+const CostAllocation = lazy(() => import('./views/CostAllocation'));
+const ValueRealization = lazy(() => import('./views/ValueRealization'));
 
 type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 export type Role = AppRole;
@@ -38,7 +40,15 @@ function App() {
     setCurrentView(role === 'admin' ? 'console' : 'dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const currentToken = authSession?.accessToken;
+    if (currentToken !== undefined) {
+      try {
+        await logout(currentToken);
+      } catch {
+        // Logout is best-effort: local in-memory credentials are still cleared.
+      }
+    }
     setAuthSession(null);
     setCurrentView('login');
     setSelectedResourceType(null);
@@ -101,7 +111,7 @@ case 'cloud_resource_detail': return <CloudResourceDetail token={authSession.acc
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin token={authSession.accessToken} onTenantsChanged={refreshAccessibleTenants} />
 : <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
-case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
+case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} token={authSession.accessToken} />;
       default: return <Dashboard token={authSession.accessToken} onOpenBudgets={() => setCurrentView('budgets')} />;
     }
   };
@@ -121,7 +131,9 @@ case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole
           token={authSession.accessToken}
         />
         <main className="flex-1 p-4 lg:p-10 pb-24 lg:pb-10 custom-scrollbar overflow-x-hidden">
-          {renderView()}
+          <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">Cargando módulo…</div>}>
+            {renderView()}
+          </Suspense>
         </main>
       </div>
     </div>

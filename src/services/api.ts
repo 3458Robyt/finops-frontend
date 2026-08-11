@@ -1,6 +1,7 @@
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
 ).replace(/\/$/, '');
+const API_REQUEST_TIMEOUT_MS = 30_000;
 
 export type ApiRole =
   | 'ADMIN'
@@ -1010,6 +1011,44 @@ export async function switchTenant(token: string, tenantId: string): Promise<Aut
     method: 'POST',
     token,
     body: JSON.stringify({ tenantId }),
+  });
+}
+
+export interface AuthSessionDevice {
+  readonly id: string;
+  readonly issuedAt: string;
+  readonly expiresAt: string;
+  readonly revokedAt?: string;
+  readonly ipAddress?: string;
+  readonly userAgent?: string;
+  readonly isCurrent: boolean;
+}
+
+export async function logout(token: string): Promise<void> {
+  await apiRequest<{ readonly success: true }>('/auth/logout', {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function logoutAll(token: string): Promise<void> {
+  await apiRequest<{ readonly success: true }>('/auth/logout-all', {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function fetchAuthSessions(token: string): Promise<{
+  readonly success: true;
+  readonly sessions: readonly AuthSessionDevice[];
+}> {
+  return apiRequest('/auth/sessions', { token });
+}
+
+export async function revokeAuthSession(token: string, sessionId: string): Promise<void> {
+  await apiRequest<{ readonly success: true }>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    token,
   });
 }
 
@@ -2528,10 +2567,17 @@ async function apiRequest<T>(
     requestHeaders.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...requestOptions,
-    headers: requestHeaders,
-  });
+  const requestSignal = createRequestSignal(requestOptions.signal);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...requestOptions,
+      signal: requestSignal.signal,
+      headers: requestHeaders,
+    });
+  } finally {
+    requestSignal.cleanup();
+  }
 
   if (!response.ok) {
     let body: ApiErrorBody = {};
@@ -2551,4 +2597,22 @@ async function apiRequest<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+function createRequestSignal(signal: AbortSignal | null | undefined): {
+  readonly signal: AbortSignal;
+  readonly cleanup: () => void;
+} {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+  const abort = () => controller.abort();
+  if (signal?.aborted === true) controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      window.clearTimeout(timeout);
+      signal?.removeEventListener('abort', abort);
+    },
+  };
 }
