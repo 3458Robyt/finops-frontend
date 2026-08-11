@@ -1,17 +1,17 @@
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
-).replace(/\/$/, '');
-const API_REQUEST_TIMEOUT_MS = 30_000;
-
-export type ApiRole =
-  | 'ADMIN'
-  | 'MASTER_ADMIN'
-  | 'VIEWER'
-  | 'OPERATOR_ADMIN'
-  | 'FINOPS_TECHNICIAN'
-  | 'CLIENT_APPROVER'
-  | 'CLIENT_VIEWER';
-export type AppRole = 'admin' | 'client';
+import { apiRequest, apiUrl, ApiRequestError } from './apiClient';
+export { ApiRequestError } from './apiClient';
+import type { ApiRole } from './authTypes';
+export type { ApiRole, ApiUser, AppRole, AuthSession, AuthSessionDevice, AuthTenant, TenantAccessRole } from './authTypes';
+export {
+  fetchAccessibleTenants,
+  fetchAuthSessions,
+  login,
+  logout,
+  logoutAll,
+  mapApiRoleToAppRole,
+  revokeAuthSession,
+  switchTenant,
+} from './authApi';
 
 export interface ValueRealizationFilters {
   readonly status?: string;
@@ -107,33 +107,6 @@ export interface CostDataOptions {
   readonly services: readonly string[];
   readonly regions: readonly string[];
   readonly currencies: readonly string[];
-}
-
-export interface ApiUser {
-  readonly id: string;
-  readonly tenantId: string;
-  readonly homeTenantId: string;
-  readonly email: string;
-  readonly name: string;
-  readonly role: ApiRole;
-}
-
-export type TenantAccessRole = 'HOME' | 'TECHNICIAN' | 'LEAD_TECHNICIAN' | 'OPERATOR_ADMIN' | 'MASTER';
-
-export interface AuthTenant {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly accessRole: TenantAccessRole;
-  readonly isCurrent: boolean;
-}
-
-export interface AuthSession {
-  readonly accessToken: string;
-  readonly expiresAt: string;
-  readonly user: ApiUser;
-  readonly activeTenant: AuthTenant;
-  readonly availableTenants: readonly AuthTenant[];
 }
 
 export interface CostMetric {
@@ -962,96 +935,6 @@ export interface MasterAdminAssignmentResponse {
   readonly assignment: MasterAdminAssignment;
 }
 
-interface ApiErrorBody {
-  readonly error?: string;
-  readonly code?: string;
-  readonly diagnosticId?: string;
-  readonly audit?: unknown;
-}
-
-export class ApiRequestError extends Error {
-  public readonly code?: string;
-  public readonly status: number;
-  public readonly diagnosticId?: string;
-  public readonly audit?: unknown;
-
-  constructor(message: string, input: { readonly status: number; readonly code?: string; readonly diagnosticId?: string; readonly audit?: unknown }) {
-    super(message);
-    this.name = 'ApiRequestError';
-    this.status = input.status;
-    this.code = input.code;
-    this.diagnosticId = input.diagnosticId;
-    this.audit = input.audit;
-  }
-}
-
-export function mapApiRoleToAppRole(role: ApiRole): AppRole {
-  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
-    ? 'admin'
-    : 'client';
-}
-
-export async function login(email: string, password: string): Promise<AuthSession> {
-  return apiRequest<AuthSession>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function fetchAccessibleTenants(token: string): Promise<{
-  readonly success: true;
-  readonly activeTenant: AuthTenant | null;
-  readonly availableTenants: readonly AuthTenant[];
-}> {
-  return apiRequest('/auth/tenants', { token });
-}
-
-export async function switchTenant(token: string, tenantId: string): Promise<AuthSession> {
-  return apiRequest<AuthSession>('/auth/switch-tenant', {
-    method: 'POST',
-    token,
-    body: JSON.stringify({ tenantId }),
-  });
-}
-
-export interface AuthSessionDevice {
-  readonly id: string;
-  readonly issuedAt: string;
-  readonly expiresAt: string;
-  readonly revokedAt?: string;
-  readonly ipAddress?: string;
-  readonly userAgent?: string;
-  readonly isCurrent: boolean;
-}
-
-export async function logout(token: string): Promise<void> {
-  await apiRequest<{ readonly success: true }>('/auth/logout', {
-    method: 'POST',
-    token,
-  });
-}
-
-export async function logoutAll(token: string): Promise<void> {
-  await apiRequest<{ readonly success: true }>('/auth/logout-all', {
-    method: 'POST',
-    token,
-  });
-}
-
-export async function fetchAuthSessions(token: string): Promise<{
-  readonly success: true;
-  readonly sessions: readonly AuthSessionDevice[];
-}> {
-  return apiRequest('/auth/sessions', { token });
-}
-
-export async function revokeAuthSession(token: string, sessionId: string): Promise<void> {
-  await apiRequest<{ readonly success: true }>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
-    method: 'DELETE',
-    token,
-  });
-}
-
 export async function fetchCloudConnections(token: string): Promise<CloudConnectionsResponse> {
   return apiRequest<CloudConnectionsResponse>('/cloud-connections', { token });
 }
@@ -1163,7 +1046,7 @@ export async function closeCostAllocationPeriod(token: string, period: string, r
 export async function fetchCostAllocationClosures(token: string, period?: string): Promise<{ readonly success: true; readonly closures: readonly CostAllocationClosure[] }> { const query = period === undefined ? '' : `?period=${encodeURIComponent(period)}`; return apiRequest(`/cost-allocation/periods${query}`, { token }); }
 export async function fetchCostAllocationClosure(token: string, closureId: string): Promise<{ readonly success: true; readonly closure: CostAllocationClosure }> { return apiRequest(`/cost-allocation/periods/${encodeURIComponent(closureId)}`, { token }); }
 export async function compareCostAllocationClosures(token: string, closureId: string): Promise<{ readonly success: true; readonly current: CostAllocationClosure; readonly previous?: CostAllocationClosure }> { return apiRequest(`/cost-allocation/periods/${encodeURIComponent(closureId)}/compare`, { token }); }
-export async function downloadCostAllocationCsv(token: string, period: string): Promise<string> { const response = await fetch(`${API_BASE_URL}/cost-allocation/export.csv?period=${encodeURIComponent(period)}`, { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error(`No fue posible exportar el CSV (${response.status})`); return response.text(); }
+export async function downloadCostAllocationCsv(token: string, period: string): Promise<string> { const response = await fetch(apiUrl(`/cost-allocation/export.csv?period=${encodeURIComponent(period)}`), { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error(`No fue posible exportar el CSV (${response.status})`); return response.text(); }
 
 export async function fetchBudgets(token: string, filters: { readonly period?: string; readonly cloudAccountId?: string; readonly serviceName?: string } = {}): Promise<BudgetsResponse> {
   const params = new URLSearchParams();
@@ -2492,7 +2375,7 @@ export async function reconcileValueRealization(token: string, limit = 50): Prom
 }
 
 export function valueRealizationExportUrl(filters: ValueRealizationFilters = {}): string {
-  return `${API_BASE_URL}/value-realization/export.csv${buildValueRealizationQuery(filters)}`;
+  return apiUrl(`/value-realization/export.csv${buildValueRealizationQuery(filters)}`);
 }
 
 export async function downloadValueRealizationCsv(token: string, filters: ValueRealizationFilters = {}): Promise<Blob> {
@@ -2553,66 +2436,4 @@ function buildTechnicalMetricsQuery(params: {
 
   const serialized = query.toString();
   return serialized.length > 0 ? `?${serialized}` : '';
-}
-
-async function apiRequest<T>(
-  path: string,
-  options: RequestInit & { readonly token?: string } = {},
-): Promise<T> {
-  const { token, headers, ...requestOptions } = options;
-  const requestHeaders = new Headers(headers);
-  requestHeaders.set('Content-Type', 'application/json');
-
-  if (token !== undefined) {
-    requestHeaders.set('Authorization', `Bearer ${token}`);
-  }
-
-  const requestSignal = createRequestSignal(requestOptions.signal);
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...requestOptions,
-      signal: requestSignal.signal,
-      headers: requestHeaders,
-    });
-  } finally {
-    requestSignal.cleanup();
-  }
-
-  if (!response.ok) {
-    let body: ApiErrorBody = {};
-
-    try {
-      body = await response.json() as ApiErrorBody;
-    } catch {
-      body = {};
-    }
-
-    throw new ApiRequestError(body.error ?? `API request failed with status ${response.status}`, {
-      status: response.status,
-      ...(body.code !== undefined ? { code: body.code } : {}),
-      ...(body.diagnosticId !== undefined ? { diagnosticId: body.diagnosticId } : {}),
-      ...(body.audit !== undefined ? { audit: body.audit } : {}),
-    });
-  }
-
-  return response.json() as Promise<T>;
-}
-
-function createRequestSignal(signal: AbortSignal | null | undefined): {
-  readonly signal: AbortSignal;
-  readonly cleanup: () => void;
-} {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
-  const abort = () => controller.abort();
-  if (signal?.aborted === true) controller.abort();
-  signal?.addEventListener('abort', abort, { once: true });
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      window.clearTimeout(timeout);
-      signal?.removeEventListener('abort', abort);
-    },
-  };
 }
