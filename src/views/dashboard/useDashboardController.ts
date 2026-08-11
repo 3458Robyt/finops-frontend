@@ -117,6 +117,8 @@ export function useDashboardController(token: string): DashboardControllerState 
       if (budgetResponse === undefined) {
         setBudgetError('El presupuesto no pudo actualizarse.');
       } else {
+        setBudgetError(null);
+        setBudgetPerformance(null);
         setBudgets(budgetResponse.budgets);
         const tenantBudget = budgetResponse.budgets.find((budget) => budget.scope === 'TENANT');
         if (tenantBudget !== undefined) {
