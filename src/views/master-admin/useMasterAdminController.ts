@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useAccessToken } from '../../auth/authSession';
 import {
   assignMasterAdminTenant,
   createMasterAdminTenant,
@@ -54,9 +55,9 @@ export interface MasterAdminControllerState {
 }
 
 export function useMasterAdminController(
-  token: string,
   onTenantsChanged: () => Promise<void>,
 ): MasterAdminControllerState {
+  const token = useAccessToken();
   const [tenants, setTenants] = useState<readonly MasterAdminTenant[]>([]);
   const [users, setUsers] = useState<readonly MasterAdminUser[]>([]);
   const [assignments, setAssignments] = useState<readonly MasterAdminAssignment[]>([]);

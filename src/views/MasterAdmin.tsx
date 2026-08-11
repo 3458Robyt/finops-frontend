@@ -1,4 +1,3 @@
-import { useAccessToken } from '../auth/authSession';
 import { Field, FormPanel, Metric, StatusBadge } from './master-admin/masterAdminPresentation';
 import { accessRoleLabels, inputClass, primaryButtonClass } from './master-admin/masterAdminUi';
 import { useMasterAdminController } from './master-admin/useMasterAdminController';
@@ -10,7 +9,6 @@ export interface MasterAdminProps {
 }
 
 export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
-  const token = useAccessToken();
   const {
     tenants, users, assignments, activeTenants, suspendedTenants, assignableUsers,
     loading, saving, message, error, tenantName, tenantSlug, userName, userEmail,
@@ -18,7 +16,7 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
     setTenantName, setTenantSlug, setUserName, setUserEmail, setUserRole,
     setTemporaryPassword, setAssignmentTenantId, setAssignmentUserId, setAssignmentRole,
     handleCreateTenant, handleToggleTenant, handleCreateUser, handleAssign, handleRevoke,
-  } = useMasterAdminController(token, onTenantsChanged);
+  } = useMasterAdminController(onTenantsChanged);
 
   if (loading) {
     return (
