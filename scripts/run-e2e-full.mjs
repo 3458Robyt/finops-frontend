@@ -137,7 +137,9 @@ try {
   await waitFor(`${backendUrl}/health`);
   frontend = start(command('npx'), ['vite', '--host', '127.0.0.1', '--port', '5173'], frontendEnv, resolve('.'));
   await waitFor(`${frontendUrl}/`);
-  await run(command('npx'), ['playwright', 'test'], { cwd: resolve('.') , env: frontendEnv });
+  // The database-backed specs intentionally share one isolated fixture tenant.
+  // Run them serially so concurrent analysis commands cannot race on the same durable job.
+  await run(command('npx'), ['playwright', 'test', '--workers=1'], { cwd: resolve('.') , env: frontendEnv });
 } finally {
   await stop(frontend);
   await stop(backend);
