@@ -3,6 +3,7 @@ import Login from './views/Login';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
+import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog';
 import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, setAccessToken, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
@@ -26,6 +27,7 @@ export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<readonly string[] | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
   const [selectedCloudResourceId, setSelectedCloudResourceId] = useState<string | null>(null);
   const [selectedCloudResourceCanonicalId, setSelectedCloudResourceCanonicalId] = useState<string | null>(null);
@@ -44,11 +46,12 @@ function App() {
         : await completeMfaLogin(mfa.challengeToken, mfa.code);
     if ('mfaRequired' in result) return result;
 
-    const session = result;
+    const { mfaRecoveryCodes: oneTimeRecoveryCodes, ...session } = result;
     const role = mapApiRoleToAppRole(session.user.role);
 
     setAccessToken(session.accessToken);
     setAuthSession(session);
+    setMfaRecoveryCodes(oneTimeRecoveryCodes ?? null);
     setCurrentView(role === 'admin' ? 'console' : 'dashboard');
     return session;
   };
@@ -67,6 +70,7 @@ function App() {
     setCurrentView('login');
     setSelectedResourceType(null);
     setSelectedCloudResourceId(null);
+    setMfaRecoveryCodes(null);
   };
 
 const handleTenantChange = async (tenantId: string) => {
@@ -133,6 +137,7 @@ case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole
 
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+{mfaRecoveryCodes !== null && <MfaRecoveryCodesDialog codes={mfaRecoveryCodes} onClose={() => setMfaRecoveryCodes(null)} />}
 <Sidebar currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} user={authSession.user} />
 <BottomNav currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} />
       

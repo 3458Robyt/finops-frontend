@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant } from './authTypes';
+import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaStatusResponse } from './authTypes';
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
@@ -83,5 +83,17 @@ export async function revokeAuthSession(token: string, sessionId: string): Promi
   await apiRequest<{ readonly success: true }>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
     token,
+  });
+}
+
+export function fetchMfaStatus(token: string): Promise<MfaStatusResponse> {
+  return apiRequest('/auth/mfa/status', { token });
+}
+
+export function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  return apiRequest('/auth/mfa/recovery-codes/regenerate', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ code }),
   });
 }

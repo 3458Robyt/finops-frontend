@@ -12,6 +12,7 @@ export default function Login({ onLogin }: {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
   const [resetConfirmation, setResetConfirmation] = useState('');
   const [mfaChallenge, setMfaChallenge] = useState<Extract<AuthLoginResponse, { readonly mfaRequired: true }> | null>(null);
@@ -37,6 +38,7 @@ export default function Login({ onLogin }: {
       if ('mfaRequired' in result) {
         setMfaChallenge(result);
         setMfaCode('');
+        setUseRecoveryCode(false);
         setRecoveryMessage(result.mfaSetupRequired === true
           ? 'Configura MFA con la clave o URI proporcionada y confirma un código de seis dígitos.'
           : 'Escribe el código de seis dígitos de tu aplicación autenticadora.');
@@ -145,7 +147,9 @@ export default function Login({ onLogin }: {
             <div className="space-y-3 rounded-xl border border-tak-yellow/30 bg-tak-yellow/5 p-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-tak-yellow">Verificación MFA</p>
-                <p className="mt-1 text-xs text-zinc-400">El acceso requiere un código temporal de seis dígitos.</p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {useRecoveryCode ? 'Usa uno de tus códigos de recuperación de un solo uso.' : 'El acceso requiere un código temporal de seis dígitos.'}
+                </p>
               </div>
               {mfaChallenge.mfaSetupRequired === true && mfaChallenge.secret !== undefined && (
                 <div className="space-y-1 text-xs text-zinc-300">
@@ -155,15 +159,22 @@ export default function Login({ onLogin }: {
                 </div>
               )}
               <input
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
+                inputMode={useRecoveryCode ? 'text' : 'numeric'}
+                pattern={useRecoveryCode ? '[A-Fa-f0-9-]{20,23}' : '[0-9]{6}'}
+                maxLength={useRecoveryCode ? 23 : 6}
                 value={mfaCode}
-                onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-center text-xl tracking-[0.4em] text-white focus:border-tak-yellow focus:outline-none"
-                placeholder="000000"
+                onChange={(event) => setMfaCode(useRecoveryCode
+                  ? event.target.value.toUpperCase().replace(/[^A-F0-9-]/g, '').slice(0, 23)
+                  : event.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={`w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-center text-xl text-white focus:border-tak-yellow focus:outline-none ${useRecoveryCode ? 'tracking-wider' : 'tracking-[0.4em]'}`}
+                placeholder={useRecoveryCode ? 'XXXXX-XXXXX-XXXXX-XXXXX' : '000000'}
                 required
               />
+              {mfaChallenge.mfaSetupRequired !== true && (
+                <button type="button" onClick={() => { setUseRecoveryCode((current) => !current); setMfaCode(''); }} className="text-xs font-bold text-tak-yellow hover:underline">
+                  {useRecoveryCode ? 'Usar aplicación autenticadora' : 'Usar código de recuperación'}
+                </button>
+              )}
             </div>
           )}
 

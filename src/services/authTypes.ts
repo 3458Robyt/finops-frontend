@@ -34,6 +34,21 @@ export interface AuthSession {
   readonly user: ApiUser;
   readonly activeTenant: AuthTenant;
   readonly availableTenants: readonly AuthTenant[];
+  /** Returned once immediately after MFA enrollment; callers must not persist it. */
+  readonly mfaRecoveryCodes?: readonly string[];
+}
+
+export interface MfaStatusResponse {
+  readonly success: true;
+  readonly enabled: boolean;
+  readonly requiredForRole: boolean;
+  readonly recoveryCodesRemaining: number;
+}
+
+export interface MfaRecoveryCodesResponse {
+  readonly success: true;
+  readonly recoveryCodes: readonly string[];
+  readonly message: string;
 }
 
 export interface AuthMfaChallenge {

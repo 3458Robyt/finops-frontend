@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice } from '../services/api';
+import MfaSecurityPanel from '../components/profile/MfaSecurityPanel';
 
 interface ToggleProps {
   checked: boolean;
@@ -12,7 +13,6 @@ export default function Profile({ onLogout, currentRole, user, token }: {
   user: ApiUser;
   token: string;
 }) {
-const [twoFactor, setTwoFactor] = useState(true);
 const [notifications, setNotifications] = useState(true);
 const [persistent, setPersistent] = useState(false);
 const [sessions, setSessions] = useState<readonly AuthSessionDevice[]>([]);
@@ -110,13 +110,7 @@ const revokeSession = async (session: AuthSessionDevice) => {
           </div>
           <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Autenticación 2FA</p>
-                  <p className="text-xs text-zinc-500 mt-1">Añade una capa extra de seguridad.</p>
-                </div>
-                <Toggle checked={twoFactor} onChange={() => setTwoFactor(!twoFactor)} />
-              </div>
+              <MfaSecurityPanel token={token} />
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Recordatorios de ahorro</p>

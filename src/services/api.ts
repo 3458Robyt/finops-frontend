@@ -1,6 +1,6 @@
 export { ApiRequestError, clearAccessToken, setAccessToken } from './apiClient';
-export type { ApiRole, ApiUser, AppRole, AuthLoginResponse, AuthMfaChallenge, AuthSession, AuthSessionDevice, AuthTenant, TenantAccessRole } from './authTypes';
-export { completeMfaEnrollment, completeMfaLogin, confirmPasswordReset, fetchAccessibleTenants, fetchAuthSessions, login, logout, logoutAll, mapApiRoleToAppRole, requestPasswordReset, revokeAuthSession, switchTenant } from './authApi';
+export type { ApiRole, ApiUser, AppRole, AuthLoginResponse, AuthMfaChallenge, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaStatusResponse, TenantAccessRole } from './authTypes';
+export { completeMfaEnrollment, completeMfaLogin, confirmPasswordReset, fetchAccessibleTenants, fetchAuthSessions, fetchMfaStatus, login, logout, logoutAll, mapApiRoleToAppRole, regenerateMfaRecoveryCodes, requestPasswordReset, revokeAuthSession, switchTenant } from './authApi';
 export type * from './apiTypes';
 export * from './cloudApi';
 export * from './costAllocationApi';
