@@ -1,137 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
 import { CostHistoryUPlot } from '../components/CostHistoryUPlot';
-import {
-  fetchAdoptionKpis,
-  fetchAnalyticsEfficiencyInsights,
-  fetchAnalyticsForecast,
-  fetchAnalyticsOpportunities,
-  fetchAnalyticsUnitEconomics,
-  fetchCosts,
-  fetchBudgets,
-  fetchBudgetPerformance,
-  fetchRecommendations,
-  fetchSavingsKpis,
-  recomputeAnalytics,
-  type AdoptionKpisResponse,
-  type CostMetric,
-  type CostOpportunity,
-  type CostsResponse,
-  type Recommendation,
-  type SavingsKpisResponse,
-  type UsageInsight,
-  type MonthlyUsagePoint,
-  type Budget,
-  type BudgetPerformance,
-} from '../services/api';
+import { useDashboardController } from './dashboard/useDashboardController';
+import { currencyFormatter, formatCompactNumber } from './dashboard/dashboardPresentation';
 
-interface DashboardProps {
+export interface DashboardProps {
   readonly token: string;
   readonly onOpenBudgets?: () => void;
 }
 
-interface ChartPoint {
-  readonly name: string;
-  readonly asIs: number;
-  readonly toBe: number;
-}
-
-interface Suggestion {
-  readonly id: string;
-  readonly service: string;
-  readonly title: string;
-  readonly description: string;
-  readonly saving: number;
-  readonly source: 'AI' | 'FOCUS';
-  readonly usageLabel?: string;
-}
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
-const dashboardCostWindowDays = 900;
-function currentMonth(): string { const date = new Date(); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`; }
-
 export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
-  const [costs, setCosts] = useState<CostsResponse | null>(null);
-  const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
-  const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
-  const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
-  const [unitEconomics, setUnitEconomics] = useState<readonly MonthlyUsagePoint[]>([]);
-  const [savingsKpis, setSavingsKpis] = useState<SavingsKpisResponse['savings'] | null>(null);
-  const [adoptionKpis, setAdoptionKpis] = useState<AdoptionKpisResponse['adoption'] | null>(null);
-  const [budgets, setBudgets] = useState<readonly Budget[]>([]);
-  const [budgetPerformance, setBudgetPerformance] = useState<BudgetPerformance | null>(null);
-  const [budgetError, setBudgetError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      const results = await Promise.allSettled([
-        fetchCosts(token, buildDashboardCostRange()), fetchRecommendations(token), fetchAnalyticsOpportunities(token),
-        fetchAnalyticsForecast(token), fetchAnalyticsEfficiencyInsights(token), fetchAnalyticsUnitEconomics(token),
-        fetchSavingsKpis(token), fetchAdoptionKpis(token), fetchBudgets(token, { period: currentMonth() }),
-      ]);
-      if (!active) return;
-      const value = <T,>(index: number): T | undefined => results[index]?.status === 'fulfilled' ? results[index].value as T : undefined;
-      const costResponse = value<CostsResponse>(0); const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(1);
-      const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(2); const forecastResponse = value<{ forecasts: readonly unknown[] }>(3);
-      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(4); const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(5);
-      const savingsResponse = value<SavingsKpisResponse>(6); const adoptionResponse = value<AdoptionKpisResponse>(7); const budgetResponse = value<{ budgets: readonly Budget[] }>(8);
-      if (costResponse !== undefined) setCosts(costResponse);
-      if (recommendationResponse !== undefined) setRecommendations(recommendationResponse.recommendations);
-      if (opportunityResponse !== undefined) setOpportunities(opportunityResponse.opportunities);
-      if (insightsResponse !== undefined) setUsageInsights(insightsResponse.insights);
-      if (unitEconomicsResponse !== undefined) setUnitEconomics(unitEconomicsResponse.unitEconomics);
-      if (savingsResponse !== undefined) setSavingsKpis(savingsResponse.savings);
-      if (adoptionResponse !== undefined) setAdoptionKpis(adoptionResponse.adoption);
-      if (budgetResponse !== undefined) {
-        setBudgetError(null);
-        setBudgets(budgetResponse.budgets);
-        const tenantBudget = budgetResponse.budgets.find((budget) => budget.scope === 'TENANT');
-        if (tenantBudget !== undefined) {
-          try { setBudgetPerformance((await fetchBudgetPerformance(token, tenantBudget.id)).performance); }
-          catch { setBudgetPerformance(null); setBudgetError('El presupuesto no pudo actualizarse.'); }
-        }
-      } else { setBudgetError('El presupuesto no pudo actualizarse.'); }
-      const failures = results.filter((result) => result.status === 'rejected');
-      setError(failures.length === 0 ? null : `${failures.length} bloque(s) no pudieron actualizarse. Los demás datos siguen disponibles.`);
-      if (opportunityResponse !== undefined && forecastResponse !== undefined && opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
-        try { const analyticsResponse = await recomputeAnalytics(token); if (active) { setOpportunities(analyticsResponse.anomalies); setUsageInsights(analyticsResponse.usageInsights); } } catch { /* Existing persisted data stays visible. */ }
-      }
-      if (active) setLoading(false);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [token]);
-
-  const metrics = useMemo(
-    () => costs?.metrics ?? [],
-    [costs],
-  );
-  const totalCost = useMemo(
-    () => roundCurrency(metrics.reduce((total, metric) => total + metric.amount, 0)),
-    [metrics],
-  );
-  const chartData = useMemo(() => buildChartData(metrics), [metrics]);
-  const suggestions = useMemo(
-    () => buildSuggestions(metrics, recommendations),
-    [metrics, recommendations],
-  );
-  const dashboardBudget = budgets.find((budget) => budget.scope === 'TENANT');
-  const budgetUsage = budgetPerformance?.consumedPercent ?? 0;
-  const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * 0.14);
-  const verifiedSavings = savingsKpis?.verifiedMonthlySavings ?? savingsKpis?.confirmedMonthlySavings ?? 0;
-  const roi = totalCost > 0 ? roundCurrency((verifiedSavings / totalCost) * 100) : 0;
-  const openOpportunities = opportunities.filter((opportunity) => opportunity.status === 'OPEN').length;
-  const acceptanceRate = adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0;
-  const topUnitEconomics = unitEconomics.slice(0, 3);
-  const missedSavingsAmount = savingsKpis?.missedSavingsAmount ?? 0;
+  const {
+    loading,
+    error,
+    budgetError,
+    usageInsights,
+    savingsKpis,
+    budgetPerformance,
+    chartData,
+    suggestions,
+    dashboardBudget,
+    budgetUsage,
+    identifiedWaste,
+    roi,
+    openOpportunities,
+    acceptanceRate,
+    topUnitEconomics,
+    missedSavingsAmount,
+  } = useDashboardController(token);
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -334,133 +228,4 @@ export default function Dashboard({ token, onOpenBudgets }: DashboardProps) {
       </div>
     </div>
   );
-}
-
-function buildChartData(metrics: readonly CostMetric[]): ChartPoint[] {
-  const dailyTotals = new Map<string, { label: string; total: number }>();
-
-  for (const metric of metrics) {
-    const date = new Date(metric.timestamp);
-    const key = date.toISOString().slice(0, 10);
-    const existing = dailyTotals.get(key);
-
-    dailyTotals.set(key, {
-      label: existing?.label ?? date.toLocaleDateString('es-CO', {
-        day: 'numeric',
-        month: 'short',
-        timeZone: 'UTC',
-      }),
-      total: (existing?.total ?? 0) + metric.amount,
-    });
-  }
-
-  return [...dailyTotals.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([, value]) => ({
-      name: value.label,
-      asIs: roundCurrency(value.total),
-      toBe: roundCurrency(value.total * 0.86),
-    }));
-}
-
-function buildSuggestions(
-  metrics: readonly CostMetric[],
-  recommendations: readonly Recommendation[],
-): Suggestion[] {
-  const recommendationSuggestions = recommendations
-    .slice(0, 6)
-    .map((recommendation) => ({
-      id: recommendation.id,
-      service: recommendation.type,
-      title: recommendation.title,
-      description: recommendation.description,
-      saving: roundCurrency(recommendation.estimatedMonthlySavings ?? 0),
-      source: readRecommendationSource(recommendation),
-    }));
-
-  if (recommendationSuggestions.length > 0) {
-    return recommendationSuggestions;
-  }
-
-  const serviceTotals = new Map<string, number>();
-  const serviceUsage = new Map<string, { usage: number; usageUnit: string }>();
-
-  for (const metric of metrics) {
-    serviceTotals.set(metric.service, (serviceTotals.get(metric.service) ?? 0) + metric.amount);
-
-    if (metric.usage !== undefined && metric.usageUnit !== undefined) {
-      const existing = serviceUsage.get(metric.service);
-
-      if (existing === undefined || existing.usageUnit === metric.usageUnit) {
-        serviceUsage.set(metric.service, {
-          usage: (existing?.usage ?? 0) + metric.usage,
-          usageUnit: metric.usageUnit,
-        });
-      }
-    }
-  }
-
-  return [...serviceTotals.entries()]
-    .sort(([, leftCost], [, rightCost]) => rightCost - leftCost)
-    .slice(0, 3)
-    .map(([service, cost]) => ({
-      id: service,
-      service,
-      title: `Insight FOCUS preliminar: ${shortenServiceName(service)}`,
-      description: 'Servicio priorizado por gasto y consumo facturado. Requiere IA y validación técnica antes de tratarlo como recomendación.',
-      saving: roundCurrency(cost * 0.12),
-      source: 'FOCUS',
-      usageLabel: formatUsageLabel(serviceUsage.get(service)),
-    }));
-}
-
-function readRecommendationSource(recommendation: Recommendation): Suggestion['source'] {
-  const source = readEvidenceString(recommendation.evidence, 'source')?.trim().toLowerCase();
-  return source === 'nvidia-nim' ? 'AI' : 'FOCUS';
-}
-
-function readEvidenceString(value: unknown, key: string): string | undefined {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-
-  const property = (value as Record<string, unknown>)[key];
-  return typeof property === 'string' ? property : undefined;
-}
-
-function shortenServiceName(service: string): string {
-  return service
-    .replace('Amazon ', '')
-    .replace('Elastic Compute Cloud', 'EC2')
-    .replace('Relational Database Service', 'RDS')
-    .replace('Simple Storage Service', 'S3');
-}
-
-function roundCurrency(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function formatCompactNumber(value: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    maximumFractionDigits: value >= 100 ? 0 : 2,
-  }).format(value);
-}
-
-function formatUsageLabel(value: { readonly usage: number; readonly usageUnit: string } | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  return `${formatCompactNumber(value.usage)} ${value.usageUnit}`;
-}
-
-function buildDashboardCostRange(): { readonly startDate: string; readonly endDate: string } {
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - dashboardCostWindowDays);
-
-  return {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-  };
 }
