@@ -394,6 +394,22 @@ export default function Ingesta({ token, canManage, onNavigate }: {
             <CoverageCard label="Métricas enlazadas" value={`${resourceLinkage.metrics.coveragePercent}%`} detail={`${resourceLinkage.metrics.linked} de ${resourceLinkage.metrics.eligible}`} />
             <CoverageCard label="Recursos con costo y técnica" value={String(resourceLinkage.linkedResourcesWithBoth)} detail="Base mínima para IA técnica" />
           </div>
+          <div className="grid gap-4 border-t border-zinc-800 p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Gobierno de etiquetas</p>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                Comprueba las claves obligatorias del inventario antes de distribuir costos o priorizar oportunidades por equipo, aplicación y ambiente.
+              </p>
+              <p className="mt-2 text-xs text-zinc-400">Claves evaluadas: {resourceLinkage.tagGovernance.requiredKeys.join(', ') || 'ninguna configurada'}.</p>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-4 text-left lg:min-w-56 lg:text-right">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Cobertura conforme</p>
+              <p className={`mt-1 text-2xl font-black ${resourceLinkage.tagGovernance.coveragePercent >= 90 ? 'text-green-300' : 'text-tak-yellow'}`}>
+                {resourceLinkage.tagGovernance.coveragePercent}%
+              </p>
+              <p className="text-xs text-zinc-500">{resourceLinkage.tagGovernance.compliantResources} de {resourceLinkage.tagGovernance.totalResources} recursos</p>
+            </div>
+          </div>
           <div className="grid gap-3 border-t border-zinc-800 p-6 sm:grid-cols-3">
             <FreshnessCard label="Inventario" signal={resourceLinkage.freshness.inventory} />
             <FreshnessCard label="Costos" signal={resourceLinkage.freshness.costs} />

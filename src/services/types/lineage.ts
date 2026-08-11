@@ -56,6 +56,16 @@ export interface ResourceLinkageConnectionReadiness {
   readonly freshness: ResourceFreshness;
   readonly status: 'READY' | 'PARTIAL' | 'BLOCKED' | 'NO_DATA';
 }
+export interface ResourceTagGovernance {
+  readonly requiredKeys: readonly string[];
+  readonly totalResources: number;
+  readonly taggedResources: number;
+  readonly compliantResources: number;
+  readonly nonCompliantResources: number;
+  readonly untaggedResources: number;
+  readonly coveragePercent: number;
+  readonly missingKeys: Partial<Record<string, number>>;
+}
 export interface ResourceLinkageReadinessResponse {
   readonly success: true;
   readonly readiness: {
@@ -70,6 +80,7 @@ export interface ResourceLinkageReadinessResponse {
     readonly recommendations: ResourceLinkageTableCoverage;
     readonly resources: readonly ResourceLinkageResourceCoverage[];
     readonly connections: readonly ResourceLinkageConnectionReadiness[];
+    readonly tagGovernance: ResourceTagGovernance;
     readonly freshness: ResourceFreshness;
     readonly technicalRecommendationBlockers: readonly string[];
     readonly latestReconciliation?: {
