@@ -10,6 +10,13 @@ interface ApiErrorBody {
   readonly audit?: unknown;
 }
 
+interface RefreshResponse {
+  readonly accessToken: string;
+}
+
+let inMemoryAccessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
 export class ApiRequestError extends Error {
   public readonly code?: string;
   public readonly status: number;
@@ -28,35 +35,33 @@ export class ApiRequestError extends Error {
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit & { readonly token?: string } = {},
+  options: RequestInit & { readonly token?: string; readonly skipAuthRefresh?: boolean } = {},
 ): Promise<T> {
-  const { token, headers, ...requestOptions } = options;
+  const { token, headers, skipAuthRefresh, ...requestOptions } = options;
+  const effectiveToken = inMemoryAccessToken ?? token;
   const requestHeaders = new Headers(headers);
   requestHeaders.set('Content-Type', 'application/json');
 
-  if (token !== undefined) {
-    requestHeaders.set('Authorization', `Bearer ${token}`);
+  if (effectiveToken !== undefined) {
+    requestHeaders.set('Authorization', `Bearer ${effectiveToken}`);
   }
 
-  const requestSignal = createRequestSignal(requestOptions.signal);
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...requestOptions,
-      signal: requestSignal.signal,
-      headers: requestHeaders,
-    });
-  } finally {
-    requestSignal.cleanup();
+  const response = await executeRequest(path, requestOptions, requestHeaders);
+
+  if (response.status === 401 && effectiveToken !== undefined && skipAuthRefresh !== true && !path.startsWith('/auth/')) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken !== null) {
+      return apiRequest<T>(path, {
+        ...requestOptions,
+        headers,
+        token: refreshedToken,
+        skipAuthRefresh: true,
+      });
+    }
   }
 
   if (!response.ok) {
-    let body: ApiErrorBody = {};
-    try {
-      body = await response.json() as ApiErrorBody;
-    } catch {
-      body = {};
-    }
+    const body = await readApiError(response);
     throw new ApiRequestError(body.error ?? `API request failed with status ${response.status}`, {
       status: response.status,
       ...(body.code !== undefined ? { code: body.code } : {}),
@@ -66,6 +71,14 @@ export async function apiRequest<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+export function setAccessToken(token: string): void {
+  inMemoryAccessToken = token;
+}
+
+export function clearAccessToken(): void {
+  inMemoryAccessToken = null;
 }
 
 export function apiUrl(path: string): string {
@@ -88,4 +101,51 @@ function createRequestSignal(signal: AbortSignal | null | undefined): {
       signal?.removeEventListener('abort', abort);
     },
   };
+}
+
+async function executeRequest(
+  path: string,
+  requestOptions: RequestInit,
+  headers: Headers,
+): Promise<Response> {
+  const requestSignal = createRequestSignal(requestOptions.signal);
+  try {
+    return await fetch(`${API_BASE_URL}${path}`, {
+      ...requestOptions,
+      credentials: 'include',
+      signal: requestSignal.signal,
+      headers,
+    });
+  } finally {
+    requestSignal.cleanup();
+  }
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise !== null) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const response = await executeRequest('/auth/refresh', { method: 'POST' }, new Headers({ 'Content-Type': 'application/json' }));
+      if (!response.ok) return null;
+      const body = await response.json() as RefreshResponse;
+      if (typeof body.accessToken !== 'string' || body.accessToken.trim() === '') return null;
+      setAccessToken(body.accessToken);
+      return body.accessToken;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function readApiError(response: Response): Promise<ApiErrorBody> {
+  try {
+    return await response.json() as ApiErrorBody;
+  } catch {
+    return {};
+  }
 }

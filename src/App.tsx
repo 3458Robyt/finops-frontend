@@ -3,7 +3,7 @@ import Login from './views/Login';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
-import { fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, switchTenant, type ApiRole, type AuthSession, type AppRole } from './services/api';
+import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, setAccessToken, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Console = lazy(() => import('./views/Console'));
@@ -32,12 +32,25 @@ function App() {
 
   const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
 
-  const handleLogin = async (email: string, password: string) => {
-    const session = await login(email, password);
+  const handleLogin = async (
+    email: string,
+    password: string,
+    mfa?: { readonly challengeToken: string; readonly code: string; readonly enrollment: boolean },
+  ): Promise<AuthLoginResponse> => {
+    const result = mfa === undefined
+      ? await login(email, password)
+      : mfa.enrollment
+        ? await completeMfaEnrollment(mfa.challengeToken, mfa.code)
+        : await completeMfaLogin(mfa.challengeToken, mfa.code);
+    if ('mfaRequired' in result) return result;
+
+    const session = result;
     const role = mapApiRoleToAppRole(session.user.role);
 
+    setAccessToken(session.accessToken);
     setAuthSession(session);
     setCurrentView(role === 'admin' ? 'console' : 'dashboard');
+    return session;
   };
 
   const handleLogout = async () => {
@@ -50,6 +63,7 @@ function App() {
       }
     }
     setAuthSession(null);
+    clearAccessToken();
     setCurrentView('login');
     setSelectedResourceType(null);
     setSelectedCloudResourceId(null);
@@ -61,6 +75,7 @@ const handleTenantChange = async (tenantId: string) => {
     }
 
     const nextSession = await switchTenant(authSession.accessToken, tenantId);
+    setAccessToken(nextSession.accessToken);
     setAuthSession(nextSession);
     setSelectedResourceType(null);
     if (currentView === 'resource_detail') {

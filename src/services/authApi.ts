@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { ApiRole, AppRole, AuthSession, AuthSessionDevice, AuthTenant } from './authTypes';
+import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant } from './authTypes';
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
@@ -7,10 +7,38 @@ export function mapApiRoleToAppRole(role: ApiRole): AppRole {
     : 'client';
 }
 
-export async function login(email: string, password: string): Promise<AuthSession> {
-  return apiRequest<AuthSession>('/auth/login', {
+export async function login(email: string, password: string): Promise<AuthLoginResponse> {
+  return apiRequest<AuthLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function completeMfaLogin(challengeToken: string, code: string): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/mfa/complete', {
+    method: 'POST',
+    body: JSON.stringify({ challengeToken, code }),
+  });
+}
+
+export async function completeMfaEnrollment(challengeToken: string, code: string): Promise<AuthSession> {
+  return apiRequest<AuthSession>('/auth/mfa/enrollment/complete', {
+    method: 'POST',
+    body: JSON.stringify({ challengeToken, code }),
+  });
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiRequest('/auth/password-reset/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await apiRequest('/auth/password-reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
   });
 }
 

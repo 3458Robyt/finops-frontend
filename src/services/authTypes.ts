@@ -36,6 +36,23 @@ export interface AuthSession {
   readonly availableTenants: readonly AuthTenant[];
 }
 
+export interface AuthMfaChallenge {
+  readonly mfaRequired: true;
+  readonly mfaSetupRequired?: boolean;
+  readonly challengeToken: string;
+  readonly expiresAt: string;
+  readonly secret?: string;
+  readonly otpauthUri?: string;
+  readonly user: {
+    readonly id: string;
+    readonly email: string;
+    readonly name: string;
+    readonly role: ApiRole;
+  };
+}
+
+export type AuthLoginResponse = AuthSession | AuthMfaChallenge;
+
 export interface AuthSessionDevice {
   readonly id: string;
   readonly issuedAt: string;

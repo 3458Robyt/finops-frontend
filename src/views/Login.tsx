@@ -1,22 +1,103 @@
 import { useState, type FormEvent } from 'react';
+import { confirmPasswordReset, requestPasswordReset, type AuthLoginResponse } from '../services/api';
 
-export default function Login({ onLogin }: { onLogin: (email: string, password: string) => Promise<void> }) {
+export default function Login({ onLogin }: {
+  readonly onLogin: (
+    email: string,
+    password: string,
+    mfa?: { readonly challengeToken: string; readonly code: string; readonly enrollment: boolean },
+  ) => Promise<AuthLoginResponse>;
+}) {
   const [loading, setLoading] = useState(false);
-const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null); const handleSubmit = async (e: FormEvent) => {
+  const [mfaCode, setMfaCode] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirmation, setResetConfirmation] = useState('');
+  const [mfaChallenge, setMfaChallenge] = useState<Extract<AuthLoginResponse, { readonly mfaRequired: true }> | null>(null);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const resetToken = new URLSearchParams(window.location.search).get('token');
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      await onLogin(email, password);
+      const result = await onLogin(
+        email,
+        password,
+        mfaChallenge === null ? undefined : {
+          challengeToken: mfaChallenge.challengeToken,
+          code: mfaCode,
+          enrollment: mfaChallenge.mfaSetupRequired === true,
+        },
+      );
+      if ('mfaRequired' in result) {
+        setMfaChallenge(result);
+        setMfaCode('');
+        setRecoveryMessage(result.mfaSetupRequired === true
+          ? 'Configura MFA con la clave o URI proporcionada y confirma un código de seis dígitos.'
+          : 'Escribe el código de seis dígitos de tu aplicación autenticadora.');
+      }
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'No fue posible iniciar sesión');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleRecovery = async () => {
+    setLoading(true);
+    setError(null);
+    setRecoveryMessage(null);
+    try {
+      await requestPasswordReset(email);
+      setRecoveryMessage('Si el correo existe, recibirás instrucciones para restablecer la contraseña.');
+    } catch (recoveryError) {
+      setError(recoveryError instanceof Error ? recoveryError.message : 'No fue posible solicitar el restablecimiento.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (event: FormEvent) => {
+    event.preventDefault();
+    if (resetToken === null || resetPassword !== resetConfirmation) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await confirmPasswordReset(resetToken, resetPassword);
+      window.history.replaceState({}, '', window.location.pathname);
+      setRecoveryMessage('Contraseña actualizada. Ya puedes iniciar sesión.');
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : 'El enlace no es válido o expiró.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (resetToken !== null) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
+        <form onSubmit={handlePasswordReset} className="w-full max-w-md space-y-5 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
+          <div>
+            <h1 className="text-2xl font-black text-white">Restablecer contraseña</h1>
+            <p className="mt-2 text-sm text-zinc-400">Crea una contraseña nueva para tu cuenta.</p>
+          </div>
+          <input type="password" minLength={12} value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} placeholder="Nueva contraseña" required className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white focus:border-tak-yellow focus:outline-none" />
+          <input type="password" minLength={12} value={resetConfirmation} onChange={(event) => setResetConfirmation(event.target.value)} placeholder="Repite la contraseña" required className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white focus:border-tak-yellow focus:outline-none" />
+          {error !== null && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">{error}</div>}
+          {recoveryMessage !== null && <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs font-bold text-emerald-300">{recoveryMessage}</div>}
+          <button type="submit" disabled={loading} className="w-full rounded-xl bg-tak-yellow py-4 text-sm font-bold uppercase tracking-widest text-zinc-950 disabled:opacity-70">{loading ? 'Guardando…' : 'Actualizar contraseña'}</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -60,6 +141,32 @@ const [email, setEmail] = useState('');
             </div>
           </div>
 
+          {mfaChallenge !== null && (
+            <div className="space-y-3 rounded-xl border border-tak-yellow/30 bg-tak-yellow/5 p-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-tak-yellow">Verificación MFA</p>
+                <p className="mt-1 text-xs text-zinc-400">El acceso requiere un código temporal de seis dígitos.</p>
+              </div>
+              {mfaChallenge.mfaSetupRequired === true && mfaChallenge.secret !== undefined && (
+                <div className="space-y-1 text-xs text-zinc-300">
+                  <p>Clave de configuración:</p>
+                  <code className="block break-all rounded bg-zinc-950 px-2 py-2 text-tak-yellow">{mfaChallenge.secret}</code>
+                  {mfaChallenge.otpauthUri !== undefined && <p className="break-all text-zinc-500">URI: {mfaChallenge.otpauthUri}</p>}
+                </div>
+              )}
+              <input
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-center text-xl tracking-[0.4em] text-white focus:border-tak-yellow focus:outline-none"
+                placeholder="000000"
+                required
+              />
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-2 pb-4">
             <label className="flex items-center gap-2 cursor-pointer group">
               <div className="relative inline-block w-4 h-4">
@@ -68,10 +175,18 @@ const [email, setEmail] = useState('');
                   <span className="material-symbols-outlined text-[12px] text-zinc-950 opacity-0 peer-checked:opacity-100 font-bold">check</span>
                 </div>
               </div>
-              <span className="text-xs text-zinc-400 group-hover:text-zinc-300">Recordar sesión</span>
+              <span className="text-xs text-zinc-400 group-hover:text-zinc-300">Mantener sesión activa</span>
             </label>
-            <a href="#" className="text-xs text-tak-yellow hover:underline">¿Olvidaste tu contraseña?</a>
+            <button type="button" onClick={handleRecovery} disabled={loading || email.trim() === ''} className="text-xs text-tak-yellow hover:underline disabled:opacity-50">
+              ¿Olvidaste tu contraseña?
+            </button>
           </div>
+
+          {recoveryMessage !== null && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs font-bold text-emerald-300">
+              {recoveryMessage}
+            </div>
+          )}
 
           {error !== null && (
             <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">
