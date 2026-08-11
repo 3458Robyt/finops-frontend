@@ -95,8 +95,13 @@ async function stop(child) {
 
 const fixtureEnv = {
   ...process.env,
+  TEST_DATABASE_URL: testDatabaseUrl,
   E2E_FIXTURE_FILE: fixtureFile,
   ALLOW_DESTRUCTIVE_TEST_DATABASE: 'true',
+};
+const migrationEnv = {
+  ...fixtureEnv,
+  DATABASE_URL: testDatabaseUrl,
 };
 const backendEnv = {
   ...process.env,
@@ -126,6 +131,7 @@ try {
     throw new Error(`${backendUrl} is already in use; stop the existing backend before running the full E2E suite.`);
   }
   await access(backendDir);
+  await run(command('npx'), ['prisma', 'migrate', 'deploy'], { cwd: backendDir, env: migrationEnv });
   await run(command('npm'), ['run', 'test:fixtures:create'], { cwd: backendDir, env: fixtureEnv });
   backend = start(command('npx'), ['tsx', 'src/index.ts'], backendEnv, backendDir);
   await waitFor(`${backendUrl}/health`);
