@@ -1,180 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
-import {
-  assignMasterAdminTenant,
-  createMasterAdminTenant,
-  createMasterAdminUser,
-  fetchMasterAdminAssignments,
-  fetchMasterAdminTenants,
-  fetchMasterAdminUsers,
-  revokeMasterAdminTenant,
-  updateMasterAdminTenant,
-  type MasterAdminAssignment,
-  type MasterAdminAssignmentRole,
-  type MasterAdminTenant,
-  type MasterAdminUser,
-} from '../services/api';
+import { Field, FormPanel, Metric, StatusBadge } from './master-admin/masterAdminPresentation';
+import { accessRoleLabels, inputClass, primaryButtonClass } from './master-admin/masterAdminUi';
+import { useMasterAdminController } from './master-admin/useMasterAdminController';
+import type { StaffCreateRole } from './master-admin/useMasterAdminController';
+import type { MasterAdminAssignmentRole } from '../services/api';
 
-interface MasterAdminProps {
+export interface MasterAdminProps {
   token: string;
   onTenantsChanged: () => Promise<void>;
 }
 
-type StaffCreateRole = 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN';
-
-const accessRoleLabels: Record<MasterAdminAssignmentRole, string> = {
-  TECHNICIAN: 'Tecnico',
-  LEAD_TECHNICIAN: 'Tecnico lider',
-  OPERATOR_ADMIN: 'Admin operador',
-};
-
 export default function MasterAdmin({ token, onTenantsChanged }: MasterAdminProps) {
-  const [tenants, setTenants] = useState<readonly MasterAdminTenant[]>([]);
-  const [users, setUsers] = useState<readonly MasterAdminUser[]>([]);
-  const [assignments, setAssignments] = useState<readonly MasterAdminAssignment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [tenantName, setTenantName] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState<StaffCreateRole>('FINOPS_TECHNICIAN');
-  const [temporaryPassword, setTemporaryPassword] = useState('');
-  const [assignmentTenantId, setAssignmentTenantId] = useState('');
-  const [assignmentUserId, setAssignmentUserId] = useState('');
-  const [assignmentRole, setAssignmentRole] = useState<MasterAdminAssignmentRole>('TECHNICIAN');
-
-  const activeTenants = useMemo(() => tenants.filter((tenant) => tenant.status === 'ACTIVE'), [tenants]);
-  const suspendedTenants = tenants.length - activeTenants.length;
-  const assignableUsers = useMemo(
-    () => users.filter((user) => user.status === 'ACTIVE' && user.role !== 'MASTER_ADMIN'),
-    [users],
-  );
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [tenantResponse, userResponse, assignmentResponse] = await Promise.all([
-        fetchMasterAdminTenants(token),
-        fetchMasterAdminUsers(token),
-        fetchMasterAdminAssignments(token),
-      ]);
-      setTenants(tenantResponse.tenants);
-      setUsers(userResponse.users);
-      setAssignments(assignmentResponse.assignments);
-      if (assignmentTenantId === '' && tenantResponse.tenants.length > 0) {
-        setAssignmentTenantId(tenantResponse.tenants[0]!.id);
-      }
-      if (assignmentUserId === '' && userResponse.users.length > 0) {
-        const firstAssignable = userResponse.users.find((user) => user.role !== 'MASTER_ADMIN');
-        if (firstAssignable !== undefined) setAssignmentUserId(firstAssignable.id);
-      }
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No fue posible cargar la administracion MSP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  const handleCreateTenant = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await createMasterAdminTenant(token, {
-        name: tenantName,
-        ...(tenantSlug.trim().length > 0 ? { slug: tenantSlug } : {}),
-      });
-      setTenantName('');
-      setTenantSlug('');
-      setMessage('Tenant creado correctamente.');
-      await Promise.all([loadData(), onTenantsChanged()]);
-    } catch (tenantError) {
-      setError(tenantError instanceof Error ? tenantError.message : 'No fue posible crear el tenant');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleTenant = async (tenant: MasterAdminTenant) => {
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const nextStatus = tenant.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-      await updateMasterAdminTenant(token, tenant.id, { status: nextStatus });
-      setMessage(nextStatus === 'ACTIVE' ? 'Tenant reactivado.' : 'Tenant suspendido.');
-      await Promise.all([loadData(), onTenantsChanged()]);
-    } catch (tenantError) {
-      setError(tenantError instanceof Error ? tenantError.message : 'No fue posible actualizar el tenant');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCreateUser = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await createMasterAdminUser(token, {
-        name: userName,
-        email: userEmail,
-        role: userRole,
-        temporaryPassword,
-      });
-      setUserName('');
-      setUserEmail('');
-      setTemporaryPassword('');
-      setMessage('Usuario tecnico creado correctamente.');
-      await loadData();
-    } catch (userError) {
-      setError(userError instanceof Error ? userError.message : 'No fue posible crear el usuario');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAssign = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await assignMasterAdminTenant(token, assignmentTenantId, assignmentUserId, { accessRole: assignmentRole });
-      setMessage('Acceso asignado correctamente.');
-      await loadData();
-    } catch (assignmentError) {
-      setError(assignmentError instanceof Error ? assignmentError.message : 'No fue posible asignar el acceso');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRevoke = async (assignment: MasterAdminAssignment) => {
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await revokeMasterAdminTenant(token, assignment.tenantId, assignment.userId);
-      setMessage('Acceso revocado correctamente.');
-      await loadData();
-    } catch (revokeError) {
-      setError(revokeError instanceof Error ? revokeError.message : 'No fue posible revocar el acceso');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const {
+    tenants, users, assignments, activeTenants, suspendedTenants, assignableUsers,
+    loading, saving, message, error, tenantName, tenantSlug, userName, userEmail,
+    userRole, temporaryPassword, assignmentTenantId, assignmentUserId, assignmentRole,
+    setTenantName, setTenantSlug, setUserName, setUserEmail, setUserRole,
+    setTemporaryPassword, setAssignmentTenantId, setAssignmentUserId, setAssignmentRole,
+    handleCreateTenant, handleToggleTenant, handleCreateUser, handleAssign, handleRevoke,
+  } = useMasterAdminController(token, onTenantsChanged);
 
   if (loading) {
     return (
@@ -379,48 +222,3 @@ export default function MasterAdmin({ token, onTenantsChanged }: MasterAdminProp
     </div>
   );
 }
-
-function Metric({ title, value, helper }: { readonly title: string; readonly value: number; readonly helper: string }) {
-  return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-      <p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">{title}</p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
-      <p className="mt-1 text-xs text-zinc-500">{helper}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ active, label }: { readonly active: boolean; readonly label: string }) {
-  return (
-    <span className={`rounded px-2 py-1 text-[10px] font-black uppercase ${active ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
-      {label}
-    </span>
-  );
-}
-
-function FormPanel({ title, icon, children }: { readonly title: string; readonly icon: string; readonly children: ReactNode }) {
-  return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-5">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-sm font-black uppercase tracking-widest text-white">{title}</h2>
-        <span className="material-symbols-outlined text-tak-yellow">{icon}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block mb-2 text-[11px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const inputClass =
-  'w-full rounded bg-zinc-900 border border-zinc-700 px-3 py-2 text-sm font-bold text-zinc-100 outline-none focus:border-tak-yellow focus:ring-1 focus:ring-tak-yellow';
-
-const primaryButtonClass =
-  'w-full rounded bg-tak-yellow px-4 py-2.5 text-sm font-black uppercase text-zinc-950 hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50';
