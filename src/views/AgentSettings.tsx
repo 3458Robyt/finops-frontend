@@ -9,6 +9,7 @@ import {
   disableTenantAgentRule,
   fetchAgentProfile,
   fetchAiContextTraces,
+  fetchAiLearningSummary,
   fetchOutboundChannelStatus,
   fetchOutboundDeliveries,
   fetchTelegramLinks,
@@ -20,6 +21,7 @@ import {
   type AgentInstructionProfile,
   type AgentInstructionRules,
   type AiContextTrace,
+  type AgentLearningSummaryResponse,
   type ApiRole,
   type OutboundChannelStatusResponse,
   type OutboundMessageDelivery,
@@ -85,6 +87,7 @@ export default function AgentSettings({ token, role, onOpenRecommendation }: Age
   const [profile, setProfile] = useState<AgentInstructionProfile | null>(null);
   const [rules, setRules] = useState<readonly TenantAgentRule[]>([]);
   const [traces, setTraces] = useState<readonly AiContextTrace[]>([]);
+  const [learningSummary, setLearningSummary] = useState<AgentLearningSummaryResponse['learning'] | null>(null);
   const [telegramLinks, setTelegramLinks] = useState<readonly TelegramChatLink[]>([]);
   const [outboundStatus, setOutboundStatus] = useState<OutboundChannelStatusResponse['status'] | null>(null);
   const [outboundDeliveries, setOutboundDeliveries] = useState<readonly OutboundMessageDelivery[]>([]);
@@ -125,16 +128,18 @@ export default function AgentSettings({ token, role, onOpenRecommendation }: Age
       fetchAgentProfile(token),
       fetchTenantAgentRules(token),
       fetchAiContextTraces(token),
+      fetchAiLearningSummary(token),
       canConfigureAgent ? fetchTelegramLinks(token) : Promise.resolve({ success: true as const, links: [] }),
       canConfigureAgent ? fetchOutboundChannelStatus(token) : Promise.resolve({ success: true as const, status: null }),
       canConfigureAgent ? fetchOutboundDeliveries(token) : Promise.resolve({ success: true as const, deliveries: [] }),
     ])
-      .then(([profileResponse, rulesResponse, tracesResponse, telegramResponse, outboundStatusResponse, outboundDeliveriesResponse]) => {
+      .then(([profileResponse, rulesResponse, tracesResponse, learningResponse, telegramResponse, outboundStatusResponse, outboundDeliveriesResponse]) => {
         if (!active) return;
         const currentProfile = profileResponse.profile;
         setProfile(currentProfile);
         setRules(rulesResponse.rules);
         setTraces(tracesResponse.traces);
+        setLearningSummary(learningResponse.learning);
         setTelegramLinks(telegramResponse.links);
         setOutboundStatus(outboundStatusResponse.status);
         setOutboundDeliveries(outboundDeliveriesResponse.deliveries);
@@ -452,6 +457,7 @@ export default function AgentSettings({ token, role, onOpenRecommendation }: Age
             />
           </div>
           <TraceTable traces={traces} />
+          <LearningSummaryPanel summary={learningSummary} />
         </section>
       )}
 
@@ -574,6 +580,49 @@ function TraceTable({ traces }: { readonly traces: readonly AiContextTrace[] }) 
       )}
     </section>
   );
+}
+
+function LearningSummaryPanel({ summary }: { readonly summary: AgentLearningSummaryResponse['learning'] | null }) {
+  if (summary === null) {
+    return null;
+  }
+
+  const { stats } = summary;
+  const feedbackTotal = stats.feedbackApproved + stats.feedbackRejected;
+  const approvalRate = feedbackTotal === 0 ? null : Math.round((stats.feedbackApproved / feedbackTotal) * 100);
+
+  return (
+    <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <SectionHeader title="Aprendizaje basado en decisiones" eyebrow="Feedback humano + auditor IA" icon="model_training" />
+        <p className="max-w-md text-xs leading-relaxed text-zinc-500">
+          La aprobación humana y la aprobación del auditor son métricas distintas. Una memoria solo se incorpora después de superar la auditoría.
+        </p>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <AgentMetric title="Feedback aprobado" value={stats.feedbackApproved} helper={approvalRate === null ? 'Sin decisiones' : `${approvalRate}% de las decisiones`} icon="thumb_up" />
+        <AgentMetric title="Feedback rechazado" value={stats.feedbackRejected} helper={`${stats.totalEvents} eventos registrados`} icon="thumb_down" />
+        <AgentMetric title="Aprendizaje en cola" value={stats.learningPending} helper={`${stats.learningApproved} memorias auditadas`} icon="hourglass_top" />
+        <AgentMetric title="Memorias activas" value={stats.activeMemories} helper={`${stats.globalMemories} globales`} icon="memory" />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold">
+        <LearningStatus label="Auditor aprobado" value={stats.learningApproved} tone="success" />
+        <LearningStatus label="Auditor rechazó" value={stats.learningRejected} tone="danger" />
+        <LearningStatus label="Omitido temporalmente" value={stats.learningSkipped} tone="warning" />
+        <LearningStatus label="Error interno" value={stats.learningError} tone="danger" />
+      </div>
+    </section>
+  );
+}
+
+function LearningStatus({ label, value, tone }: { readonly label: string; readonly value: number; readonly tone: 'success' | 'warning' | 'danger' }) {
+  const classes = {
+    success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
+    warning: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200',
+    danger: 'border-red-500/30 bg-red-500/10 text-red-200',
+  }[tone];
+
+  return <span className={`rounded-full border px-3 py-2 ${classes}`}>{label}: {value}</span>;
 }
 
 function Input({ label, value, onChange }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void }) {

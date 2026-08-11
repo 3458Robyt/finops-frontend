@@ -22,6 +22,39 @@ export interface AiRecommendationGenerationResponse {
   readonly recommendations: readonly Recommendation[];
   readonly context: AiContextSummary;
 }
+export interface AgentLearningSummaryStats {
+  readonly totalEvents: number;
+  readonly feedbackApproved: number;
+  readonly feedbackRejected: number;
+  readonly learningPending: number;
+  readonly learningApproved: number;
+  readonly learningRejected: number;
+  readonly learningSkipped: number;
+  readonly learningError: number;
+  readonly activeMemories: number;
+  readonly globalMemories: number;
+}
+export interface AgentLearningSummaryResponse {
+  readonly success: true;
+  readonly learning: {
+    readonly stats: AgentLearningSummaryStats;
+    readonly memories: readonly {
+      readonly id: string;
+      readonly scope: string;
+      readonly memoryType: string;
+      readonly content: string;
+      readonly confidence: number;
+      readonly createdAt: string;
+    }[];
+    readonly events: readonly {
+      readonly id: string;
+      readonly recommendationId: string;
+      readonly decisionId: string;
+      readonly status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SKIPPED' | 'ERROR';
+      readonly createdAt: string;
+    }[];
+  };
+}
 export interface AgentInstructionRules {
   readonly objective: string;
   readonly tone: string;

@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { AiChatMessage, AiChatResponse, AiRecommendationGenerationResponse, AgentInstructionRules, AgentProfileResponse, TenantRulesResponse, TenantRuleResponse, AiContextTracesResponse, ContextBackfillResponse } from './apiTypes';
+import type { AiChatMessage, AiChatResponse, AiRecommendationGenerationResponse, AgentInstructionRules, AgentLearningSummaryResponse, AgentProfileResponse, TenantRulesResponse, TenantRuleResponse, AiContextTracesResponse, ContextBackfillResponse } from './apiTypes';
 
 export async function sendAiChatMessage(
   token: string,
@@ -30,6 +30,10 @@ export async function generateAiRecommendations(
       ...(cloudResourceId !== undefined ? { cloudResourceId } : {}),
     }),
   });
+}
+
+export async function fetchAiLearningSummary(token: string): Promise<AgentLearningSummaryResponse> {
+  return apiRequest<AgentLearningSummaryResponse>('/ai/learning/summary', { token });
 }
 
 export async function fetchAgentProfile(token: string): Promise<AgentProfileResponse> {
