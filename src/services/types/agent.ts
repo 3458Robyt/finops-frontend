@@ -33,6 +33,7 @@ export interface AgentLearningSummaryStats {
   readonly learningError: number;
   readonly activeMemories: number;
   readonly globalMemories: number;
+  readonly shadowMemories: number;
 }
 export interface AgentLearningSummaryResponse {
   readonly success: true;

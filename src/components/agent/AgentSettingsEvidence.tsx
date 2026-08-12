@@ -85,6 +85,7 @@ function LearningSummaryPanel({
         <AgentMetric title="Feedback rechazado" value={stats.feedbackRejected} helper={`${stats.totalEvents} eventos registrados`} icon="thumb_down" />
         <AgentMetric title="Aprendizaje en cola" value={stats.learningPending} helper={`${stats.learningApproved} eventos auditados`} icon="hourglass_top" />
         <AgentMetric title="Memorias activas" value={stats.activeMemories} helper={`${stats.globalMemories} globales`} icon="memory" />
+        <AgentMetric title="Candidatos globales" value={stats.shadowMemories} helper="En shadow, sin afectar el contexto" icon="visibility" />
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold"><LearningStatus label="Auditor aprobado" value={stats.learningApproved} tone="success" /><LearningStatus label="Auditor rechazó" value={stats.learningRejected} tone="danger" /><LearningStatus label="Omitido temporalmente" value={stats.learningSkipped} tone="warning" /><LearningStatus label="Error interno" value={stats.learningError} tone="danger" /></div>
       <div className="mt-5 border-t border-zinc-800 pt-5">
