@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
-import { access } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { access, unlink } from 'node:fs/promises';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 const isWindows = process.platform === 'win32';
 const command = (name) => name;
@@ -93,6 +93,19 @@ async function stop(child) {
   }
 }
 
+async function removeFixtureManifest(filePath) {
+  const artifactsRoot = resolve(backendDir, '.test-artifacts');
+  const resolvedFilePath = resolve(filePath);
+  const relativeFilePath = relative(artifactsRoot, resolvedFilePath);
+  if (relativeFilePath.startsWith('..') || isAbsolute(relativeFilePath)) {
+    throw new Error('Refusing to delete an E2E manifest outside finops-backend/.test-artifacts.');
+  }
+
+  await unlink(resolvedFilePath).catch((error) => {
+    if (error?.code !== 'ENOENT') throw error;
+  });
+}
+
 const fixtureEnv = {
   ...process.env,
   TEST_DATABASE_URL: testDatabaseUrl,
@@ -143,5 +156,9 @@ try {
 } finally {
   await stop(frontend);
   await stop(backend);
-  await run(command('npm'), ['run', 'test:fixtures:cleanup'], { cwd: backendDir, env: fixtureEnv });
+  try {
+    await run(command('npm'), ['run', 'test:fixtures:cleanup'], { cwd: backendDir, env: fixtureEnv });
+  } finally {
+    await removeFixtureManifest(fixtureFile);
+  }
 }
