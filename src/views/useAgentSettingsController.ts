@@ -5,6 +5,7 @@ import {
   backfillAgentContext,
   createTelegramLink,
   createTenantAgentRule,
+  deactivateAiLearningMemory,
   disableTelegramLink,
   disableTenantAgentRule,
   fetchAgentProfile,
@@ -16,6 +17,7 @@ import {
   fetchTenantAgentRules,
   sendOutboundTestMessage,
   sendRecommendationSummaryNow,
+  sendExecutiveSummaryNow,
   sendSavingsRemindersNow,
   sendTelegramTestMessage,
   type AgentInstructionProfile,
@@ -192,6 +194,17 @@ export function useAgentSettingsController(role: ApiRole) {
     setMessage(`Contexto reconstruido: ${response.summaries.summaryCount} resumenes actualizados.`);
   }, 'No se pudo reconstruir el contexto.');
 
+  const handleDeactivateMemory = (memoryId: string) => runAction(async () => {
+    if (!canConfigureAgent || learningSummary === null) return;
+    await deactivateAiLearningMemory(token, memoryId);
+    setLearningSummary((current) => current === null ? current : {
+      ...current,
+      memories: current.memories.filter((memory) => memory.id !== memoryId),
+      stats: { ...current.stats, activeMemories: Math.max(0, current.stats.activeMemories - 1) },
+    });
+    setMessage('Memoria revertida. Se conserva el evento histórico de aprendizaje.');
+  }, 'No se pudo revertir la memoria.');
+
   const handleCreateTelegramLink = () => runAction(async () => {
     if (!canConfigureAgent) return;
     const response = await createTelegramLink(token, telegramForm);
@@ -231,6 +244,12 @@ export function useAgentSettingsController(role: ApiRole) {
     setMessage('Resumen de recomendaciones procesado.');
   }, 'No se pudo enviar el resumen.');
 
+  const handleSendExecutiveSummary = () => runAction(async () => {
+    const response = await sendExecutiveSummaryNow(token);
+    setOutboundDeliveries(response.deliveries);
+    setMessage('Resumen ejecutivo FinOps encolado para correo y Telegram.');
+  }, 'No se pudo enviar el resumen ejecutivo.');
+
   return {
     analysisOnly,
     canConfigureAgent,
@@ -259,11 +278,13 @@ export function useAgentSettingsController(role: ApiRole) {
     handleCreateRule,
     handleDisableRule,
     handleBackfill,
+    handleDeactivateMemory,
     handleCreateTelegramLink,
     handleDisableTelegramLink,
     handleTelegramTestMessage,
     handleEmailTestMessage,
     handleSendSavingsReminders,
     handleSendRecommendationSummary,
+    handleSendExecutiveSummary,
   };
 }

@@ -31,7 +31,7 @@ export interface TelegramLinkResponse {
   readonly link: TelegramChatLink;
 }
 export type OutboundMessageChannel = 'TELEGRAM' | 'EMAIL';
-export type OutboundMessageType = 'TEST' | 'SAVINGS_REMINDER' | 'AI_CHAT_RESPONSE' | 'RECOMMENDATION_SUMMARY' | 'EXECUTION_PLAN_READY' | 'BUDGET_ALERT';
+export type OutboundMessageType = 'TEST' | 'SAVINGS_REMINDER' | 'AI_CHAT_RESPONSE' | 'RECOMMENDATION_SUMMARY' | 'EXECUTION_PLAN_READY' | 'BUDGET_ALERT' | 'EXECUTIVE_SUMMARY';
 export type OutboundMessageStatus = 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'SKIPPED';
 export interface OutboundMessageDelivery {
   readonly id: string;

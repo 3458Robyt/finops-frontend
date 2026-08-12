@@ -1,4 +1,5 @@
 import { CostHistoryUPlot } from '../components/CostHistoryUPlot';
+import { ForecastScenarioPanel } from '../components/ForecastScenarioPanel';
 import { useDashboardController } from './dashboard/useDashboardController';
 import { currencyFormatter, formatCompactNumber } from './dashboard/dashboardPresentation';
 
@@ -24,6 +25,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
     acceptanceRate,
     topUnitEconomics,
     missedSavingsAmount,
+    forecastScenarios,
   } = useDashboardController();
 
   return (
@@ -144,6 +146,8 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
           )}
         </div>
       </div>
+
+      <ForecastScenarioPanel scenarios={forecastScenarios} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {suggestions.map((suggestion) => (

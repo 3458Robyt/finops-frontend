@@ -67,3 +67,10 @@ export async function sendRecommendationSummaryNow(token: string): Promise<Outbo
     token,
   });
 }
+
+export async function sendExecutiveSummaryNow(token: string): Promise<OutboundSendResponse> {
+  return apiRequest<OutboundSendResponse>('/outbound-messages/executive-summary/send', {
+    method: 'POST',
+    token,
+  });
+}

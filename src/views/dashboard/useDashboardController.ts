@@ -4,6 +4,7 @@ import {
   fetchAdoptionKpis,
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsForecast,
+  fetchAnalyticsForecastScenarios,
   fetchAnalyticsOpportunities,
   fetchAnalyticsUnitEconomics,
   fetchBudgetPerformance,
@@ -21,6 +22,7 @@ import {
   type UsageInsight,
   type MonthlyUsagePoint,
   type CostOpportunity,
+  type CostForecastScenario,
 } from '../../services/api';
 import {
   buildChartData,
@@ -61,6 +63,7 @@ export interface DashboardControllerState {
   readonly acceptanceRate: number;
   readonly topUnitEconomics: readonly MonthlyUsagePoint[];
   readonly missedSavingsAmount: number;
+  readonly forecastScenarios: readonly CostForecastScenario[];
 }
 
 export function useDashboardController(): DashboardControllerState {
@@ -70,6 +73,7 @@ export function useDashboardController(): DashboardControllerState {
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
   const [unitEconomics, setUnitEconomics] = useState<readonly MonthlyUsagePoint[]>([]);
+  const [forecastScenarios, setForecastScenarios] = useState<readonly CostForecastScenario[]>([]);
   const [savingsKpis, setSavingsKpis] = useState<SavingsKpisResponse['savings'] | null>(null);
   const [adoptionKpis, setAdoptionKpis] = useState<AdoptionKpisResponse['adoption'] | null>(null);
   const [budgets, setBudgets] = useState<readonly Budget[]>([]);
@@ -87,6 +91,7 @@ export function useDashboardController(): DashboardControllerState {
         fetchRecommendations(token),
         fetchAnalyticsOpportunities(token),
         fetchAnalyticsForecast(token),
+        fetchAnalyticsForecastScenarios(token),
         fetchAnalyticsEfficiencyInsights(token),
         fetchAnalyticsUnitEconomics(token),
         fetchSavingsKpis(token),
@@ -102,15 +107,17 @@ export function useDashboardController(): DashboardControllerState {
       const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(1);
       const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(2);
       const forecastResponse = value<{ forecasts: readonly unknown[] }>(3);
-      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(4);
-      const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(5);
-      const savingsResponse = value<SavingsKpisResponse>(6);
-      const adoptionResponse = value<AdoptionKpisResponse>(7);
-      const budgetResponse = value<{ budgets: readonly Budget[] }>(8);
+      const scenarioResponse = value<{ scenarios: readonly CostForecastScenario[] }>(4);
+      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(5);
+      const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(6);
+      const savingsResponse = value<SavingsKpisResponse>(7);
+      const adoptionResponse = value<AdoptionKpisResponse>(8);
+      const budgetResponse = value<{ budgets: readonly Budget[] }>(9);
 
       if (costResponse !== undefined) setCosts(costResponse);
       if (recommendationResponse !== undefined) setRecommendations(recommendationResponse.recommendations);
       if (opportunityResponse !== undefined) setOpportunities(opportunityResponse.opportunities);
+      if (scenarioResponse !== undefined) setForecastScenarios(scenarioResponse.scenarios);
       if (insightsResponse !== undefined) setUsageInsights(insightsResponse.insights);
       if (unitEconomicsResponse !== undefined) setUnitEconomics(unitEconomicsResponse.unitEconomics);
       if (savingsResponse !== undefined) setSavingsKpis(savingsResponse.savings);
@@ -194,5 +201,6 @@ export function useDashboardController(): DashboardControllerState {
     acceptanceRate: adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0,
     topUnitEconomics: unitEconomics.slice(0, 3),
     missedSavingsAmount: savingsKpis?.missedSavingsAmount ?? 0,
+    forecastScenarios,
   };
 }

@@ -51,10 +51,12 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
     handleBackfill,
     handleCreateTelegramLink,
     handleDisableTelegramLink,
+    handleDeactivateMemory,
     handleTelegramTestMessage,
     handleEmailTestMessage,
     handleSendSavingsReminders,
     handleSendRecommendationSummary,
+    handleSendExecutiveSummary,
   } = useAgentSettingsController(role);
 
   if (loading) {
@@ -118,7 +120,14 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
       )}
 
       {activeTab === 'evidence' && (
-        <AgentSettingsEvidence traces={traces} learningSummary={learningSummary} outboundDeliveryCount={outboundDeliveries.length} />
+        <AgentSettingsEvidence
+          traces={traces}
+          learningSummary={learningSummary}
+          outboundDeliveryCount={outboundDeliveries.length}
+          canConfigureAgent={canConfigureAgent}
+          saving={saving}
+          onDeactivateMemory={(memoryId) => void handleDeactivateMemory(memoryId)}
+        />
       )}
 
       {activeTab === 'channels' && (
@@ -139,6 +148,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
           onTestTelegram={(linkId) => void handleTelegramTestMessage(linkId)}
           onSendSavingsReminders={() => void handleSendSavingsReminders()}
           onSendRecommendationSummary={() => void handleSendRecommendationSummary()}
+          onSendExecutiveSummary={() => void handleSendExecutiveSummary()}
           onBackfill={() => void handleBackfill()}
         />
       )}

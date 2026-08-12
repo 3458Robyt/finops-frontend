@@ -36,6 +36,17 @@ export async function fetchAiLearningSummary(token: string): Promise<AgentLearni
   return apiRequest<AgentLearningSummaryResponse>('/ai/learning/summary', { token });
 }
 
+export async function deactivateAiLearningMemory(token: string, memoryId: string): Promise<AgentLearningSummaryResponse['learning']['memories'][number]> {
+  const response = await apiRequest<{
+    readonly success: true;
+    readonly memory: AgentLearningSummaryResponse['learning']['memories'][number];
+  }>(`/ai/learning/memories/${encodeURIComponent(memoryId)}/deactivate`, {
+    method: 'PATCH',
+    token,
+  });
+  return response.memory;
+}
+
 export async function fetchAgentProfile(token: string): Promise<AgentProfileResponse> {
   return apiRequest<AgentProfileResponse>('/agent/profile', { token });
 }

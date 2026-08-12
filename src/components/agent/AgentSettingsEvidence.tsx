@@ -13,9 +13,12 @@ interface AgentSettingsEvidenceProps {
   readonly traces: readonly AiContextTrace[];
   readonly learningSummary: AgentLearningSummaryResponse['learning'] | null;
   readonly outboundDeliveryCount: number;
+  readonly canConfigureAgent: boolean;
+  readonly saving: boolean;
+  readonly onDeactivateMemory: (memoryId: string) => void;
 }
 
-export function AgentSettingsEvidence({ traces, learningSummary, outboundDeliveryCount }: AgentSettingsEvidenceProps) {
+export function AgentSettingsEvidence({ traces, learningSummary, outboundDeliveryCount, canConfigureAgent, saving, onDeactivateMemory }: AgentSettingsEvidenceProps) {
   const latestTrace = traces[0];
   const errorTraceCount = traces.filter((trace) => trace.status !== 'SUCCESS').length;
   const totalTraceTokens = traces.reduce((total, trace) => total + trace.promptTokenEstimate + (trace.responseTokenEstimate ?? 0), 0);
@@ -29,7 +32,12 @@ export function AgentSettingsEvidence({ traces, learningSummary, outboundDeliver
         <AgentMetric title="Ultima operacion" value={latestTrace !== undefined ? operationLabels[latestTrace.operation] : 'Sin uso'} helper={latestTrace !== undefined ? new Date(latestTrace.createdAt).toLocaleDateString('es-CO') : 'Pendiente'} icon="schedule" />
       </div>
       <TraceTable traces={traces} />
-      <LearningSummaryPanel summary={learningSummary} />
+      <LearningSummaryPanel
+        summary={learningSummary}
+        canConfigureAgent={canConfigureAgent}
+        saving={saving}
+        onDeactivateMemory={onDeactivateMemory}
+      />
     </section>
   );
 }
@@ -50,7 +58,17 @@ function TraceTable({ traces }: { readonly traces: readonly AiContextTrace[] }) 
   );
 }
 
-function LearningSummaryPanel({ summary }: { readonly summary: AgentLearningSummaryResponse['learning'] | null }) {
+function LearningSummaryPanel({
+  summary,
+  canConfigureAgent,
+  saving,
+  onDeactivateMemory,
+}: {
+  readonly summary: AgentLearningSummaryResponse['learning'] | null;
+  readonly canConfigureAgent: boolean;
+  readonly saving: boolean;
+  readonly onDeactivateMemory: (memoryId: string) => void;
+}) {
   if (summary === null) return null;
   const { stats } = summary;
   const feedbackTotal = stats.feedbackApproved + stats.feedbackRejected;
@@ -66,6 +84,41 @@ function LearningSummaryPanel({ summary }: { readonly summary: AgentLearningSumm
         <AgentMetric title="Memorias activas" value={stats.activeMemories} helper={`${stats.globalMemories} globales`} icon="memory" />
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold"><LearningStatus label="Auditor aprobado" value={stats.learningApproved} tone="success" /><LearningStatus label="Auditor rechazó" value={stats.learningRejected} tone="danger" /><LearningStatus label="Omitido temporalmente" value={stats.learningSkipped} tone="warning" /><LearningStatus label="Error interno" value={stats.learningError} tone="danger" /></div>
+      <div className="mt-5 border-t border-zinc-800 pt-5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <SectionHeader title="Memorias activas" eyebrow="Contexto que usa el agente" icon="memory" />
+          <p className="max-w-md text-xs leading-relaxed text-zinc-500">Puedes revertir una memoria si deja de ser válida. El evento y su auditoría permanecen para trazabilidad.</p>
+        </div>
+        {summary.memories.length === 0 ? (
+          <p className="mt-4 text-sm font-bold text-zinc-500">No hay memorias activas para este tenant.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {summary.memories.map((memory) => (
+              <article key={memory.id} className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                      <span>{memory.scope}</span><span>·</span><span>{memory.memoryType}</span><span>·</span><span>Confianza {Math.round(memory.confidence * 100)}%</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-200">{memory.content}</p>
+                    <p className="mt-2 text-xs font-bold text-zinc-600">Creada {new Date(memory.createdAt).toLocaleDateString('es-CO')}</p>
+                  </div>
+                  {canConfigureAgent && (
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => onDeactivateMemory(memory.id)}
+                      className="shrink-0 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-black text-red-200 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Revertir memoria
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

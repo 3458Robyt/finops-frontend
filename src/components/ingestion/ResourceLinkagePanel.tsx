@@ -3,6 +3,7 @@ import type {
   ResourceLinkageReadinessResponse,
   ResourceLinkReasonCode,
 } from '../../services/types/lineage';
+import DeterministicOpportunityPanel from './DeterministicOpportunityPanel';
 
 type Readiness = ResourceLinkageReadinessResponse['readiness'];
 
@@ -98,6 +99,7 @@ export default function ResourceLinkagePanel({ readiness }: { readonly readiness
 
       <TagAndFreshness readiness={readiness} />
       <RecommendationBlockers blockers={readiness.technicalRecommendationBlockers} />
+      {readiness.opportunityCatalog !== undefined && <DeterministicOpportunityPanel catalog={readiness.opportunityCatalog} />}
       <ConnectionAndResourceCoverage readiness={readiness} />
     </section>
   );

@@ -18,6 +18,7 @@ interface AgentSettingsChannelsProps {
   readonly onTestTelegram: (linkId: string) => void;
   readonly onSendSavingsReminders: () => void;
   readonly onSendRecommendationSummary: () => void;
+  readonly onSendExecutiveSummary: () => void;
   readonly onBackfill: () => void;
 }
 
@@ -38,6 +39,7 @@ export function AgentSettingsChannels(props: AgentSettingsChannelsProps) {
           {canConfigureAgent && <div className="flex flex-col gap-2 sm:flex-row">
             <button onClick={props.onSendSavingsReminders} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Recordar ahorro pendiente</button>
             <button onClick={props.onSendRecommendationSummary} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Enviar resumen IA</button>
+            <button onClick={props.onSendExecutiveSummary} disabled={saving} className="rounded-lg border border-tak-yellow/50 px-4 py-3 text-sm font-black text-tak-yellow hover:bg-tak-yellow/10 disabled:opacity-60">Enviar resumen ejecutivo</button>
             <button onClick={props.onBackfill} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Reconstruir contexto</button>
           </div>}
         </div>

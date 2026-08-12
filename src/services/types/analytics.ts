@@ -115,6 +115,28 @@ export interface AnalyticsForecastResponse {
   readonly success: true;
   readonly forecasts: readonly CostForecast[];
 }
+export type ForecastScenarioKind = 'BASELINE' | 'CURRENT_TREND' | 'APPROVED' | 'EXECUTED' | 'VERIFIED';
+export interface CostForecastScenario {
+  readonly scenario: ForecastScenarioKind;
+  readonly groupBy: 'total';
+  readonly groupKey: 'TENANT';
+  readonly forecastMonth: string;
+  readonly predictedCost: number;
+  readonly savingsApplied: number;
+  readonly confidence: number;
+  readonly currency: string;
+  readonly sourceForecastIds: readonly string[];
+  readonly evidence: {
+    readonly forecastCount: number;
+    readonly baselineSource: 'WEIGHTED_AVERAGE' | 'PREDICTED_COST';
+    readonly savingsSource: 'NONE' | 'APPROVED_ESTIMATE' | 'EXECUTED_MEASUREMENT' | 'VERIFIED_MEASUREMENT';
+    readonly savingsScope: 'TENANT' | 'FILTERED_SCOPE' | 'NOT_AVAILABLE';
+  };
+}
+export interface AnalyticsForecastScenariosResponse {
+  readonly success: true;
+  readonly scenarios: readonly CostForecastScenario[];
+}
 export interface AnalyticsUnitEconomicsResponse {
   readonly success: true;
   readonly unitEconomics: readonly MonthlyUsagePoint[];

@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { CostsResponse, RecommendationsResponse, AnalyticsGroupBy, AnalyticsOpportunitiesResponse, AnalyticsForecastResponse, AnalyticsUnitEconomicsResponse, AnalyticsEfficiencyInsightsResponse, AnalyticsRecomputeResponse } from './apiTypes';
+import type { CostsResponse, RecommendationsResponse, AnalyticsGroupBy, AnalyticsOpportunitiesResponse, AnalyticsForecastResponse, AnalyticsForecastScenariosResponse, AnalyticsUnitEconomicsResponse, AnalyticsEfficiencyInsightsResponse, AnalyticsRecomputeResponse } from './apiTypes';
 
 export async function fetchCosts(
   token: string,
@@ -42,6 +42,10 @@ export async function fetchAnalyticsOpportunities(token: string): Promise<Analyt
 
 export async function fetchAnalyticsForecast(token: string): Promise<AnalyticsForecastResponse> {
   return apiRequest<AnalyticsForecastResponse>('/analytics/forecast', { token });
+}
+
+export async function fetchAnalyticsForecastScenarios(token: string): Promise<AnalyticsForecastScenariosResponse> {
+  return apiRequest<AnalyticsForecastScenariosResponse>('/analytics/forecast/scenarios', { token });
 }
 
 export async function fetchAnalyticsUnitEconomics(
