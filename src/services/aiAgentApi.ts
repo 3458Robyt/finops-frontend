@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { AiChatMessage, AiChatResponse, AiRecommendationGenerationResponse, AgentInstructionRules, AgentLearningSummaryResponse, AgentProfileResponse, TenantRulesResponse, TenantRuleResponse, AiContextTracesResponse, ContextBackfillResponse } from './apiTypes';
+import type { AiChatMessage, AiChatResponse, AiRecommendationGenerationResponse, AgentInstructionRules, AgentLearningSummaryResponse, AgentProfileResponse, TenantRulesResponse, TenantRuleResponse, AiContextTracesResponse, ContextBackfillResponse, AgentQualityReportResponse } from './apiTypes';
 
 export async function sendAiChatMessage(
   token: string,
@@ -93,6 +93,10 @@ export async function disableTenantAgentRule(token: string, ruleId: string): Pro
 
 export async function fetchAiContextTraces(token: string): Promise<AiContextTracesResponse> {
   return apiRequest<AiContextTracesResponse>('/agent/context-traces', { token });
+}
+
+export async function fetchAiQualityReport(token: string, days = 90): Promise<AgentQualityReportResponse> {
+  return apiRequest<AgentQualityReportResponse>(`/agent/quality?days=${days}`, { token });
 }
 
 export async function backfillAgentContext(token: string): Promise<ContextBackfillResponse> {

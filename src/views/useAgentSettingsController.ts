@@ -10,6 +10,7 @@ import {
   disableTenantAgentRule,
   fetchAgentProfile,
   fetchAiContextTraces,
+  fetchAiQualityReport,
   fetchAiLearningSummary,
   fetchOutboundChannelStatus,
   fetchOutboundDeliveries,
@@ -23,6 +24,7 @@ import {
   type AgentInstructionProfile,
   type AgentInstructionRules,
   type AiContextTrace,
+  type AgentQualityReport,
   type AgentLearningSummaryResponse,
   type ApiRole,
   type OutboundChannelStatusResponse,
@@ -63,6 +65,7 @@ export function useAgentSettingsController(role: ApiRole) {
   const [profile, setProfile] = useState<AgentInstructionProfile | null>(null);
   const [rules, setRules] = useState<readonly TenantAgentRule[]>([]);
   const [traces, setTraces] = useState<readonly AiContextTrace[]>([]);
+  const [qualityReport, setQualityReport] = useState<AgentQualityReport | null>(null);
   const [learningSummary, setLearningSummary] = useState<AgentLearningSummaryResponse['learning'] | null>(null);
   const [telegramLinks, setTelegramLinks] = useState<readonly TelegramChatLink[]>([]);
   const [outboundStatus, setOutboundStatus] = useState<OutboundChannelStatusResponse['status'] | null>(null);
@@ -100,17 +103,19 @@ export function useAgentSettingsController(role: ApiRole) {
       fetchAgentProfile(token),
       fetchTenantAgentRules(token),
       fetchAiContextTraces(token),
+      fetchAiQualityReport(token),
       fetchAiLearningSummary(token),
       canConfigureAgent ? fetchTelegramLinks(token) : Promise.resolve({ success: true as const, links: [] }),
       canConfigureAgent ? fetchOutboundChannelStatus(token) : Promise.resolve({ success: true as const, status: null }),
       canConfigureAgent ? fetchOutboundDeliveries(token) : Promise.resolve({ success: true as const, deliveries: [] }),
     ])
-      .then(([profileResponse, rulesResponse, tracesResponse, learningResponse, telegramResponse, outboundStatusResponse, outboundDeliveriesResponse]) => {
+      .then(([profileResponse, rulesResponse, tracesResponse, qualityResponse, learningResponse, telegramResponse, outboundStatusResponse, outboundDeliveriesResponse]) => {
         if (!active) return;
         const currentProfile = profileResponse.profile;
         setProfile(currentProfile);
         setRules(rulesResponse.rules);
         setTraces(tracesResponse.traces);
+        setQualityReport(qualityResponse.report);
         setLearningSummary(learningResponse.learning);
         setTelegramLinks(telegramResponse.links);
         setOutboundStatus(outboundStatusResponse.status);
@@ -257,6 +262,7 @@ export function useAgentSettingsController(role: ApiRole) {
     rules,
     activeRules,
     traces,
+    qualityReport,
     learningSummary,
     telegramLinks,
     activeTelegramLinks,

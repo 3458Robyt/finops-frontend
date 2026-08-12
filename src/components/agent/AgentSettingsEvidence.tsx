@@ -1,4 +1,5 @@
-import type { AgentLearningSummaryResponse, AiContextTrace } from '../../services/api';
+import type { AgentLearningSummaryResponse, AgentQualityReport, AiContextTrace } from '../../services/api';
+import { AgentQualityPanel } from './AgentQualityPanel';
 import { AgentMetric, SectionHeader } from './AgentSettingsUi';
 
 const operationLabels: Record<AiContextTrace['operation'], string> = {
@@ -12,13 +13,14 @@ const operationLabels: Record<AiContextTrace['operation'], string> = {
 interface AgentSettingsEvidenceProps {
   readonly traces: readonly AiContextTrace[];
   readonly learningSummary: AgentLearningSummaryResponse['learning'] | null;
+  readonly qualityReport: AgentQualityReport | null;
   readonly outboundDeliveryCount: number;
   readonly canConfigureAgent: boolean;
   readonly saving: boolean;
   readonly onDeactivateMemory: (memoryId: string) => void;
 }
 
-export function AgentSettingsEvidence({ traces, learningSummary, outboundDeliveryCount, canConfigureAgent, saving, onDeactivateMemory }: AgentSettingsEvidenceProps) {
+export function AgentSettingsEvidence({ traces, learningSummary, qualityReport, outboundDeliveryCount, canConfigureAgent, saving, onDeactivateMemory }: AgentSettingsEvidenceProps) {
   const latestTrace = traces[0];
   const errorTraceCount = traces.filter((trace) => trace.status !== 'SUCCESS').length;
   const totalTraceTokens = traces.reduce((total, trace) => total + trace.promptTokenEstimate + (trace.responseTokenEstimate ?? 0), 0);
@@ -32,6 +34,7 @@ export function AgentSettingsEvidence({ traces, learningSummary, outboundDeliver
         <AgentMetric title="Ultima operacion" value={latestTrace !== undefined ? operationLabels[latestTrace.operation] : 'Sin uso'} helper={latestTrace !== undefined ? new Date(latestTrace.createdAt).toLocaleDateString('es-CO') : 'Pendiente'} icon="schedule" />
       </div>
       <TraceTable traces={traces} />
+      <AgentQualityPanel report={qualityReport} />
       <LearningSummaryPanel
         summary={learningSummary}
         canConfigureAgent={canConfigureAgent}

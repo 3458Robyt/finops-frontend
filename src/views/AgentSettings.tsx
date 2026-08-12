@@ -29,6 +29,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
     activeRules,
     traces,
     learningSummary,
+    qualityReport,
     telegramLinks,
     activeTelegramLinks,
     outboundStatus,
@@ -123,6 +124,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
         <AgentSettingsEvidence
           traces={traces}
           learningSummary={learningSummary}
+          qualityReport={qualityReport}
           outboundDeliveryCount={outboundDeliveries.length}
           canConfigureAgent={canConfigureAgent}
           saving={saving}
