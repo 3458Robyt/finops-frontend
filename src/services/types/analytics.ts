@@ -1,7 +1,7 @@
 // Cost analytics DTOs.
 import type { RecommendationSeverity } from './recommendations';
 export type AnalyticsGroupBy = 'provider' | 'account' | 'service' | 'resource' | 'environment';
-export interface CostAnomaly {
+export interface CostOpportunity {
   readonly id: string;
   readonly cloudAccountId?: string;
   readonly provider?: string;
@@ -21,7 +21,8 @@ export interface CostAnomaly {
   readonly evidence?: unknown;
   readonly detectedAt: string;
 }
-export type CostOpportunity = CostAnomaly;
+/** @deprecated Use CostOpportunity. */
+export type CostAnomaly = CostOpportunity;
 export interface CostForecast {
   readonly id: string;
   readonly cloudAccountId?: string;
@@ -147,7 +148,9 @@ export interface AnalyticsEfficiencyInsightsResponse {
 }
 export interface AnalyticsRecomputeResponse {
   readonly success: true;
-  readonly anomalies: readonly CostAnomaly[];
+  readonly opportunities: readonly CostOpportunity[];
+  /** @deprecated Compatibility alias returned by older backend versions. */
+  readonly anomalies?: readonly CostOpportunity[];
   readonly forecasts: readonly CostForecast[];
   readonly trends: readonly CostTrend[];
   readonly usageInsights: readonly UsageInsight[];

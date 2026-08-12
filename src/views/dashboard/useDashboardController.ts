@@ -150,7 +150,7 @@ export function useDashboardController(): DashboardControllerState {
         try {
           const analyticsResponse = await recomputeAnalytics(token);
           if (active) {
-            setOpportunities(analyticsResponse.anomalies);
+            setOpportunities(analyticsResponse.opportunities ?? analyticsResponse.anomalies ?? []);
             setUsageInsights(analyticsResponse.usageInsights);
           }
         } catch {

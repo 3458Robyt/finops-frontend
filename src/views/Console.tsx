@@ -58,7 +58,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
       })
       .then((analyticsResponse) => {
         if (active && analyticsResponse !== null) {
-          setOpportunities(analyticsResponse.anomalies);
+          setOpportunities(analyticsResponse.opportunities ?? analyticsResponse.anomalies ?? []);
           setUsageInsights(analyticsResponse.usageInsights);
         }
       })
