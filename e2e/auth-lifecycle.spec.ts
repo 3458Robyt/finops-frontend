@@ -112,6 +112,28 @@ test('protege el ciclo de vida de sesión y la rotación de credenciales', async
   }
 });
 
+test('no revela si existe una cuenta al solicitar recuperación de contraseña', async () => {
+  const manifest = await readManifest();
+  const api = await playwrightRequest.newContext({
+    baseURL: process.env['E2E_BACKEND_URL'] ?? 'http://127.0.0.1:3100',
+    extraHTTPHeaders: { Origin: process.env['E2E_ORIGIN'] ?? 'http://127.0.0.1:5173' },
+  });
+
+  try {
+    const known = await requestPasswordReset(api, manifest.admin.email);
+    const unknown = await requestPasswordReset(api, `missing-${Date.now()}@example.test`);
+    expect(known.status).toBe(202);
+    expect(unknown.status).toBe(202);
+    expect(known.body).toEqual(unknown.body);
+    expect(known.body).toEqual({
+      success: true,
+      message: 'Si el correo existe, recibirás instrucciones para restablecer la contraseña.',
+    });
+  } finally {
+    await api.dispose();
+  }
+});
+
 interface LoginResponse {
   readonly accessToken: string;
   readonly activeTenant: { readonly id: string };
@@ -129,6 +151,14 @@ async function loginUser(api: import('@playwright/test').APIRequestContext, mani
   });
   expect(response.ok()).toBeTruthy();
   return await response.json() as LoginResponse;
+}
+
+async function requestPasswordReset(
+  api: import('@playwright/test').APIRequestContext,
+  email: string,
+): Promise<{ readonly status: number; readonly body: unknown }> {
+  const response = await api.post('/api/v1/auth/password-reset/request', { data: { email } });
+  return { status: response.status(), body: await response.json() };
 }
 
 function readRefreshCookie(setCookie: string | undefined): string {
