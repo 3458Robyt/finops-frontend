@@ -5,7 +5,6 @@ const sourceRoot = resolve(process.cwd(), 'src');
 const maxLines = 400;
 const exceptions = new Map([
   ['views/AgentSettings.tsx', 440],
-  ['components/RecommendationAnalysisRunsPanel.tsx', 420],
 ]);
 
 const files = await collectSourceFiles(sourceRoot);
