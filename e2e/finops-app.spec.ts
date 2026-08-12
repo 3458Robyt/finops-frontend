@@ -38,7 +38,14 @@ test.describe('FinOps app E2E', () => {
     if (manifest.tenants[1] !== undefined) {
       const selectedTenant = await tenantSelector.selectOption({ label: manifest.tenants[1].name });
       expect(selectedTenant).toHaveLength(1);
-      await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
+      // Tenant switching rotates the session asynchronously and disables the
+      // selector while the request is in flight. Wait for the controlled value
+      // before switching back, otherwise the next assertions can run against
+      // the previous tenant's token and remount the analysis panel.
+      await expect(tenantSelector).toHaveValue(selectedTenant[0]!);
+      const restoredTenant = await tenantSelector.selectOption({ label: manifest.tenants[0]?.name ?? '' });
+      expect(restoredTenant).toHaveLength(1);
+      await expect(tenantSelector).toHaveValue(restoredTenant[0]!);
     }
 
     const recommendationId = manifest.recommendationIds[0]!;
