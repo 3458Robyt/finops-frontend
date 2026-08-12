@@ -3,9 +3,7 @@ import { extname, join, relative, resolve } from 'node:path';
 
 const sourceRoot = resolve(process.cwd(), 'src');
 const maxLines = 400;
-const exceptions = new Map([
-  ['views/AgentSettings.tsx', 440],
-]);
+const exceptions = new Map();
 
 const files = await collectSourceFiles(sourceRoot);
 const violations = [];
