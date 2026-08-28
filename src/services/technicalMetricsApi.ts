@@ -1,11 +1,24 @@
 import { apiRequest } from './apiClient';
-import type { TechnicalResourcesResponse, TechnicalResourceSummaryResponse, TechnicalSamplesResponse, TechnicalMetricBucket, TechnicalOverviewResponse, TechnicalSeriesResponse, TechnicalCoverageResponse } from './apiTypes';
+import type { TechnicalResourcesResponse, TechnicalResourceSummaryResponse, TechnicalSamplesResponse, TechnicalMetricBucket, TechnicalOverviewResponse, TechnicalSeriesResponse, TechnicalCoverageResponse, MetricStatistic } from './apiTypes';
 
 export async function fetchTechnicalResources(
   token: string,
-  limit?: number,
+  options: {
+    readonly limit?: number;
+    readonly costFilter?: 'ALL' | 'WITH_COST';
+    readonly status?: string;
+    readonly provider?: string;
+    readonly query?: string;
+  } = {},
 ): Promise<TechnicalResourcesResponse> {
-  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  const queryParams = new URLSearchParams();
+  if (options.limit !== undefined) queryParams.set('limit', String(options.limit));
+  if (options.costFilter !== undefined) queryParams.set('costFilter', options.costFilter);
+  if (options.status !== undefined && options.status !== 'ALL') queryParams.set('status', options.status);
+  if (options.provider !== undefined && options.provider !== 'ALL') queryParams.set('provider', options.provider);
+  if (options.query !== undefined && options.query.trim() !== '') queryParams.set('query', options.query.trim());
+  const serialized = queryParams.toString();
+  const query = serialized.length > 0 ? `?${serialized}` : '';
   return apiRequest<TechnicalResourcesResponse>(`/technical-metrics/resources${query}`, { token });
 }
 
@@ -24,9 +37,10 @@ export async function fetchTechnicalResourceSummary(
 export async function fetchTechnicalMetricSamples(
   token: string,
   limit?: number,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<TechnicalSamplesResponse> {
   const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
-  return apiRequest<TechnicalSamplesResponse>(`/technical-metrics/samples${query}`, { token });
+  return apiRequest<TechnicalSamplesResponse>(`/technical-metrics/samples${query}`, { token, ...(options.signal !== undefined ? { signal: options.signal } : {}) });
 }
 
 export async function fetchTechnicalMetricsOverview(
@@ -37,10 +51,12 @@ export async function fetchTechnicalMetricsOverview(
     readonly externalResourceId?: string;
     readonly cloudResourceId?: string;
     readonly metricNames?: readonly string[];
+    readonly statistic?: MetricStatistic;
   } = {},
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<TechnicalOverviewResponse> {
   const query = buildTechnicalMetricsQuery(params);
-  return apiRequest<TechnicalOverviewResponse>(`/technical-metrics/overview${query}`, { token });
+  return apiRequest<TechnicalOverviewResponse>(`/technical-metrics/overview${query}`, { token, ...(options.signal !== undefined ? { signal: options.signal } : {}) });
 }
 
 export async function fetchTechnicalMetricSeries(
@@ -54,6 +70,7 @@ export async function fetchTechnicalMetricSeries(
     readonly bucket?: TechnicalMetricBucket;
     readonly cursor?: string;
     readonly pageSize?: number;
+    readonly statistic?: MetricStatistic;
   } = {},
   options: { readonly signal?: AbortSignal } = {},
 ): Promise<TechnicalSeriesResponse> {
@@ -71,10 +88,12 @@ export async function fetchTechnicalMetricsCoverage(
     readonly endDate?: string;
     readonly externalResourceId?: string;
     readonly cloudResourceId?: string;
+    readonly statistic?: MetricStatistic;
   } = {},
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<TechnicalCoverageResponse> {
   const query = buildTechnicalMetricsQuery(params);
-  return apiRequest<TechnicalCoverageResponse>(`/technical-metrics/coverage${query}`, { token });
+  return apiRequest<TechnicalCoverageResponse>(`/technical-metrics/coverage${query}`, { token, ...(options.signal !== undefined ? { signal: options.signal } : {}) });
 }
 
 function buildTechnicalMetricsQuery(params: {
@@ -86,6 +105,7 @@ function buildTechnicalMetricsQuery(params: {
   readonly bucket?: TechnicalMetricBucket;
   readonly cursor?: string;
   readonly pageSize?: number;
+  readonly statistic?: MetricStatistic;
 }): string {
   const query = new URLSearchParams();
 
@@ -112,6 +132,9 @@ function buildTechnicalMetricsQuery(params: {
   }
   if (params.pageSize !== undefined) {
     query.set('pageSize', String(params.pageSize));
+  }
+  if (params.statistic !== undefined) {
+    query.set('statistic', params.statistic);
   }
 
   const serialized = query.toString();

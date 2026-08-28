@@ -4,6 +4,7 @@ import BillingSourcePanel from '../components/ingestion/BillingSourcePanel';
 import { QueueIngestionPanel, TechnicalMetricBackfillPanel } from '../components/ingestion/IngestionControls';
 import IngestionReadinessPanel from '../components/ingestion/IngestionReadinessPanel';
 import ResourceLinkagePanel from '../components/ingestion/ResourceLinkagePanel';
+import MetricCoveragePanel from '../components/ingestion/MetricCoveragePanel';
 import { useIngestionController } from './useIngestionController';
 
 export default function Ingesta({ canManage, onNavigate }: {
@@ -44,8 +45,11 @@ export default function Ingesta({ canManage, onNavigate }: {
         generatedAt={controller.readinessGeneratedAt}
         connections={controller.readinessConnections}
         issues={controller.readinessIssues}
+        operational={controller.operationalReadiness}
         loading={controller.loading}
       />
+
+      <MetricCoveragePanel coverage={controller.metricCoverage} loading={controller.loading} />
 
       {controller.resourceLinkage !== null && <ResourceLinkagePanel readiness={controller.resourceLinkage} />}
 
@@ -88,7 +92,7 @@ export default function Ingesta({ canManage, onNavigate }: {
         onFocusSubmit={controller.handleConfigureFocus}
       />
 
-      <IngestionHistoryPanel jobs={controller.jobs} loading={controller.loading} />
+      <IngestionHistoryPanel jobs={controller.jobs} loading={controller.loading} canManage={canManage} includeArchived={controller.includeArchived} onIncludeArchivedChange={controller.setIncludeArchived} onCancel={(jobId) => { void controller.handleCancelJob(jobId); }} onArchive={(jobId) => { void controller.handleArchiveJob(jobId); }} />
       <DataQualityPanel checks={controller.checks} loading={controller.loading} />
     </div>
   );

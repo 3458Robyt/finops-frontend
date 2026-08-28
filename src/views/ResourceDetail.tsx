@@ -15,7 +15,7 @@ import {
   readEvidence,
   shortenType,
 } from './resource-detail/resourceDetailEvidence';
-import { currencyFormatter, severityLabel } from './resource-detail/resourceDetailPresentation';
+import { formatCurrency, severityLabel } from './resource-detail/resourceDetailPresentation';
 
 interface ResourceDetailProps {
   readonly recommendationId: string;
@@ -79,6 +79,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
   const source = evidence.source === 'nvidia-nim' ? 'NVIDIA NIM' : 'Seed / FOCUS';
   const currentCost = evidence.serviceCost ?? evidence.accountCost ?? recommendation.estimatedMonthlySavings ?? 0;
   const savings = recommendation.estimatedMonthlySavings ?? 0;
+  const currency = recommendation.currency;
   const missedSavings = calculateMissedSavings(recommendation);
   const savingsRate = currentCost > 0 ? Math.min((savings / currentCost) * 100, 95) : 0;
   const service = evidence.service ?? evidence.metric ?? shortenType(recommendation.type);
@@ -166,20 +167,20 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
               <div className="bg-zinc-950/20 border border-zinc-800 p-6 md:p-7 rounded-3xl">
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Costo observado</p>
                 <p className="text-2xl md:text-3xl font-black text-white">
-                  {currencyFormatter.format(currentCost)}
-                  <span className="text-xs font-medium text-zinc-500 ml-1 tracking-tight">{recommendation.currency}</span>
+                  {formatCurrency(currentCost, currency)}
+                  <span className="text-xs font-medium text-zinc-500 ml-1 tracking-tight">{currency}</span>
                 </p>
               </div>
               <div className="bg-tak-yellow/5 border border-tak-yellow/20 p-6 md:p-7 rounded-3xl relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-tak-yellow/10 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
                 <p className="text-[10px] font-black text-tak-yellow uppercase tracking-widest mb-2">Potencial de ahorro</p>
                 <p className="text-3xl md:text-4xl font-black text-tak-yellow tracking-tighter">
-                  -{currencyFormatter.format(savings)}
+                  -{formatCurrency(savings, currency)}
                   <span className="text-sm font-medium opacity-60 ml-1">/mes</span>
                 </p>
                 {missedSavings > 0 && (
                   <p className="mt-3 text-xs font-bold leading-relaxed text-zinc-300">
-                    ¿Sabías que podrías haberte ahorrado {currencyFormatter.format(missedSavings)} desde que esta oportunidad fue creada?
+                    ¿Sabías que podrías haberte ahorrado {formatCurrency(missedSavings, currency)} desde que esta oportunidad fue creada?
                   </p>
                 )}
               </div>
@@ -199,11 +200,11 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
                 <div className="space-y-4">
                   <EvidenceLine icon="payments" label="Ahorro estimado" value={`${savingsRate.toFixed(1)}% del costo observado`} />
                   {missedSavings > 0 && (
-                    <EvidenceLine icon="savings" label="Ahorro no capturado" value={`${currencyFormatter.format(missedSavings)} acumulado desde la generacion de la recomendacion`} />
+                    <EvidenceLine icon="savings" label="Ahorro no capturado" value={`${formatCurrency(missedSavings, currency)} acumulado desde la generacion de la recomendacion`} />
                   )}
                   <EvidenceLine icon="cloud" label="Servicio" value={service} />
                   {evidence.unitCost !== undefined && (
-                    <EvidenceLine icon="price_check" label="Costo unitario FOCUS" value={currencyFormatter.format(evidence.unitCost)} />
+                    <EvidenceLine icon="price_check" label="Costo unitario FOCUS" value={formatCurrency(evidence.unitCost, currency)} />
                   )}
                   {evidence.deltaConsumptionPercent !== undefined && (
                     <EvidenceLine icon="trending_up" label="Variacion de consumo" value={`${evidence.deltaConsumptionPercent.toFixed(1)}%`} />

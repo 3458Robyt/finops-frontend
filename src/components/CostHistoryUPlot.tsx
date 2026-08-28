@@ -3,18 +3,12 @@ import uPlot, { type AlignedData, type Options } from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
 export interface CostHistoryPoint {
-  readonly name: string;
-  readonly asIs: number;
-  readonly toBe: number;
+  readonly timestamp: string;
+  readonly asIs: number | null;
+  readonly toBe: number | null;
 }
 
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
-
-export function CostHistoryUPlot({ points }: { readonly points: readonly CostHistoryPoint[] }) {
+export function CostHistoryUPlot({ points, currency }: { readonly points: readonly CostHistoryPoint[]; readonly currency: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const plotRef = useRef<uPlot | null>(null);
   const chart = useMemo(() => toChart(points), [points]);
@@ -31,23 +25,22 @@ export function CostHistoryUPlot({ points }: { readonly points: readonly CostHis
     const plot = new uPlot({
       width: Math.max(320, container.clientWidth),
       height: Math.max(280, container.clientHeight),
-      scales: { x: { range: () => [-0.5, Math.max(0.5, points.length - 0.5)] } },
+      scales: { x: { time: true } },
       axes: [
         {
           stroke: '#a1a1aa',
           grid: { stroke: '#27272a', width: 1 },
-          values: (_u, values) => values.map((value) => chart.labels[Math.round(value)] ?? ''),
+          values: (_u, values) => values.map((value) => new Date(value * 1000).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', timeZone: 'UTC' })),
         },
         {
           stroke: '#a1a1aa',
           grid: { stroke: '#27272a', width: 1 },
-          values: (_u, values) => values.map((value) => money.format(value)),
+          values: (_u, values) => values.map((value) => formatMoney(value, currency)),
         },
       ],
       series: [
         {},
-        { label: 'Current AS-IS', stroke: '#52525b', width: 3, value: (_u, value) => formatMoney(value) },
-        { label: 'Opt TO-BE', stroke: '#FACC15', width: 3, value: (_u, value) => formatMoney(value) },
+        { label: `Costo AS-IS (${currency})`, stroke: '#FACC15', width: 3, value: (_u, value) => formatMoney(value, currency) },
       ],
     } satisfies Options, dataRef.current, container);
     plotRef.current = plot;
@@ -62,7 +55,7 @@ export function CostHistoryUPlot({ points }: { readonly points: readonly CostHis
       plot.destroy();
       plotRef.current = null;
     };
-  }, [chart.labels, points.length]);
+  }, [chart.labels, currency, points.length]);
 
   useEffect(() => {
     plotRef.current?.setData(chart.data);
@@ -73,11 +66,11 @@ export function CostHistoryUPlot({ points }: { readonly points: readonly CostHis
 
 function toChart(points: readonly CostHistoryPoint[]): { readonly data: AlignedData; readonly labels: readonly string[] } {
   return {
-    data: [points.map((_point, index) => index), points.map((point) => point.asIs), points.map((point) => point.toBe)],
-    labels: points.map((point) => point.name),
+    data: [points.map((point) => Math.floor(new Date(point.timestamp).getTime() / 1000)), points.map((point) => point.asIs)],
+    labels: points.map((point) => point.timestamp),
   };
 }
 
-function formatMoney(value: number | null): string {
-  return value === null || !Number.isFinite(value) ? '-' : money.format(value);
+function formatMoney(value: number | null, currency: string): string {
+  return value === null || !Number.isFinite(value) ? '-' : new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
 }

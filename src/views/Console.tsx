@@ -14,12 +14,6 @@ interface ConsoleProps {
   readonly onResourceSelect?: (id: string) => void;
 }
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
-
 const severityWeight: Record<Recommendation['severity'], number> = {
   CRITICAL: 4,
   HIGH: 3,
@@ -84,7 +78,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
     [recommendations],
   );
   const criticalOpportunityCount = opportunities.filter((row) => row.severity === 'HIGH' || row.severity === 'CRITICAL').length;
-  const totalSavings = tableData.reduce((total, row) => total + (row.estimatedMonthlySavings ?? 0), 0);
+  const totalSavingsLabel = formatCurrencySummary(tableData);
   const computeCount = tableData.filter((row) => row.type.includes('COMPUTE')).length;
 
   return (
@@ -114,7 +108,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
           <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Ahorro Estimado</p>
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-red-500 text-3xl">trending_up</span>
-            <h3 className="text-3xl font-black text-white">{loading ? '...' : currencyFormatter.format(totalSavings)}</h3>
+            <h3 className="text-3xl font-black text-white">{loading ? '...' : totalSavingsLabel}</h3>
           </div>
         </div>
       </div>
@@ -153,7 +147,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
                     {insight.consumedQuantity === undefined ? '-' : `${formatNumber(insight.consumedQuantity)} ${insight.consumedUnit ?? ''}`}
                   </td>
                   <td className="p-4 text-sm text-white font-black">
-                    {insight.unitCost === undefined ? '-' : currencyFormatter.format(insight.unitCost)}
+                    {insight.unitCost === undefined ? '-' : formatCurrency(insight.unitCost, insight.currency)}
                   </td>
                   <td className="p-4 text-sm text-zinc-400 font-medium">{insight.description}</td>
                 </tr>
@@ -192,7 +186,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
                     <span className="bg-red-500/10 text-red-300 text-[10px] font-bold px-2 py-1 rounded uppercase">{opportunity.severity}</span>
                   </td>
                   <td className="p-4 text-sm text-white font-black">
-                    {currencyFormatter.format(opportunity.deltaAmount)} / {opportunity.deltaPercent.toFixed(1)}%
+                    {formatOpportunityAmount(opportunity)} / {opportunity.deltaPercent.toFixed(1)}%
                   </td>
                   <td className="p-4 text-sm text-zinc-400 font-medium">{opportunity.explanation}</td>
                 </tr>
@@ -242,7 +236,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
                     <td className="p-4 text-sm text-zinc-400 font-medium">{evidence.metric ?? row.severity}</td>
                     <td className="p-4 text-sm text-tak-yellow font-bold uppercase tracking-tight">{evidence.action ?? row.title}</td>
                     <td className="p-4 text-sm text-white font-black text-right">
-                      {currencyFormatter.format(row.estimatedMonthlySavings ?? 0)}
+                      {formatCurrency(row.estimatedMonthlySavings ?? 0, row.currency)}
                     </td>
                     <td className="p-4 flex justify-center">
                       <button
@@ -294,4 +288,43 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('es-CO', {
     maximumFractionDigits: value >= 100 ? 0 : 2,
   }).format(value);
+}
+
+function formatCurrency(value: number, currency: string): string {
+  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
+    ? currency.trim().toUpperCase()
+    : 'USD';
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: normalizedCurrency,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCurrencySummary(recommendations: readonly Recommendation[]): string {
+  const totals = new Map<string, number>();
+  for (const recommendation of recommendations) {
+    const currency = recommendation.currency.trim().toUpperCase() || 'USD';
+    totals.set(currency, (totals.get(currency) ?? 0) + (recommendation.estimatedMonthlySavings ?? 0));
+  }
+  if (totals.size === 0) return formatCurrency(0, 'USD');
+  return [...totals.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([currency, amount]) => formatCurrency(amount, currency))
+    .join(' · ');
+}
+
+function formatOpportunityAmount(opportunity: CostOpportunity): string {
+  const currency = readCurrency(opportunity.evidence);
+  return currency === undefined
+    ? `${formatNumber(opportunity.deltaAmount)} (moneda no disponible)`
+    : formatCurrency(opportunity.deltaAmount, currency);
+}
+
+function readCurrency(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const currency = (value as Record<string, unknown>)['currency'];
+  return typeof currency === 'string' && /^[A-Z]{3}$/i.test(currency.trim())
+    ? currency.trim().toUpperCase()
+    : undefined;
 }

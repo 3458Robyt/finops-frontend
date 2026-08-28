@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { TechnicalMetricUPlot } from '../components/TechnicalMetricUPlot';
 import { type TechnicalMetricBucket } from '../services/api';
 import { KpiCard, MiniMetric, OpportunityCard, SelectField, StatCard } from './technical-metrics/TechnicalMetricsCards';
@@ -7,20 +8,45 @@ import {
   formatCurrency,
   formatDateTime,
   formatNumber,
-  formatRange,
   groupLabels,
   shortResource,
 } from './technical-metrics/technicalMetricsPresentation';
 import { useTechnicalMetricsController } from './technical-metrics/useTechnicalMetricsController';
 
+function formatStatisticLabel(statistic: string): string {
+  const labels: Record<string, string> = {
+    MEAN: 'Promedio (mean)',
+    MIN: 'Mínimo (min)',
+    MAX: 'Máximo (max)',
+    P50: 'Percentil 50 (p50)',
+    P90: 'Percentil 90 (p90)',
+    P95: 'Percentil 95 (p95)',
+    P99: 'Percentil 99 (p99)',
+    SUM: 'Suma (sum)',
+    COUNT: 'Conteo (count)',
+    RATE: 'Tasa (rate)',
+    LATEST: 'Último valor (latest)',
+  };
+  return labels[statistic] ?? statistic;
+}
+
 export default function MetricasTecnicas() {
   const {
-    overview, coverage, samples, selectedResource, selectedGroup, range, bucket, drilldownWindow,
+    overview, coverage, samples, selectedResource, selectedGroup, range, bucket, selectedStatistic, statisticOptions, drilldownWindow,
     loadingOverview, loadingMoreSeries, error, metricOptions, activeMetric, selectedMetricMeta, filteredKpis,
     visibleSeries, visibleSeriesMeta, visibleLoadingSeries, topResourceCost, selectedCoverageMetric,
-    setSelectedResource, setSelectedGroup, setSelectedMetric, setRange, setBucket, setDrilldownWindow,
+    setSelectedResource, setSelectedGroup, setSelectedMetric, setRange, setBucket, setSelectedStatistic, setDrilldownWindow,
     handleDrilldown, loadNextSeriesPage,
   } = useTechnicalMetricsController();
+  const resourceLabels = useMemo(() => new Map(
+    (overview?.resources ?? []).map((resource) => [
+      resource.externalResourceId,
+      resource.name ?? shortResource(resource.externalResourceId),
+    ]),
+  ), [overview?.resources]);
+  const visibleGroupOptions = Object.entries(groupLabels).filter(([value]) => (
+    value === 'ALL' || (overview?.metrics ?? []).some((metric) => metric.group === value)
+  ));
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -45,7 +71,7 @@ export default function MetricasTecnicas() {
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon="database" label="Muestras tecnicas" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.sampleCount ?? 0)} helper={formatRange(overview)} />
+        <StatCard icon="database" label={`Muestras ${formatStatisticLabel(selectedStatistic)}`} value={loadingOverview && overview === null ? '...' : formatNumber(overview?.sampleCount ?? 0)} helper="Solo la estadística seleccionada; el total global incluye todas." />
         <StatCard icon="dns" label="Recursos detectados" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.resourceCount ?? 0)} helper="Derivados de metricas reales" />
         <StatCard icon="monitoring" label="Metricas disponibles" value={loadingOverview && overview === null ? '...' : formatNumber(overview?.metricCount ?? 0)} helper={selectedMetricMeta?.metricName ?? 'Sin metrica seleccionada'} />
         <StatCard
@@ -75,29 +101,29 @@ export default function MetricasTecnicas() {
           <MiniMetric label="Dias metrica" value={`${selectedCoverageMetric?.daysWithData ?? 0}/${selectedCoverageMetric?.expectedDays ?? coverage?.expectedDays ?? 0}`} />
         </div>
         <div className="mt-4 flex flex-wrap gap-1">
-          {(coverage?.days ?? []).slice(-30).map((day) => (
+          {(coverage?.days ?? []).map((day) => (
             <span
               key={day.date}
               title={`${day.date}: ${day.sampleCount} muestras`}
-              className={`h-3 w-6 rounded-full ${day.status === 'WITH_DATA' ? 'bg-tak-yellow' : 'bg-zinc-800'}`}
+              className={`h-3 min-w-2 flex-1 rounded-full ${day.status === 'WITH_DATA' ? 'bg-tak-yellow' : 'bg-zinc-800'}`}
             />
           ))}
         </div>
       </section>
 
       <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4 lg:p-5">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
           <SelectField label="Recurso" value={selectedResource} onChange={(value) => { setDrilldownWindow(null); setSelectedResource(value); }}>
             <option value="ALL">Todos los recursos</option>
             {(overview?.resources ?? []).map((resource) => (
-              <option key={resource.externalResourceId} value={resource.externalResourceId}>
-                {shortResource(resource.externalResourceId)}
+              <option key={resource.cloudResourceId ?? resource.externalResourceId} value={resource.externalResourceId}>
+                {resource.name !== undefined ? `${resource.name} · ` : ''}{shortResource(resource.externalResourceId)}
               </option>
             ))}
           </SelectField>
 
           <SelectField label="Grupo" value={selectedGroup} onChange={(value) => { setDrilldownWindow(null); setSelectedGroup(value as MetricGroupFilter); }}>
-            {Object.entries(groupLabels).map(([value, label]) => (
+            {visibleGroupOptions.map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </SelectField>
@@ -115,6 +141,7 @@ export default function MetricasTecnicas() {
             <option value="24h">Ultimas 24 h</option>
             <option value="7d">Ultimos 7 dias</option>
             <option value="30d">Ultimos 30 dias</option>
+            <option value="90d">Ultimos 90 dias</option>
           </SelectField>
 
           <SelectField label="Granularidad" value={bucket} onChange={(value) => { setDrilldownWindow(null); setBucket(value as TechnicalMetricBucket); }}>
@@ -123,6 +150,12 @@ export default function MetricasTecnicas() {
             <option value="30m">30 min</option>
             <option value="hour">Hora</option>
             <option value="day">Dia</option>
+          </SelectField>
+
+          <SelectField label="Estadistica" value={selectedStatistic} onChange={(value) => { setDrilldownWindow(null); setSelectedStatistic(value as typeof selectedStatistic); }}>
+            {statisticOptions.map((statistic) => (
+              <option key={statistic} value={statistic}>{formatStatisticLabel(statistic)}</option>
+            ))}
           </SelectField>
         </div>
       </section>
@@ -133,13 +166,13 @@ export default function MetricasTecnicas() {
             <div>
               <h3 className="text-lg font-bold text-white">Serie temporal</h3>
               <p className="text-xs text-zinc-500">
-                {activeMetric ?? 'Sin metrica'} {selectedMetricMeta?.metricUnit !== undefined ? `(${selectedMetricMeta.metricUnit})` : ''}
+                {activeMetric ?? 'Sin metrica'} · {formatStatisticLabel(selectedStatistic)} {selectedMetricMeta?.metricUnit !== undefined ? `(${selectedMetricMeta.metricUnit})` : ''}
               </p>
             </div>
             <span className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-tak-yellow">
               {visibleLoadingSeries
                 ? `${visibleSeriesMeta?.returnedPoints ?? visibleSeries.length}/${visibleSeriesMeta?.totalSamples ?? selectedCoverageMetric?.sampleCount ?? 0}`
-                : `${visibleSeriesMeta?.totalSamples ?? selectedCoverageMetric?.sampleCount ?? visibleSeries.length} muestras crudas · ${visibleSeries.length} puntos`}
+                : `${visibleSeriesMeta?.totalSamples ?? selectedCoverageMetric?.sampleCount ?? visibleSeries.length} muestras fuente · ${visibleSeries.length} puntos ${visibleSeriesMeta?.bucket === 'raw' ? 'crudos' : 'agregados'}`}
             </span>
           </div>
 
@@ -162,6 +195,8 @@ export default function MetricasTecnicas() {
             <TechnicalMetricUPlot
               points={visibleSeries}
               unit={selectedMetricMeta?.metricUnit}
+              statistic={selectedStatistic}
+              resourceLabels={resourceLabels}
               loading={visibleLoadingSeries || loadingOverview}
               separateResources={selectedResource === 'ALL'}
               onSelectRange={handleDrilldown}

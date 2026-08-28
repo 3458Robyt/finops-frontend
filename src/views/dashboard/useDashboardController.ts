@@ -10,6 +10,7 @@ import {
   fetchBudgetPerformance,
   fetchBudgets,
   fetchCosts,
+  fetchCostHistory,
   fetchRecommendations,
   fetchSavingsKpis,
   recomputeAnalytics,
@@ -17,6 +18,7 @@ import {
   type Budget,
   type BudgetPerformance,
   type CostsResponse,
+  type CostHistoryResponse,
   type Recommendation,
   type SavingsKpisResponse,
   type UsageInsight,
@@ -52,6 +54,9 @@ export interface DashboardControllerState {
   readonly budgets: readonly Budget[];
   readonly budgetPerformance: BudgetPerformance | null;
   readonly chartData: readonly ChartPoint[];
+  readonly costHistory: CostHistoryResponse | null;
+  readonly reportingCurrency: string;
+  readonly setReportingCurrency: (currency: string) => void;
   readonly suggestions: readonly Suggestion[];
   readonly totalCost: number;
   readonly dashboardBudget: Budget | undefined;
@@ -69,6 +74,8 @@ export interface DashboardControllerState {
 export function useDashboardController(): DashboardControllerState {
   const token = useAccessToken();
   const [costs, setCosts] = useState<CostsResponse | null>(null);
+  const [costHistory, setCostHistory] = useState<CostHistoryResponse | null>(null);
+  const [reportingCurrency, setReportingCurrency] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
@@ -165,16 +172,42 @@ export function useDashboardController(): DashboardControllerState {
     };
   }, [token]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    void fetchCostHistory(token, {
+      rangeMode: 'LATEST_AVAILABLE',
+      lookbackDays: 90,
+      ...(reportingCurrency === null ? {} : { reportingCurrency }),
+      granularity: 'day',
+      signal: controller.signal,
+    }).then((response) => {
+      if (!active) return;
+      setCostHistory(response);
+      if (reportingCurrency === null) setReportingCurrency(response.reportingCurrency);
+    }).catch((requestError: unknown) => {
+      if (active && !(requestError instanceof DOMException && requestError.name === 'AbortError')) {
+        setError('El histórico de costos no pudo actualizarse. Los demás datos siguen disponibles.');
+      }
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [reportingCurrency, token]);
+
   const metrics = useMemo(() => costs?.metrics ?? [], [costs]);
   const totalCost = useMemo(
-    () => roundCurrency(metrics.reduce((total, metric) => total + metric.amount, 0)),
-    [metrics],
+    () => roundCurrency(costHistory?.points.reduce((total, point) => total + (point.amount ?? 0), 0) ?? 0),
+    [costHistory],
   );
   const dashboardBudget = budgets.find((budget) => budget.scope === 'TENANT');
   const budgetUsage = budgetPerformance?.consumedPercent ?? 0;
-  const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? roundCurrency(totalCost * 0.14);
+  const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? 0;
   const verifiedSavings = savingsKpis?.verifiedMonthlySavings ?? savingsKpis?.confirmedMonthlySavings ?? 0;
-  const roi = totalCost > 0 ? roundCurrency((verifiedSavings / totalCost) * 100) : 0;
+  const roi = totalCost > 0 && (savingsKpis === null || savingsKpis.currency === (reportingCurrency ?? 'USD'))
+    ? roundCurrency((verifiedSavings / totalCost) * 100)
+    : 0;
 
   return {
     loading,
@@ -189,7 +222,7 @@ export function useDashboardController(): DashboardControllerState {
     adoptionKpis,
     budgets,
     budgetPerformance,
-    chartData: useMemo(() => buildChartData(metrics), [metrics]),
+    chartData: useMemo(() => buildChartData(costHistory), [costHistory]),
     suggestions: useMemo(() => buildSuggestions(metrics, recommendations), [metrics, recommendations]),
     totalCost,
     dashboardBudget,
@@ -202,5 +235,8 @@ export function useDashboardController(): DashboardControllerState {
     topUnitEconomics: unitEconomics.slice(0, 3),
     missedSavingsAmount: savingsKpis?.missedSavingsAmount ?? 0,
     forecastScenarios,
+    costHistory,
+    reportingCurrency: reportingCurrency ?? costHistory?.reportingCurrency ?? 'USD',
+    setReportingCurrency: (currency: string) => setReportingCurrency(currency.toUpperCase()),
   };
 }

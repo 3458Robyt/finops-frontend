@@ -106,7 +106,8 @@ export interface CostsResponse {
   readonly success: true;
   readonly summary: {
     readonly totalCost: number;
-    readonly currency: string;
+    readonly currency: string | null;
+    readonly totalsByCurrency?: Readonly<Record<string, number>>;
     readonly serviceBreakdown: Readonly<Record<string, {
       readonly cost: number;
       readonly currency: string;
@@ -120,5 +121,40 @@ export interface CostsResponse {
     readonly tenantId: string;
     readonly startDate: string;
     readonly endDate: string;
+  };
+}
+
+export interface CostHistoryPoint {
+  readonly periodStart: string;
+  readonly amount: number | null;
+  readonly nativeTotals: readonly { readonly currency: string; readonly amount: number }[];
+  readonly metricCount: number;
+  readonly conversionStatus: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
+  readonly conversionRate?: number;
+  readonly rateSource?: string;
+}
+
+export interface CostHistoryResponse {
+  readonly success: true;
+  readonly reportingCurrency: string;
+  readonly points: readonly CostHistoryPoint[];
+  readonly totalsByCurrency: readonly { readonly currency: string; readonly amount: number }[];
+  readonly coverage: {
+    readonly firstPeriod: string | null;
+    readonly lastPeriod: string | null;
+    readonly periodsWithData: number;
+    readonly expectedPeriods: number;
+    readonly missingPeriods: number;
+    readonly conversionIssuePeriods: number;
+  };
+  readonly meta: {
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly granularity: 'day' | 'month';
+    readonly rangeMode?: 'CALENDAR' | 'LATEST_AVAILABLE';
+    readonly lookbackDays?: number;
+    readonly dataAsOf?: string | null;
+    readonly staleDays?: number | null;
+    readonly usedLatestAvailableFallback?: boolean;
   };
 }

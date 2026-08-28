@@ -11,6 +11,7 @@ export interface CloudConnectionSummary {
   readonly defaultRegion?: string;
   readonly metadata?: Readonly<Record<string, unknown>>;
   readonly lastValidatedAt?: string;
+  readonly lastValidationAttemptAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -112,17 +113,27 @@ export interface CloudProviderCatalogEntry {
   readonly enabled: boolean;
 }
 export type CloudCredentialPurpose = 'OPERATIONAL' | 'BILLING_EXPORT_READ' | 'INVENTORY_READ' | 'METRICS_READ' | 'STORAGE_READ';
-export type CloudCapabilityStatus = 'AVAILABLE' | 'NOT_CONFIGURED' | 'DENIED' | 'ERROR';
+export type CloudCapabilityStatus = 'AVAILABLE' | 'NOT_CONFIGURED' | 'DENIED' | 'BLOCKED' | 'ERROR';
+export type CloudAuthenticationStatus = 'VERIFIED' | 'REJECTED' | 'RETRYABLE_ERROR' | 'NOT_CONFIGURED';
+export interface CloudAuthenticationValidation {
+  readonly status: CloudAuthenticationStatus;
+  readonly message: string;
+  readonly checkedAt?: string;
+}
 export type CloudOnboardingStatus = 'NO_CREDENTIAL' | 'REQUIRES_VALIDATION' | 'SYNCING' | 'PARTIAL' | 'READY' | 'REQUIRES_ATTENTION';
 export interface CloudCredentialSummary {
   readonly id: string;
   readonly purpose: CloudCredentialPurpose;
-  readonly status: 'ACTIVE' | 'DISABLED' | 'REVOKED' | 'EXPIRED';
+  readonly status: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'REVOKED' | 'EXPIRED' | 'INVALID';
   readonly label: string;
   readonly externalPrincipalId?: string;
+  readonly keyFingerprint?: string;
   readonly createdAt: string;
   readonly disabledAt?: string;
   readonly revokedAt?: string;
+  readonly validationStatus?: 'VERIFIED' | 'REJECTED' | 'RETRYABLE_ERROR' | 'NOT_CONFIGURED';
+  readonly validationMessage?: string;
+  readonly validationAttemptedAt?: string;
 }
 export interface CloudCapabilityValidation {
   readonly capability: string;
@@ -130,6 +141,7 @@ export interface CloudCapabilityValidation {
   readonly message: string;
   readonly checkedAt?: string;
 }
+export type CloudCredentialNextAction = 'VALIDATE' | 'NONE';
 export interface CloudOnboardingDetail {
   readonly connection: CloudConnectionSummary;
   readonly credentials: readonly CloudCredentialSummary[];

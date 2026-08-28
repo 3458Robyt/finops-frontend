@@ -1,4 +1,5 @@
 import type {
+  IngestionOperationalReadiness,
   IngestionReadinessConnectionSummary,
   IngestionReadinessIssue,
 } from '../../services/api';
@@ -14,12 +15,14 @@ export default function IngestionReadinessPanel({
   generatedAt,
   connections,
   issues,
+  operational,
   loading,
 }: {
   readonly ok: boolean;
   readonly generatedAt: string | null;
   readonly connections: readonly IngestionReadinessConnectionSummary[];
   readonly issues: readonly IngestionReadinessIssue[];
+  readonly operational: IngestionOperationalReadiness | null;
   readonly loading: boolean;
 }) {
   return (
@@ -35,6 +38,7 @@ export default function IngestionReadinessPanel({
         />
       </header>
       <div className="grid gap-4 p-6 lg:grid-cols-[1.2fr_1fr]">
+        {operational !== null && <OperationalStatus operational={operational} />}
         <div className="space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
             Conexiones evaluadas {generatedAt !== null ? `· ${formatDateTime(generatedAt)}` : ''}
@@ -70,6 +74,31 @@ export default function IngestionReadinessPanel({
       </div>
     </section>
   );
+}
+
+function OperationalStatus({ operational }: { readonly operational: IngestionOperationalReadiness }) {
+  const labels: Readonly<Record<IngestionOperationalReadiness['state'], string>> = {
+    IDLE: 'Sin trabajos activos',
+    WAITING_FOR_WORKER: 'En espera del worker',
+    QUEUED: 'Trabajos en cola',
+    RUNNING: 'Procesando trabajos',
+    CANCEL_REQUESTED: 'Cancelación en curso',
+    STALE: 'Trabajo posiblemente congelado',
+  };
+  const tone = operational.state === 'STALE' || operational.state === 'WAITING_FOR_WORKER' ? 'border-red-500/30 bg-red-500/10' : 'border-zinc-800 bg-zinc-950/60';
+  return <article className={`rounded-2xl border p-4 lg:col-span-2 ${tone}`}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Estado operativo de ingesta</p><p className="mt-1 text-sm font-bold text-white">{labels[operational.state]}</p></div>
+      <StatusBadge label={operational.worker.available ? 'Worker activo' : 'Worker no detectado'} className={operational.worker.available ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'} />
+    </div>
+    <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-zinc-400 sm:grid-cols-4">
+      <ReadinessLine label="Pendientes" value={String(operational.queue.pending)} />
+      <ReadinessLine label="Ejecutando" value={String(operational.queue.running)} />
+      <ReadinessLine label="Cancelando" value={String(operational.queue.cancelRequested)} />
+      <ReadinessLine label="Stale" value={String(operational.queue.staleRunning)} />
+    </div>
+    {operational.state === 'WAITING_FOR_WORKER' && <p className="mt-3 text-xs font-semibold text-red-300">Los trabajos no están lentos: no hay un proceso worker reclamándolos. Usa el comando local unificado.</p>}
+  </article>;
 }
 
 function Empty({ text }: { readonly text: string }) { return <p className="text-sm font-medium text-zinc-500">{text}</p>; }

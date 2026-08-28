@@ -1,4 +1,4 @@
-import { apiRequest, apiUrl } from './apiClient';
+import { apiRequest, apiRequestRaw } from './apiClient';
 import type { CostAllocationRule, CostAllocationRuleInput, AllocationSummary, AllocationPreview, CostAllocationClosure } from './apiTypes';
 
 export async function fetchCostAllocationRules(token: string): Promise<{ readonly success: true; readonly rules: readonly CostAllocationRule[] }> { return apiRequest('/cost-allocation/rules', { token }); }
@@ -29,4 +29,4 @@ export async function fetchCostAllocationClosure(token: string, closureId: strin
 
 export async function compareCostAllocationClosures(token: string, closureId: string): Promise<{ readonly success: true; readonly current: CostAllocationClosure; readonly previous?: CostAllocationClosure }> { return apiRequest(`/cost-allocation/periods/${encodeURIComponent(closureId)}/compare`, { token }); }
 
-export async function downloadCostAllocationCsv(token: string, period: string): Promise<string> { const response = await fetch(apiUrl(`/cost-allocation/export.csv?period=${encodeURIComponent(period)}`), { headers: { Authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error(`No fue posible exportar el CSV (${response.status})`); return response.text(); }
+export async function downloadCostAllocationCsv(token: string, period: string): Promise<string> { const response = await apiRequestRaw(`/cost-allocation/export.csv?period=${encodeURIComponent(period)}`, { token }); return response.text(); }

@@ -3,10 +3,11 @@ import type {
   TechnicalMetricCoverage,
   TechnicalMetricGroup,
   TechnicalMetricSeriesPoint,
+  MetricStatistic,
 } from '../../services/api';
 
 export type MetricGroupFilter = TechnicalMetricGroup | 'ALL';
-export type RangeFilter = 'available' | '24h' | '7d' | '30d';
+export type RangeFilter = 'available' | '24h' | '7d' | '30d' | '90d';
 
 export interface SeriesMeta {
   readonly hasMore: boolean;
@@ -15,6 +16,7 @@ export interface SeriesMeta {
   readonly totalSamples: number;
   readonly queryMs: number;
   readonly bucket: Exclude<TechnicalMetricBucket, 'auto'>;
+  readonly statistic: MetricStatistic;
 }
 
 export interface SeriesCacheEntry {
@@ -29,8 +31,10 @@ export interface DrilldownWindow {
 }
 
 export const seriesPageSize = 1000;
-const maxSeriesCacheEntries = 8;
-const seriesCacheTtlMs = 2 * 60 * 1000;
+// Keep the browser cache bounded: metric series can be large, but revisiting a
+// recently inspected metric should not trigger another expensive query.
+const maxSeriesCacheEntries = 12;
+const seriesCacheTtlMs = 5 * 60 * 1000;
 
 export function buildRangeParams(
   range: RangeFilter,
@@ -44,7 +48,7 @@ export function buildRangeParams(
 
   const endDate = new Date();
   const startDate = new Date(endDate);
-  const hours = range === '24h' ? 24 : range === '7d' ? 24 * 7 : 24 * 30;
+  const hours = range === '24h' ? 24 : range === '7d' ? 24 * 7 : range === '30d' ? 24 * 30 : 24 * 90;
   startDate.setUTCHours(startDate.getUTCHours() - hours);
 
   return { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
@@ -54,8 +58,10 @@ export function resolveRequestBucket(
   bucket: TechnicalMetricBucket,
   range: RangeFilter,
 ): TechnicalMetricBucket {
-  if (bucket !== 'auto' || range === 'available') return bucket;
-  return range === '24h' ? 'hour' : 'day';
+  if (bucket !== 'auto') return bucket;
+  if (range === '24h') return '30m';
+  if (range === '7d' || range === '30d') return 'hour';
+  return 'day';
 }
 
 export function getSeriesCache(

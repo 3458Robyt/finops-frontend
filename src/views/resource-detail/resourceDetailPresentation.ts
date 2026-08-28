@@ -3,11 +3,16 @@ import type {
   RecommendationSeverity,
 } from '../../services/api';
 
-export const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
+export function formatCurrency(value: number, currency: string): string {
+  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
+    ? currency.trim().toUpperCase()
+    : 'USD';
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: normalizedCurrency,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 export const severityLabel: Readonly<Record<RecommendationSeverity, string>> = {
   CRITICAL: 'Critica',

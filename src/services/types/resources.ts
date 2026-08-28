@@ -27,8 +27,12 @@ export interface ResourceMetricSampleItem {
   readonly provider: string;
   readonly externalResourceId: string;
   readonly cloudResourceId?: string;
+  readonly providerNamespace?: string;
+  readonly regionId?: string;
+  readonly dimensionsHash?: string;
   readonly metricName: string;
   readonly metricUnit?: string;
+  readonly statistic: MetricStatistic;
   readonly value: number;
   readonly sampledAt: string;
   readonly granularitySeconds: number;
@@ -64,6 +68,7 @@ export interface TechnicalSamplesResponse {
 }
 export type TechnicalMetricGroup = 'CPU' | 'MEMORY' | 'NETWORK' | 'DISK' | 'SYSTEM' | 'OTHER';
 export type TechnicalMetricBucket = 'auto' | 'raw' | '30m' | 'hour' | 'day';
+export type MetricStatistic = 'MEAN' | 'MIN' | 'MAX' | 'P50' | 'P90' | 'P95' | 'P99' | 'SUM' | 'COUNT' | 'RATE' | 'LATEST';
 export type TechnicalCostMatchLevel = 'EXACT' | 'SERVICE' | 'NONE';
 export interface TechnicalMetricCatalogItem {
   readonly metricName: string;
@@ -72,12 +77,16 @@ export interface TechnicalMetricCatalogItem {
   readonly sampleCount: number;
   readonly minSampledAt: string;
   readonly maxSampledAt: string;
+  readonly availableStatistics?: readonly MetricStatistic[];
 }
 export interface TechnicalMetricSummaryItem {
   readonly provider: string;
   readonly externalResourceId: string;
   readonly cloudResourceId?: string;
   readonly cloudConnectionId?: string;
+  readonly providerNamespace?: string;
+  readonly regionId?: string;
+  readonly dimensionsHash?: string;
   readonly resourceType?: string;
   readonly serviceName?: string;
   readonly metricName: string;
@@ -156,8 +165,15 @@ export interface TechnicalMetricSeriesPoint {
   readonly bucketStart: string;
   readonly externalResourceId: string;
   readonly cloudResourceId?: string;
+  readonly providerNamespace?: string;
+  readonly regionId?: string;
+  readonly dimensionsHash?: string;
   readonly metricName: string;
   readonly metricUnit?: string;
+  readonly statistic: MetricStatistic;
+  readonly value: number;
+  readonly aggregationSemantics: string;
+  readonly sourceGranularitiesSeconds: readonly number[];
   readonly avg: number;
   readonly min: number;
   readonly max: number;
@@ -211,6 +227,7 @@ export interface TechnicalSeriesResponse {
     readonly queryMs: number;
     readonly bucket: Exclude<TechnicalMetricBucket, 'auto'>;
     readonly pageSize: number;
+    readonly statistic: MetricStatistic;
   };
 }
 export interface TechnicalCoverageResponse {

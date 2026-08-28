@@ -24,8 +24,8 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
   await mockApi(page, 'CLIENT_VIEWER');
   await login(page);
 
-  await page.getByRole('button', { name: /agente ia/i }).click();
-  await expect(page.getByText(/readiness previo/i)).toBeVisible();
+  await page.getByRole('button', { name: /asistente ia/i }).click();
+  await expect(page.getByText(/estoy conectado al motor ia/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
 });
 

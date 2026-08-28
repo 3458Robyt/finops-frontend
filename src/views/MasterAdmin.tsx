@@ -3,6 +3,7 @@ import { accessRoleLabels, inputClass, primaryButtonClass } from './master-admin
 import { useMasterAdminController } from './master-admin/useMasterAdminController';
 import type { StaffCreateRole } from './master-admin/useMasterAdminController';
 import type { MasterAdminAssignmentRole } from '../services/api';
+import MasterAdminIngestionJobsPanel from './master-admin/MasterAdminIngestionJobsPanel';
 
 export interface MasterAdminProps {
   onTenantsChanged: () => Promise<void>;
@@ -13,9 +14,11 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
     tenants, users, assignments, activeTenants, suspendedTenants, assignableUsers,
     loading, saving, message, error, tenantName, tenantSlug, userName, userEmail,
     userRole, temporaryPassword, assignmentTenantId, assignmentUserId, assignmentRole,
+    invitationEmail, invitationName, invitationRole, inviteUrl,
     setTenantName, setTenantSlug, setUserName, setUserEmail, setUserRole,
     setTemporaryPassword, setAssignmentTenantId, setAssignmentUserId, setAssignmentRole,
-    handleCreateTenant, handleToggleTenant, handleCreateUser, handleAssign, handleRevoke,
+    setInvitationEmail, setInvitationName, setInvitationRole,
+    handleCreateTenant, handleToggleTenant, handleCreateUser, handleAssign, handleRevoke, handleCreateInvitation,
   } = useMasterAdminController(onTenantsChanged);
 
   if (loading) {
@@ -46,6 +49,8 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
           {error ?? message}
         </div>
       )}
+
+      <MasterAdminIngestionJobsPanel tenants={tenants} />
 
       <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
         <div className="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
@@ -129,6 +134,31 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
                 Crear usuario
               </button>
             </form>
+          </FormPanel>
+
+          <FormPanel title="Invitar cliente" icon="mail">
+            <p className="mb-4 text-xs leading-relaxed text-zinc-500">Genera un enlace de un solo uso. El código nunca se guarda en texto plano.</p>
+            <form onSubmit={(event) => void handleCreateInvitation(event)} className="space-y-4">
+              <Field label="Tenant destino">
+                <select value={assignmentTenantId} onChange={(event) => setAssignmentTenantId(event.target.value)} className={inputClass}>
+                  {activeTenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Correo del cliente">
+                <input type="email" required value={invitationEmail} onChange={(event) => setInvitationEmail(event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Nombre opcional">
+                <input value={invitationName} onChange={(event) => setInvitationName(event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Permiso inicial">
+                <select value={invitationRole} onChange={(event) => setInvitationRole(event.target.value as 'CLIENT_VIEWER' | 'CLIENT_APPROVER')} className={inputClass}>
+                  <option value="CLIENT_VIEWER">Solo lectura</option>
+                  <option value="CLIENT_APPROVER">Puede aprobar recomendaciones</option>
+                </select>
+              </Field>
+              <button type="submit" disabled={saving || activeTenants.length === 0} className={primaryButtonClass}>Generar enlace</button>
+            </form>
+            {inviteUrl !== null && <div className="mt-4 rounded-lg border border-tak-yellow/30 bg-tak-yellow/5 p-3"><p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">Enlace generado — compartir por correo</p><p className="mt-2 break-all font-mono text-xs text-zinc-200">{inviteUrl}</p></div>}
           </FormPanel>
         </div>
       </section>

@@ -1,22 +1,39 @@
 // Ingestion and readiness DTOs.
-import type { CloudCapabilityValidation, CloudOnboardingStatus } from './cloud';
+import type { CloudAuthenticationValidation, CloudCapabilityValidation, CloudOnboardingStatus } from './cloud';
 export type IngestionSourceType =
   | 'BILLING_EXPORT'
   | 'INVENTORY'
   | 'TECHNICAL_METRIC'
   | 'AGENT_METRIC';
-export type IngestionJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+export type IngestionJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'SKIPPED';
+export type MetricProjectionStatus = 'NOT_REQUIRED' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type IngestionMetricCoverageStatus = 'UNKNOWN' | 'COVERED' | 'PARTIAL' | 'NO_DATA' | 'FAILED';
 export type DataQualityStatus = 'PASSED' | 'WARNING' | 'FAILED';
 export interface IngestionJobHistoryItem {
   readonly id: string;
   readonly cloudConnectionId: string;
   readonly sourceType: IngestionSourceType;
   readonly status: IngestionJobStatus;
+  readonly projectionStatus?: MetricProjectionStatus;
+  readonly projectionAttempts?: number;
+  readonly projectionMaxAttempts?: number;
+  readonly projectionAvailableAt?: string;
+  readonly projectionStartedAt?: string;
+  readonly projectionCompletedAt?: string;
+  readonly projectionErrorMessage?: string;
   readonly attempts: number;
   readonly maxAttempts: number;
   readonly targetStart: string;
   readonly targetEnd: string;
   readonly errorMessage?: string;
+  readonly progress?: Readonly<Record<string, unknown>>;
+  readonly resultSummary?: Readonly<Record<string, unknown>>;
+  readonly priority: number;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly availableAt: string;
+  readonly cancelRequestedAt?: string;
+  readonly archivedAt?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -34,6 +51,7 @@ export interface IngestionHistoryResponse {
   readonly success: true;
   readonly jobs: readonly IngestionJobHistoryItem[];
 }
+export interface IngestionJobResponse { readonly success: true; readonly job: IngestionJobHistoryItem; }
 export interface DataQualityResponse {
   readonly success: true;
   readonly checks: readonly DataQualityCheckItem[];
@@ -103,8 +121,10 @@ export interface IngestionReadinessConnectionSummary {
   readonly providerCode: string;
   readonly defaultRegion?: string;
   readonly lastValidatedAt?: string;
+  readonly lastValidationAttemptAt?: string;
   readonly onboardingStatus: CloudOnboardingStatus;
   readonly credentialPurposes: readonly string[];
+  readonly authentication?: CloudAuthenticationValidation;
   readonly capabilities: readonly CloudCapabilityValidation[];
   readonly metadataCounts: Readonly<Record<string, number>>;
   readonly recentJobs: readonly {
@@ -125,5 +145,63 @@ export interface IngestionReadinessResponse {
     readonly generatedAt: string;
     readonly connections: readonly IngestionReadinessConnectionSummary[];
     readonly issues: readonly IngestionReadinessIssue[];
+    readonly operational?: IngestionOperationalReadiness;
   };
+}
+
+export interface IngestionMetricCoverageWindowItem {
+  readonly id: string;
+  readonly cloudConnectionId: string;
+  readonly cloudMetricDefinitionId?: string;
+  readonly ingestionJobId?: string;
+  readonly streamKey: string;
+  readonly providerNamespace: string;
+  readonly regionId: string;
+  readonly externalResourceId: string;
+  readonly metricName: string;
+  readonly statistic: string;
+  readonly granularitySeconds: number;
+  readonly windowStart: string;
+  readonly windowEnd: string;
+  readonly status: IngestionMetricCoverageStatus;
+  readonly expectedSamples: number;
+  readonly observedSamples: number;
+  readonly missingSamples: number;
+  readonly configurationHash: string;
+  readonly evidence?: Readonly<Record<string, unknown>>;
+  readonly checkedAt?: string;
+}
+
+export interface IngestionMetricCoverageResponse {
+  readonly success: true;
+  readonly coverage: {
+    readonly generatedAt: string;
+    readonly connectionId: string;
+    readonly filters: {
+      readonly startDate?: string;
+      readonly endDate?: string;
+      readonly status?: IngestionMetricCoverageStatus;
+    };
+    readonly summary: {
+      readonly totalWindows: number;
+      readonly coveredWindows: number;
+      readonly partialWindows: number;
+      readonly noDataWindows: number;
+      readonly failedWindows: number;
+      readonly unknownWindows: number;
+      readonly expectedSamples: number;
+      readonly observedSamples: number;
+      readonly missingSamples: number;
+      readonly returnedWindows: number;
+    };
+    readonly windows: readonly IngestionMetricCoverageWindowItem[];
+  };
+}
+
+export type IngestionOperationalJobState = 'IDLE' | 'WAITING_FOR_WORKER' | 'QUEUED' | 'RUNNING' | 'CANCEL_REQUESTED' | 'STALE';
+export interface IngestionOperationalReadiness {
+  readonly state: IngestionOperationalJobState;
+  readonly queue: Readonly<Record<'pending' | 'running' | 'cancelRequested' | 'staleRunning', number>>;
+  readonly oldestPendingAt?: string;
+  readonly worker: { readonly available: boolean; readonly processId?: string; readonly processRole?: string; readonly lastHeartbeatAt?: string };
 }

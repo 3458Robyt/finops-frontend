@@ -34,12 +34,6 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   value_realization: 'Centro de valor realizado',
 };
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
-
 export default function TopHeader({
   currentView,
   activeTenant,
@@ -222,7 +216,7 @@ export default function TopHeader({
                     </div>
                     {notification.missedSavingsAmount !== undefined && (
                       <p className="mt-3 text-[11px] font-black uppercase tracking-widest text-tak-yellow">
-                        Ahorro no capturado: {currencyFormatter.format(notification.missedSavingsAmount)}
+                        Ahorro no capturado: {formatCurrency(notification.missedSavingsAmount, notification.currency)}
                       </p>
                     )}
                     {notification.persisted && (
@@ -250,4 +244,15 @@ export default function TopHeader({
       </div>
     </header>
   );
+}
+
+function formatCurrency(value: number, currency: string): string {
+  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
+    ? currency.trim().toUpperCase()
+    : 'USD';
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: normalizedCurrency,
+    maximumFractionDigits: 2,
+  }).format(value);
 }

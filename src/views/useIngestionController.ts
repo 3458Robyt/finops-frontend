@@ -5,10 +5,13 @@ import type { FocusFormState } from '../components/ingestion/BillingSourcePanel'
 import {
   configureBillingSource,
   configureFocusSource,
+  cancelIngestionJob,
+  archiveIngestionJob,
   fetchCloudConnections,
   fetchDataQualityChecks,
   fetchIngestionHistory,
   fetchIngestionReadiness,
+  fetchMetricCoverage,
   fetchResourceLinkageReadiness,
   queueIngestionJob,
   queueTechnicalMetricBackfill,
@@ -18,6 +21,8 @@ import {
   type IngestionJobHistoryItem,
   type IngestionReadinessConnectionSummary,
   type IngestionReadinessIssue,
+  type IngestionOperationalReadiness,
+  type IngestionMetricCoverageResponse,
   type IngestionSourceType,
   type ResourceLinkageReadinessResponse,
 } from '../services/api';
@@ -38,13 +43,16 @@ const initialFocus: FocusFormState = {
 export function useIngestionController() {
   const token = useAccessToken();
   const [jobs, setJobs] = useState<readonly IngestionJobHistoryItem[]>([]);
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [checks, setChecks] = useState<readonly DataQualityCheckItem[]>([]);
   const [connections, setConnections] = useState<readonly CloudConnectionSummary[]>([]);
   const [readinessOk, setReadinessOk] = useState(false);
   const [readinessGeneratedAt, setReadinessGeneratedAt] = useState<string | null>(null);
   const [readinessConnections, setReadinessConnections] = useState<readonly IngestionReadinessConnectionSummary[]>([]);
   const [readinessIssues, setReadinessIssues] = useState<readonly IngestionReadinessIssue[]>([]);
+  const [operationalReadiness, setOperationalReadiness] = useState<IngestionOperationalReadiness | null>(null);
   const [resourceLinkage, setResourceLinkage] = useState<ResourceLinkageReadinessResponse['readiness'] | null>(null);
+  const [metricCoverage, setMetricCoverage] = useState<IngestionMetricCoverageResponse['coverage'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueing, setQueueing] = useState(false);
@@ -62,14 +70,18 @@ export function useIngestionController() {
   const [targetStart, setTargetStart] = useState(() => toDatetimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)));
   const [targetEnd, setTargetEnd] = useState(() => toDatetimeLocal(new Date()));
 
-  const loadData = useCallback(async (active: () => boolean): Promise<void> => {
-    setLoading(true);
+  const loadData = useCallback(async (
+    active: () => boolean,
+    options: { readonly showLoading?: boolean } = {},
+  ): Promise<void> => {
+    const showLoading = options.showLoading ?? true;
+    if (showLoading) setLoading(true);
     setError(null);
 
     try {
       const [connectionResponse, historyResponse, qualityResponse, readinessResponse, linkageResponse] = await Promise.all([
         fetchCloudConnections(token),
-        fetchIngestionHistory(token),
+        fetchIngestionHistory(token, undefined, includeArchived),
         fetchDataQualityChecks(token),
         fetchIngestionReadiness(token),
         fetchResourceLinkageReadiness(token),
@@ -83,8 +95,19 @@ export function useIngestionController() {
       setReadinessGeneratedAt(readinessResponse.readiness.generatedAt);
       setReadinessConnections(readinessResponse.readiness.connections);
       setReadinessIssues(readinessResponse.readiness.issues);
+      setOperationalReadiness(readinessResponse.readiness.operational ?? null);
       setResourceLinkage(linkageResponse.readiness);
       const defaultConnectionId = connectionResponse.connections[0]?.id ?? historyResponse.jobs[0]?.cloudConnectionId ?? '';
+      if (defaultConnectionId !== '') {
+        try {
+          const coverageResponse = await fetchMetricCoverage(token, defaultConnectionId, { limit: 100 });
+          if (active()) setMetricCoverage(coverageResponse.coverage);
+        } catch {
+          if (active()) setMetricCoverage(null);
+        }
+      } else if (active()) {
+        setMetricCoverage(null);
+      }
       setCloudConnectionId((current) => current === '' ? defaultConnectionId : current);
       setBackfillConnectionId((current) => current === '' ? defaultConnectionId : current);
       setFocus((current) => ({
@@ -93,27 +116,69 @@ export function useIngestionController() {
       }));
     } catch (cause: unknown) {
       if (!active()) return;
-      setJobs([]);
-      setChecks([]);
-      setConnections([]);
-      setReadinessOk(false);
-      setReadinessGeneratedAt(null);
-      setReadinessConnections([]);
-      setReadinessIssues([]);
-      setResourceLinkage(null);
       setError(cause instanceof Error ? cause.message : 'No se pudo cargar la ingesta.');
     } finally {
-      if (active()) setLoading(false);
+      if (active() && showLoading) setLoading(false);
     }
-  }, [token]);
+  }, [includeArchived, token]);
 
-  const refresh = useCallback(() => loadData(() => true), [loadData]);
+  const refresh = useCallback(() => loadData(() => true, { showLoading: false }), [loadData]);
+
+  const refreshJobs = useCallback(async (): Promise<void> => {
+    try {
+      const response = await fetchIngestionHistory(token, 100, includeArchived);
+      setJobs((current) => areIngestionJobsEqual(current, response.jobs) ? current : response.jobs);
+    } catch {
+      // The operational panel keeps its last known state during a transient poll failure.
+    }
+  }, [includeArchived, token]);
 
   useEffect(() => {
     let active = true;
     void loadData(() => active);
     return () => { active = false; };
   }, [loadData]);
+
+  useEffect(() => {
+    const hasActiveJobs = jobs.some((job) => job.status === 'PENDING' || job.status === 'RUNNING'
+      || (job.projectionStatus !== undefined && ['PENDING', 'RUNNING'].includes(job.projectionStatus)));
+    if (!hasActiveJobs) return undefined;
+
+    const pollIfActive = (): void => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      void refreshJobs();
+    };
+    const timer = window.setInterval(pollIfActive, 4_000);
+    window.addEventListener('online', pollIfActive);
+    document.addEventListener('visibilitychange', pollIfActive);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', pollIfActive);
+      document.removeEventListener('visibilitychange', pollIfActive);
+    };
+  }, [jobs, refreshJobs]);
+
+  const handleCancelJob = useCallback(async (jobId: string): Promise<void> => {
+    setError(null);
+    try {
+      await cancelIngestionJob(token, jobId);
+      setQueueMessage('Cancelación solicitada. El trabajo conserva su trazabilidad.');
+      await refreshJobs();
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo cancelar el trabajo.');
+    }
+  }, [refreshJobs, token]);
+
+  const handleArchiveJob = useCallback(async (jobId: string): Promise<void> => {
+    setError(null);
+    try {
+      await archiveIngestionJob(token, jobId);
+      setQueueMessage('Trabajo archivado. No se eliminó del registro histórico.');
+      await refreshJobs();
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo archivar el trabajo.');
+    }
+  }, [refreshJobs, token]);
 
   const handleQueueJob = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -200,12 +265,12 @@ export function useIngestionController() {
   }, [focus, refresh, selectedFocusProvider, token]);
 
   return {
-    jobs, checks, connections, readinessOk, readinessGeneratedAt, readinessConnections, readinessIssues, resourceLinkage,
+    jobs, checks, connections, readinessOk, readinessGeneratedAt, readinessConnections, readinessIssues, operationalReadiness, resourceLinkage, metricCoverage, includeArchived,
     loading, error, queueing, backfilling, queueMessage, cloudConnectionId, backfillConnectionId, backfillLookbackDays,
     backfillWindowHours, focus, billingSourceMode, configuringBillingSource, configuringFocus, sourceType, targetStart,
     targetEnd, selectedFocusProvider, setCloudConnectionId, setBackfillConnectionId, setBackfillLookbackDays,
     setBackfillWindowHours, setBillingSourceMode, setSourceType, setTargetStart, setTargetEnd, handleQueueJob,
-    handleBackfill, handleFocusChange, handleConfigureBillingSource, handleConfigureFocus, refresh,
+    handleBackfill, handleFocusChange, handleConfigureBillingSource, handleConfigureFocus, handleCancelJob, handleArchiveJob, setIncludeArchived, refresh,
   };
 }
 
@@ -230,4 +295,25 @@ function buildFocusValues(provider: string | undefined, input: FocusFormState): 
 function toDatetimeLocal(value: Date): string {
   const offsetMs = value.getTimezoneOffset() * 60 * 1000;
   return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function areIngestionJobsEqual(
+  current: readonly IngestionJobHistoryItem[],
+  next: readonly IngestionJobHistoryItem[],
+): boolean {
+  if (current.length !== next.length) return false;
+  return current.every((job, index) => {
+    const candidate = next[index];
+    return candidate !== undefined
+      && job.id === candidate.id
+      && job.status === candidate.status
+      && job.updatedAt === candidate.updatedAt
+      && job.errorMessage === candidate.errorMessage
+      && job.projectionStatus === candidate.projectionStatus
+      && job.projectionAttempts === candidate.projectionAttempts
+      && job.projectionErrorMessage === candidate.projectionErrorMessage
+      && job.projectionCompletedAt === candidate.projectionCompletedAt
+      && JSON.stringify(job.progress ?? null) === JSON.stringify(candidate.progress ?? null)
+      && JSON.stringify(job.resultSummary ?? null) === JSON.stringify(candidate.resultSummary ?? null);
+  });
 }

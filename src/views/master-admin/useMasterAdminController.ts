@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useAccessToken } from '../../auth/authSession';
 import {
   assignMasterAdminTenant,
+  createClientInvitation,
   createMasterAdminTenant,
   createMasterAdminUser,
   fetchMasterAdminAssignments,
@@ -14,6 +15,7 @@ import {
   type MasterAdminAssignmentRole,
   type MasterAdminTenant,
   type MasterAdminUser,
+  type ClientInvitationRole,
 } from '../../services/api';
 
 export type StaffCreateRole = 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN';
@@ -38,6 +40,10 @@ export interface MasterAdminControllerState {
   readonly assignmentTenantId: string;
   readonly assignmentUserId: string;
   readonly assignmentRole: MasterAdminAssignmentRole;
+  readonly invitationEmail: string;
+  readonly invitationName: string;
+  readonly invitationRole: ClientInvitationRole;
+  readonly inviteUrl: string | null;
   readonly setTenantName: (value: string) => void;
   readonly setTenantSlug: (value: string) => void;
   readonly setUserName: (value: string) => void;
@@ -47,11 +53,15 @@ export interface MasterAdminControllerState {
   readonly setAssignmentTenantId: (value: string) => void;
   readonly setAssignmentUserId: (value: string) => void;
   readonly setAssignmentRole: (value: MasterAdminAssignmentRole) => void;
+  readonly setInvitationEmail: (value: string) => void;
+  readonly setInvitationName: (value: string) => void;
+  readonly setInvitationRole: (value: ClientInvitationRole) => void;
   readonly handleCreateTenant: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   readonly handleToggleTenant: (tenant: MasterAdminTenant) => Promise<void>;
   readonly handleCreateUser: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   readonly handleAssign: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   readonly handleRevoke: (assignment: MasterAdminAssignment) => Promise<void>;
+  readonly handleCreateInvitation: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 }
 
 export function useMasterAdminController(
@@ -74,6 +84,10 @@ export function useMasterAdminController(
   const [assignmentTenantId, setAssignmentTenantId] = useState('');
   const [assignmentUserId, setAssignmentUserId] = useState('');
   const [assignmentRole, setAssignmentRole] = useState<MasterAdminAssignmentRole>('TECHNICIAN');
+  const [invitationEmail, setInvitationEmail] = useState('');
+  const [invitationName, setInvitationName] = useState('');
+  const [invitationRole, setInvitationRole] = useState<ClientInvitationRole>('CLIENT_VIEWER');
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -160,6 +174,30 @@ export function useMasterAdminController(
     }, 'No fue posible revocar el acceso');
   };
 
+  const handleCreateInvitation = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    await runMutation(async () => {
+      const tenantId = assignmentTenantId || tenants[0]?.id;
+      if (tenantId === undefined || tenantId === '') throw new Error('Selecciona un tenant activo.');
+      const response = await createClientInvitation(token, tenantId, {
+        email: invitationEmail,
+        ...(invitationName.trim() ? { name: invitationName } : {}),
+        role: invitationRole,
+      });
+      setInviteUrl(response.inviteUrl);
+      setInvitationEmail('');
+      setInvitationName('');
+      const deliveryStatus = response.emailDelivery?.status;
+      setMessage(deliveryStatus === 'SENT'
+        ? 'Invitación creada y enviada por correo. Conserva el enlace como respaldo.'
+        : deliveryStatus === 'SKIPPED'
+          ? 'Invitación creada. El correo está deshabilitado; copia el enlace para compartirlo manualmente.'
+          : deliveryStatus === 'FAILED'
+            ? 'Invitación creada, pero el correo falló. Copia el enlace y revisa la configuración SMTP.'
+            : 'Invitación creada. Copia el enlace antes de cerrar esta pantalla.');
+    }, 'No fue posible crear la invitación');
+  };
+
   return {
     tenants,
     users,
@@ -180,6 +218,10 @@ export function useMasterAdminController(
     assignmentTenantId,
     assignmentUserId,
     assignmentRole,
+    invitationEmail,
+    invitationName,
+    invitationRole,
+    inviteUrl,
     setTenantName,
     setTenantSlug,
     setUserName,
@@ -189,10 +231,14 @@ export function useMasterAdminController(
     setAssignmentTenantId,
     setAssignmentUserId,
     setAssignmentRole,
+    setInvitationEmail,
+    setInvitationName,
+    setInvitationRole,
     handleCreateTenant,
     handleToggleTenant,
     handleCreateUser,
     handleAssign,
     handleRevoke,
+    handleCreateInvitation,
   };
 }

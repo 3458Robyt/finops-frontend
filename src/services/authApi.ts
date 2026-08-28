@@ -14,6 +14,14 @@ export async function login(email: string, password: string): Promise<AuthLoginR
   });
 }
 
+export async function acceptClientInvitation(code: string, name: string, password: string): Promise<AuthLoginResponse> {
+  return apiRequest<AuthLoginResponse>('/auth/client-invitations/accept', {
+    method: 'POST',
+    body: JSON.stringify({ code, name, password }),
+    skipAuthRefresh: true,
+  });
+}
+
 export async function completeMfaLogin(challengeToken: string, code: string): Promise<AuthSession> {
   return apiRequest<AuthSession>('/auth/mfa/complete', {
     method: 'POST',

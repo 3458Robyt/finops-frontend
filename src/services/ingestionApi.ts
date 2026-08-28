@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { IngestionHistoryResponse, DataQualityResponse, QueueIngestionJobInput, QueueIngestionJobResponse, QueueTechnicalBackfillInput, QueueTechnicalBackfillResponse, ConfigureFocusSourceInput, ConfigureFocusSourceResponse, BillingSourceMode, IngestionReadinessResponse, ResourceLinkageReadinessResponse } from './apiTypes';
+import type { IngestionHistoryResponse, IngestionJobResponse, DataQualityResponse, QueueIngestionJobInput, QueueIngestionJobResponse, QueueTechnicalBackfillInput, QueueTechnicalBackfillResponse, ConfigureFocusSourceInput, ConfigureFocusSourceResponse, BillingSourceMode, IngestionReadinessResponse, ResourceLinkageReadinessResponse, IngestionMetricCoverageResponse, IngestionMetricCoverageStatus } from './apiTypes';
 
 export async function configureBillingSource(
   token: string,
@@ -16,9 +16,25 @@ export async function configureBillingSource(
 export async function fetchIngestionHistory(
   token: string,
   limit?: number,
+  includeArchived = false,
 ): Promise<IngestionHistoryResponse> {
-  const query = limit !== undefined ? `?limit=${encodeURIComponent(String(limit))}` : '';
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.set('limit', String(limit));
+  if (includeArchived) params.set('includeArchived', 'true');
+  const query = params.toString() === '' ? '' : `?${params.toString()}`;
   return apiRequest<IngestionHistoryResponse>(`/ingestion/history${query}`, { token });
+}
+
+export async function fetchIngestionJob(token: string, jobId: string): Promise<IngestionJobResponse> {
+  return apiRequest<IngestionJobResponse>(`/ingestion/jobs/${encodeURIComponent(jobId)}`, { token });
+}
+
+export async function cancelIngestionJob(token: string, jobId: string): Promise<IngestionJobResponse> {
+  return apiRequest<IngestionJobResponse>(`/ingestion/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST', token, body: JSON.stringify({}) });
+}
+
+export async function archiveIngestionJob(token: string, jobId: string): Promise<IngestionJobResponse> {
+  return apiRequest<IngestionJobResponse>(`/ingestion/jobs/${encodeURIComponent(jobId)}/archive`, { method: 'POST', token, body: JSON.stringify({}) });
 }
 
 export async function fetchDataQualityChecks(
@@ -31,6 +47,19 @@ export async function fetchDataQualityChecks(
 
 export async function fetchIngestionReadiness(token: string): Promise<IngestionReadinessResponse> {
   return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', { token });
+}
+
+export async function fetchMetricCoverage(
+  token: string,
+  connectionId: string,
+  filters: { readonly startDate?: string; readonly endDate?: string; readonly status?: IngestionMetricCoverageStatus; readonly limit?: number } = {},
+): Promise<IngestionMetricCoverageResponse> {
+  const params = new URLSearchParams({ connectionId });
+  if (filters.startDate !== undefined) params.set('startDate', filters.startDate);
+  if (filters.endDate !== undefined) params.set('endDate', filters.endDate);
+  if (filters.status !== undefined) params.set('status', filters.status);
+  if (filters.limit !== undefined) params.set('limit', String(filters.limit));
+  return apiRequest<IngestionMetricCoverageResponse>(`/ingestion/coverage?${params.toString()}`, { token });
 }
 
 export async function fetchResourceLinkageReadiness(token: string): Promise<ResourceLinkageReadinessResponse> {

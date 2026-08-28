@@ -6,6 +6,8 @@ import type { TechnicalMetricSeriesPoint } from '../services/api';
 interface TechnicalMetricUPlotProps {
   readonly points: readonly TechnicalMetricSeriesPoint[];
   readonly unit?: string;
+  readonly statistic?: string;
+  readonly resourceLabels?: ReadonlyMap<string, string>;
   readonly loading: boolean;
   readonly separateResources?: boolean;
   readonly onSelectRange: (range: { readonly startDate: string; readonly endDate: string }) => void;
@@ -14,6 +16,8 @@ interface TechnicalMetricUPlotProps {
 export function TechnicalMetricUPlot({
   points,
   unit,
+  statistic,
+  resourceLabels,
   loading,
   separateResources = false,
   onSelectRange,
@@ -22,7 +26,10 @@ export function TechnicalMetricUPlot({
   const plotRef = useRef<uPlot | null>(null);
   const selectTimerRef = useRef<number | null>(null);
   const onSelectRangeRef = useRef(onSelectRange);
-  const chart = useMemo(() => toUPlotChart(points, separateResources, unit), [points, separateResources, unit]);
+  const chart = useMemo(
+    () => toUPlotChart(points, separateResources, unit, statistic, resourceLabels),
+    [points, separateResources, unit, statistic, resourceLabels],
+  );
   const data = chart.data;
   const dataRef = useRef<AlignedData>(data);
   const seriesRef = useRef(chart.series);
@@ -146,49 +153,97 @@ function toUPlotChart(
   points: readonly TechnicalMetricSeriesPoint[],
   separateResources: boolean,
   unit: string | undefined,
+  statistic: string | undefined,
+  resourceLabels: ReadonlyMap<string, string> | undefined,
 ): {
   readonly data: AlignedData;
   readonly series: NonNullable<Options['series']>;
   readonly seriesSignature: string;
 } {
   if (!separateResources) {
+    const showEnvelope = shouldShowEnvelope(points, statistic);
     return {
       data: [
         points.map((point) => new Date(point.bucketStart).getTime() / 1000),
-        points.map((point) => point.avg),
-        points.map((point) => point.min),
-        points.map((point) => point.max),
-      ],
+        points.map((point) => point.value),
+        ...(showEnvelope ? [
+          points.map((point) => point.min),
+          points.map((point) => point.max),
+        ] : []),
+      ] as AlignedData,
       series: [
         {},
-        seriesOption('Promedio', '#FACC15', unit, 2),
-        seriesOption('Min', '#22c55e', unit, 1, [4, 4]),
-        seriesOption('Max', '#38bdf8', unit, 1, [4, 4]),
+        seriesOption(formatStatisticLabel(statistic), '#FACC15', unit, 2),
+        ...(showEnvelope ? [
+          seriesOption('Mínimo del intervalo', '#22c55e', unit, 1, [4, 4]),
+          seriesOption('Máximo del intervalo', '#38bdf8', unit, 1, [4, 4]),
+        ] : []),
       ],
-      seriesSignature: 'aggregate',
+      seriesSignature: `aggregate:${statistic ?? 'MEAN'}:${showEnvelope ? 'envelope' : 'native'}`,
     };
   }
 
-  const resourceIds = [...new Set(points.map((point) => point.externalResourceId))].sort();
+  const streamIds = [...new Set(points.map(streamIdentity))].sort();
   const timestamps = [...new Set(points.map((point) => new Date(point.bucketStart).getTime() / 1000))].sort((a, b) => a - b);
-  const valuesByResource = new Map<string, Map<number, number>>();
+  const valuesByStream = new Map<string, Map<number, number>>();
   for (const point of points) {
-    const resourceValues = valuesByResource.get(point.externalResourceId) ?? new Map<number, number>();
-    resourceValues.set(new Date(point.bucketStart).getTime() / 1000, point.avg);
-    valuesByResource.set(point.externalResourceId, resourceValues);
+    const streamId = streamIdentity(point);
+    const streamValues = valuesByStream.get(streamId) ?? new Map<number, number>();
+    streamValues.set(new Date(point.bucketStart).getTime() / 1000, point.value);
+    valuesByStream.set(streamId, streamValues);
   }
 
   return {
     data: [
       timestamps,
-      ...resourceIds.map((resourceId) => timestamps.map((timestamp) => valuesByResource.get(resourceId)?.get(timestamp) ?? null)),
+      ...streamIds.map((streamId) => timestamps.map((timestamp) => valuesByStream.get(streamId)?.get(timestamp) ?? null)),
     ] as AlignedData,
     series: [
       {},
-      ...resourceIds.map((resourceId, index) => seriesOption(shortResource(resourceId), resourceColor(index), unit, 2)),
+      ...streamIds.map((streamId, index) => seriesOption(
+        streamLabel(streamId, points, resourceLabels),
+        resourceColor(index),
+        unit,
+        2,
+      )),
     ],
-    seriesSignature: resourceIds.join('|'),
+    seriesSignature: streamIds.join('|'),
   };
+}
+
+function shouldShowEnvelope(points: readonly TechnicalMetricSeriesPoint[], statistic: string | undefined): boolean {
+  if (points.length === 0 || statistic === 'MIN' || statistic === 'MAX' || statistic === 'LATEST' || statistic === 'COUNT') {
+    return false;
+  }
+
+  return points.some((point) => point.sampleCount > 1 && point.min !== point.max);
+}
+
+function streamIdentity(point: TechnicalMetricSeriesPoint): string {
+  return [
+    point.externalResourceId,
+    point.cloudResourceId ?? '',
+    point.providerNamespace ?? '',
+    point.regionId ?? '',
+    point.dimensionsHash ?? '',
+    point.sourceGranularitiesSeconds.join(','),
+  ].join('\u0000');
+}
+
+function streamLabel(
+  streamId: string,
+  points: readonly TechnicalMetricSeriesPoint[],
+  resourceLabels: ReadonlyMap<string, string> | undefined,
+): string {
+  const point = points.find((candidate) => streamIdentity(candidate) === streamId);
+  if (point === undefined) return 'Flujo';
+  const resourceLabel = resourceLabels?.get(point.externalResourceId) ?? shortResource(point.externalResourceId);
+  const suffix = [
+    point.providerNamespace,
+    point.regionId,
+    point.dimensionsHash === undefined ? undefined : `dim ${point.dimensionsHash.slice(0, 8)}`,
+  ].filter((value): value is string => value !== undefined && value !== '').join(' · ');
+  return suffix === '' ? resourceLabel : `${resourceLabel} · ${suffix}`;
 }
 
 function seriesOption(label: string, stroke: string, unit: string | undefined, width: number, dash?: number[]) {
@@ -229,4 +284,21 @@ function formatAxisValue(value: number, unit: string | undefined): string {
   return Math.abs(value) >= 1000
     ? new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
     : new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(value);
+}
+
+function formatStatisticLabel(statistic: string | undefined): string {
+  const labels: Record<string, string> = {
+    MEAN: 'Promedio',
+    MIN: 'Mínimo',
+    MAX: 'Máximo',
+    P50: 'P50',
+    P90: 'P90',
+    P95: 'P95',
+    P99: 'P99',
+    SUM: 'Suma',
+    COUNT: 'Conteo',
+    RATE: 'Tasa',
+    LATEST: 'Último valor',
+  };
+  return labels[statistic ?? 'MEAN'] ?? statistic ?? 'Valor';
 }

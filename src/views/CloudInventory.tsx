@@ -29,33 +29,48 @@ export default function CloudInventory({ onOpenResource }: CloudInventoryProps) 
   const [resources, setResources] = useState<readonly CloudResourceItem[]>([]);
   const [query, setQuery] = useState('');
   const [provider, setProvider] = useState('ALL');
+  const [costFilter, setCostFilter] = useState<'ALL' | 'WITH_COST'>('WITH_COST');
+  const [status, setStatus] = useState('ALL');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void fetchTechnicalResources(token, 200)
-      .then((response) => setResources(response.resources))
-      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el inventario.'));
-  }, [token]);
+    const timer = window.setTimeout(() => {
+      setError(null);
+      void fetchTechnicalResources(token, { limit: 200, costFilter, status, provider, query })
+        .then((response) => setResources(response.resources))
+        .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el inventario.'));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [costFilter, provider, query, status, token]);
 
-  const providers = useMemo(() => [...new Set(resources.map((resource) => resource.provider))].sort(), [resources]);
-  const filtered = useMemo(() => resources.filter((resource) => {
-    const text = `${resource.name ?? ''} ${resource.externalResourceId} ${resource.serviceName} ${resource.resourceType}`.toLowerCase();
-    return (provider === 'ALL' || resource.provider === provider) && text.includes(query.trim().toLowerCase());
-  }), [provider, query, resources]);
+  const providers = useMemo(() => [...new Set(['OCI', 'AWS', ...resources.map((resource) => resource.provider)])].sort(), [resources]);
+  const filtered = resources;
 
   return <div className="space-y-6 animate-in fade-in duration-500">
     <header>
       <h2 className="text-2xl font-black text-white">Inventario Cloud</h2>
       <p className="mt-1 text-sm text-zinc-400">Recursos detectados para el tenant activo. La sincronización sigue siendo manual durante desarrollo.</p>
     </header>
-    <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar recurso, servicio o identificador"
         className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-white outline-none focus:border-tak-yellow" />
       <select value={provider} onChange={(event) => setProvider(event.target.value)} className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-white outline-none focus:border-tak-yellow">
         <option value="ALL">Todos los proveedores</option>
         {providers.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>
+      <select value={costFilter} onChange={(event) => setCostFilter(event.target.value as 'ALL' | 'WITH_COST')} className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-white outline-none focus:border-tak-yellow">
+        <option value="WITH_COST">Solo recursos con costo</option>
+        <option value="ALL">Todos los recursos</option>
+      </select>
+      <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-white outline-none focus:border-tak-yellow">
+        <option value="ALL">Cualquier estado</option>
+        <option value="ACTIVE">Activos</option>
+        <option value="STOPPED">Detenidos</option>
+        <option value="TERMINATED">Terminados</option>
+        <option value="UNKNOWN">Desconocidos</option>
+      </select>
     </div>
+    <p className="text-xs text-zinc-500">Los filtros se aplican en el servidor. “Con costo” exige al menos un registro facturado positivo asociado exactamente al recurso.</p>
     {error !== null && <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>}
     <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
       <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">

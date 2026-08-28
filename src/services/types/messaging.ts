@@ -30,6 +30,13 @@ export interface TelegramLinkResponse {
   readonly success: true;
   readonly link: TelegramChatLink;
 }
+export interface TelegramSelfLinkCodeResponse {
+  readonly success: true;
+  readonly code: string;
+  readonly expiresAt: string;
+  readonly startCommand: string;
+  readonly deepLink?: string;
+}
 export type OutboundMessageChannel = 'TELEGRAM' | 'EMAIL';
 export type OutboundMessageType = 'TEST' | 'SAVINGS_REMINDER' | 'AI_CHAT_RESPONSE' | 'RECOMMENDATION_SUMMARY' | 'EXECUTION_PLAN_READY' | 'BUDGET_ALERT' | 'EXECUTIVE_SUMMARY';
 export type OutboundMessageStatus = 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'SKIPPED';

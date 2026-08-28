@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { MasterAdminTenantStatus, MasterAdminAssignmentRole, MasterAdminTenantsResponse, MasterAdminTenantResponse, MasterAdminUsersResponse, MasterAdminUserResponse, MasterAdminAssignmentsResponse, MasterAdminAssignmentResponse } from './apiTypes';
+import type { ClientInvitationRole, MasterAdminTenantStatus, MasterAdminAssignmentRole, MasterAdminTenantsResponse, MasterAdminTenantResponse, MasterAdminUsersResponse, MasterAdminUserResponse, MasterAdminAssignmentsResponse, MasterAdminAssignmentResponse, MasterAdminClientInvitationResponse, MasterAdminClientInvitationsResponse, MasterAdminDeletedPendingJobsResponse, MasterAdminIngestionJobResponse, MasterAdminIngestionJobsResponse } from './apiTypes';
 
 export async function fetchMasterAdminTenants(token: string): Promise<MasterAdminTenantsResponse> {
   return apiRequest<MasterAdminTenantsResponse>('/master-admin/tenants', { token });
@@ -80,4 +80,46 @@ export async function revokeMasterAdminTenant(
       token,
     },
   );
+}
+
+export async function fetchClientInvitations(token: string, tenantId: string): Promise<MasterAdminClientInvitationsResponse> {
+  return apiRequest<MasterAdminClientInvitationsResponse>(
+    `/master-admin/tenants/${encodeURIComponent(tenantId)}/client-invitations`,
+    { token },
+  );
+}
+
+export async function createClientInvitation(
+  token: string,
+  tenantId: string,
+  input: { readonly email: string; readonly name?: string; readonly role: ClientInvitationRole },
+): Promise<MasterAdminClientInvitationResponse> {
+  return apiRequest<MasterAdminClientInvitationResponse>(
+    `/master-admin/tenants/${encodeURIComponent(tenantId)}/client-invitations`,
+    { method: 'POST', token, body: JSON.stringify(input) },
+  );
+}
+
+export async function fetchMasterAdminIngestionJobs(
+  token: string,
+  input: { readonly tenantId?: string; readonly status?: string; readonly sourceType?: string; readonly includeArchived?: boolean; readonly limit?: number } = {},
+): Promise<MasterAdminIngestionJobsResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) params.set(key, String(value));
+  }
+  const suffix = params.toString() === '' ? '' : `?${params.toString()}`;
+  return apiRequest<MasterAdminIngestionJobsResponse>(`/master-admin/ingestion-jobs${suffix}`, { token });
+}
+
+export async function deleteMasterAdminPendingJobs(token: string): Promise<MasterAdminDeletedPendingJobsResponse> {
+  return apiRequest<MasterAdminDeletedPendingJobsResponse>('/master-admin/ingestion-jobs/pending', { method: 'DELETE', token });
+}
+
+export async function cancelMasterAdminIngestionJob(token: string, jobId: string): Promise<MasterAdminIngestionJobResponse> {
+  return apiRequest<MasterAdminIngestionJobResponse>(`/master-admin/ingestion-jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST', token });
+}
+
+export async function archiveMasterAdminIngestionJob(token: string, jobId: string): Promise<MasterAdminIngestionJobResponse> {
+  return apiRequest<MasterAdminIngestionJobResponse>(`/master-admin/ingestion-jobs/${encodeURIComponent(jobId)}/archive`, { method: 'POST', token });
 }

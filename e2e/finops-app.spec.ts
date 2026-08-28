@@ -162,6 +162,7 @@ test.describe('FinOps app E2E', () => {
     await cloudConnectionSelector.selectOption({ index: 1 });
     await expect(page.getByText(/acceso seguro de solo lectura/i)).toBeVisible();
     await expect(page.getByText(/validar capacidades/i)).toBeVisible();
+    await page.getByText(/configuración técnica avanzada/i).click();
     await expect(page.getByText(/sincronización inicial/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /abrir inventario/i })).toBeVisible();
 

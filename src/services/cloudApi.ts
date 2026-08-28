@@ -41,7 +41,7 @@ export async function storeCloudCredential(token: string, cloudConnectionId: str
   readonly purpose: CloudCredentialPurpose;
   readonly label: string;
   readonly payload: Readonly<Record<string, string>>;
-}): Promise<{ readonly success: true; readonly credential: CloudCredentialSummary }> {
+}): Promise<{ readonly success: true; readonly credential: CloudCredentialSummary; readonly reused: boolean; readonly nextAction: 'VALIDATE' | 'NONE' }> {
   return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/credentials`, {
     method: 'POST', token, body: JSON.stringify(input),
   });
@@ -53,8 +53,12 @@ export async function revokeCloudCredential(token: string, cloudConnectionId: st
   });
 }
 
-export async function validateCloudConnection(token: string, cloudConnectionId: string): Promise<{ readonly success: true; readonly validation: { readonly providerCode: string; readonly capabilities: readonly CloudCapabilityValidation[] } }> {
+export async function validateCloudConnection(token: string, cloudConnectionId: string): Promise<{ readonly success: true; readonly validation: { readonly providerCode: string; readonly authentication?: { readonly status: string; readonly message: string; readonly checkedAt?: string }; readonly capabilities: readonly CloudCapabilityValidation[] } }> {
   return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/validate`, { method: 'POST', token });
+}
+
+export async function validateCloudCredential(token: string, cloudConnectionId: string, credentialId: string): Promise<{ readonly success: true; readonly credential: CloudCredentialSummary; readonly validation: { readonly providerCode: string; readonly authentication?: { readonly status: string; readonly message: string; readonly checkedAt?: string }; readonly capabilities: readonly CloudCapabilityValidation[] } }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/credentials/${encodeURIComponent(credentialId)}/validate`, { method: 'POST', token });
 }
 
 export async function activateCloudConnection(token: string, cloudConnectionId: string, input: {

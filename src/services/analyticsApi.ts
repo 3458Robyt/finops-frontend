@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { CostsResponse, RecommendationsResponse, AnalyticsGroupBy, AnalyticsOpportunitiesResponse, AnalyticsForecastResponse, AnalyticsForecastScenariosResponse, AnalyticsUnitEconomicsResponse, AnalyticsEfficiencyInsightsResponse, AnalyticsRecomputeResponse } from './apiTypes';
+import type { CostsResponse, CostHistoryResponse, RecommendationsResponse, AnalyticsGroupBy, AnalyticsOpportunitiesResponse, AnalyticsForecastResponse, AnalyticsForecastScenariosResponse, AnalyticsUnitEconomicsResponse, AnalyticsEfficiencyInsightsResponse, AnalyticsRecomputeResponse } from './apiTypes';
 
 export async function fetchCosts(
   token: string,
@@ -16,6 +16,28 @@ export async function fetchCosts(
   return apiRequest<CostsResponse>(`/costs${query}`, {
     token,
   });
+}
+
+export async function fetchCostHistory(
+  token: string,
+  input: {
+    readonly startDate?: string;
+    readonly endDate?: string;
+    readonly reportingCurrency?: string;
+    readonly granularity?: 'day' | 'month';
+    readonly rangeMode?: 'CALENDAR' | 'LATEST_AVAILABLE';
+    readonly lookbackDays?: number;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<CostHistoryResponse> {
+  const params = new URLSearchParams();
+  if (input.startDate !== undefined) params.set('startDate', input.startDate);
+  if (input.endDate !== undefined) params.set('endDate', input.endDate);
+  if (input.reportingCurrency !== undefined) params.set('reportingCurrency', input.reportingCurrency);
+  if (input.rangeMode !== undefined) params.set('rangeMode', input.rangeMode);
+  if (input.lookbackDays !== undefined) params.set('lookbackDays', String(input.lookbackDays));
+  params.set('granularity', input.granularity ?? 'day');
+  return apiRequest<CostHistoryResponse>(`/costs/history?${params.toString()}`, { token, signal: input.signal });
 }
 
 export async function fetchRecommendations(

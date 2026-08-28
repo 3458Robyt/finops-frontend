@@ -1,5 +1,5 @@
 import type { CostForecastScenario } from '../services/api';
-import { currencyFormatter } from '../views/dashboard/dashboardPresentation';
+import { formatCurrency } from '../views/dashboard/dashboardPresentation';
 
 const labels: Record<CostForecastScenario['scenario'], string> = {
   BASELINE: 'Base histórica',
@@ -36,9 +36,9 @@ export function ForecastScenarioPanel({ scenarios }: { readonly scenarios: reado
           {ordered.map((scenario) => (
             <article key={`${scenario.scenario}-${scenario.forecastMonth}-${scenario.currency}`} className={`rounded-2xl border p-4 ${tones[scenario.scenario]}`}>
               <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{labels[scenario.scenario]}</p>
-              <p className="mt-3 text-xl font-black">{currencyFormatter.format(scenario.predictedCost)}</p>
+              <p className="mt-3 text-xl font-black">{formatCurrency(scenario.predictedCost, scenario.currency)}</p>
               <p className="mt-1 text-[11px] font-bold opacity-70">{scenario.forecastMonth} · confianza {Math.round(scenario.confidence * 100)}%</p>
-              {scenario.savingsApplied > 0 && <p className="mt-3 text-xs font-black">Ahorro aplicado: {currencyFormatter.format(scenario.savingsApplied)}</p>}
+              {scenario.savingsApplied > 0 && <p className="mt-3 text-xs font-black">Ahorro aplicado: {formatCurrency(scenario.savingsApplied, scenario.currency)}</p>}
             </article>
           ))}
         </div>

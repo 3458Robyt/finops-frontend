@@ -1,4 +1,4 @@
-import { apiRequest, apiUrl, ApiRequestError } from './apiClient';
+import { apiRequest, apiRequestRaw } from './apiClient';
 import type { ValueRealizationFilters, ValueRealizationSummary, ValueRealizationItem, ValueRealizationTrendPoint, ValueRealizationDestinationSummary } from './apiTypes';
 
 export async function fetchValueRealizationSummary(
@@ -45,12 +45,11 @@ export async function reconcileValueRealization(token: string, limit = 50): Prom
 }
 
 export function valueRealizationExportUrl(filters: ValueRealizationFilters = {}): string {
-  return apiUrl(`/value-realization/export.csv${buildValueRealizationQuery(filters)}`);
+  return `/value-realization/export.csv${buildValueRealizationQuery(filters)}`;
 }
 
 export async function downloadValueRealizationCsv(token: string, filters: ValueRealizationFilters = {}): Promise<Blob> {
-  const response = await fetch(valueRealizationExportUrl(filters), { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new ApiRequestError('No fue posible exportar el valor realizado', { status: response.status });
+  const response = await apiRequestRaw(valueRealizationExportUrl(filters), { token });
   return response.blob();
 }
 

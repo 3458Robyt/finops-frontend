@@ -1,7 +1,7 @@
 import { CostHistoryUPlot } from '../components/CostHistoryUPlot';
 import { ForecastScenarioPanel } from '../components/ForecastScenarioPanel';
 import { useDashboardController } from './dashboard/useDashboardController';
-import { currencyFormatter, formatCompactNumber } from './dashboard/dashboardPresentation';
+import { formatCompactNumber, formatCurrency, hasPlottableCostData } from './dashboard/dashboardPresentation';
 
 export interface DashboardProps {
   readonly onOpenBudgets?: () => void;
@@ -26,7 +26,16 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
     topUnitEconomics,
     missedSavingsAmount,
     forecastScenarios,
+    reportingCurrency,
+    setReportingCurrency,
+    costHistory,
   } = useDashboardController();
+  const currencyOptions = [...new Set([
+    'USD',
+    'COP',
+    reportingCurrency,
+    ...(costHistory?.totalsByCurrency ?? []).map((item) => item.currency),
+  ])].sort();
 
   return (
     <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -44,9 +53,9 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
           <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gasto y presupuesto</p>
           <div className="flex items-end gap-2 mb-4">
             <h3 className="text-3xl font-black text-white">
-              {loading ? '...' : budgetError !== null ? 'No disponible' : budgetPerformance === null ? 'Sin presupuesto' : currencyFormatter.format(budgetPerformance.actualCost)}
+              {loading ? '...' : budgetError !== null ? 'No disponible' : budgetPerformance === null ? 'Sin presupuesto' : formatCurrency(budgetPerformance.actualCost, budgetPerformance.budget.currency)}
             </h3>
-            {dashboardBudget !== undefined && <span className="text-zinc-500 text-sm font-medium mb-1">/ {currencyFormatter.format(dashboardBudget.amount)}</span>}
+            {dashboardBudget !== undefined && <span className="text-zinc-500 text-sm font-medium mb-1">/ {formatCurrency(dashboardBudget.amount, dashboardBudget.currency)}</span>}
           </div>
           <div className="w-full bg-zinc-800 rounded-full h-3 overflow-hidden" aria-label="Consumo del presupuesto">
             <div
@@ -59,7 +68,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
               <span className="material-symbols-outlined text-sm text-green-500 font-bold">verified</span>
               {budgetError !== null ? 'Abra presupuestos para reintentar' : budgetPerformance === null ? 'Configure un límite mensual' : 'Datos FOCUS + analítica persistida'}
             </p>
-            <p className="text-xs text-zinc-500">{budgetPerformance?.forecastCost === undefined ? 'Forecast no disponible' : `Forecast: ${currencyFormatter.format(budgetPerformance.forecastCost)}`}</p>
+            <p className="text-xs text-zinc-500">{budgetPerformance?.forecastCost === undefined ? 'Forecast no disponible' : `Forecast: ${formatCurrency(budgetPerformance.forecastCost, budgetPerformance.budget.currency)}`}</p>
           </div>
         </button>
 
@@ -73,7 +82,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
               {loading ? '...' : openOpportunities}
             </p>
             <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-red-500/20">
-              {currencyFormatter.format(identifiedWaste)} ahorro estimado
+              {formatCurrency(identifiedWaste, savingsKpis?.currency ?? reportingCurrency)} ahorro estimado
             </span>
           </div>
         </div>
@@ -100,7 +109,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
             </div>
             <div>
               <p className="text-sm lg:text-base font-black text-white">
-                ¿Sabías que podrías haberte ahorrado {currencyFormatter.format(missedSavingsAmount)} si hubieras aplicado las oportunidades pendientes?
+                ¿Sabías que podrías haberte ahorrado {formatCurrency(missedSavingsAmount, savingsKpis?.currency ?? reportingCurrency)} si hubieras aplicado las oportunidades pendientes?
               </p>
               <p className="text-xs text-zinc-500 mt-1">
                 Calculado desde la fecha de generacion de cada recomendacion y su ahorro mensual estimado.
@@ -124,27 +133,44 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
             </h3>
             <p className="text-zinc-500 text-sm">Datos reales hasta el ultimo reporte descargado</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+              Moneda
+              <select value={reportingCurrency} onChange={(event) => setReportingCurrency(event.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-white">
+                {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
+            </label>
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-zinc-700"></span>
               <span className="text-xs font-bold text-zinc-400">Current AS-IS</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-tak-yellow"></span>
-              <span className="text-xs font-bold text-zinc-400">Opt TO-BE</span>
             </div>
           </div>
         </div>
 
         <div className="h-[300px] w-full">
-          {chartData.length === 0 ? (
+          {!hasPlottableCostData(chartData) ? (
             <div className="h-full w-full flex items-center justify-center text-sm font-bold text-zinc-500">
               {loading ? 'Cargando costos...' : 'Sin costos para esta cuenta'}
             </div>
           ) : (
-            <CostHistoryUPlot points={chartData} />
+            <CostHistoryUPlot points={chartData} currency={reportingCurrency} />
           )}
         </div>
+        {costHistory !== null && costHistory.coverage.missingPeriods > 0 && (
+          <p className="mt-3 text-xs font-medium text-amber-300">
+            Hay {costHistory.coverage.missingPeriods} periodos sin costos reportados. Se muestran como cortes y no como cero.
+          </p>
+        )}
+        {costHistory !== null && costHistory.coverage.conversionIssuePeriods > 0 && (
+          <p className="mt-2 text-xs font-medium text-amber-300">
+            Hay {costHistory.coverage.conversionIssuePeriods} periodos con moneda sin tasa de conversión. Se conservan los importes nativos y no se inventa un valor convertido.
+          </p>
+        )}
+        {costHistory?.meta.dataAsOf !== undefined && costHistory.meta.dataAsOf !== null && (costHistory.meta.staleDays ?? 0) > 0 && (
+          <p className="mt-2 text-xs font-medium text-amber-300">
+            Datos disponibles hasta {new Date(costHistory.meta.dataAsOf).toLocaleDateString('es-CO', { timeZone: 'UTC' })}. La fuente está {costHistory.meta.staleDays} días atrasada; no se interpretan los días faltantes como consumo cero.
+          </p>
+        )}
       </div>
 
       <ForecastScenarioPanel scenarios={forecastScenarios} />
@@ -167,7 +193,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
             )}
             <div className="flex justify-between items-center bg-zinc-950 p-3 rounded-xl mb-4 border border-zinc-800">
               <span className="text-xs text-zinc-500 font-medium">Ahorro Mensual</span>
-              <span className="text-tak-yellow font-black">{currencyFormatter.format(suggestion.saving)}</span>
+              <span className="text-tak-yellow font-black">{formatCurrency(suggestion.saving, suggestion.currency)}</span>
             </div>
           </div>
         ))}
@@ -195,7 +221,7 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-black text-tak-yellow">
-                    {point.unitCost === undefined ? '-' : currencyFormatter.format(point.unitCost)}
+                    {point.unitCost === undefined ? '-' : formatCurrency(point.unitCost, point.currency)}
                   </p>
                   <p className="text-[10px] uppercase font-bold text-zinc-500">por unidad</p>
                 </div>

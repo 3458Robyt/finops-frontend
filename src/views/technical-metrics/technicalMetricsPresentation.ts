@@ -18,12 +18,6 @@ export const severityStyles: Readonly<Record<TechnicalMetricOpportunity['severit
   HIGH: 'border-red-500/20 bg-red-500/10 text-red-200',
 };
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 2,
-});
-
 export function formatRange(overview: TechnicalMetricsOverview | null): string {
   if (overview?.minSampledAt === undefined || overview.maxSampledAt === undefined) {
     return 'Sin rango disponible';
@@ -47,7 +41,14 @@ export function formatNumber(value: number): string {
 }
 
 export function formatCurrency(value: number, currency: string): string {
-  return currencyFormatter.format(value).replace('$', currency === 'USD' ? '$' : `${currency} `);
+  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
+    ? currency.trim().toUpperCase()
+    : 'USD';
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: normalizedCurrency,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 export function formatMetricValue(value: number, unit: string | undefined): string {

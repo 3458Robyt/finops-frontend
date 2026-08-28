@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
-import { fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice } from '../services/api';
+import { createTelegramSelfLinkCode, fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice, type TelegramSelfLinkCodeResponse } from '../services/api';
 import MfaSecurityPanel from '../components/profile/MfaSecurityPanel';
 
 interface ToggleProps {
@@ -19,6 +19,10 @@ const [persistent, setPersistent] = useState(false);
 const [sessions, setSessions] = useState<readonly AuthSessionDevice[]>([]);
 const [sessionError, setSessionError] = useState<string | null>(null);
 const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null);
+const [telegramCode, setTelegramCode] = useState<TelegramSelfLinkCodeResponse | null>(null);
+const [telegramLoading, setTelegramLoading] = useState(false);
+const [telegramError, setTelegramError] = useState<string | null>(null);
+const [telegramCopied, setTelegramCopied] = useState(false);
 const displayName = user.name.trim() !== '' ? user.name : user.email;
 const initials = displayName
 .split(/\s+/)
@@ -50,6 +54,30 @@ const revokeSession = async (session: AuthSessionDevice) => {
     setSessionError('No fue posible revocar esa sesión.');
   } finally {
     setRevokingSessionId(null);
+  }
+};
+
+const generateTelegramCode = async () => {
+  setTelegramLoading(true);
+  setTelegramError(null);
+  setTelegramCopied(false);
+  try {
+    const response = await createTelegramSelfLinkCode(token);
+    setTelegramCode(response);
+  } catch (error) {
+    setTelegramError(error instanceof Error ? error.message : 'No fue posible generar el código de Telegram.');
+  } finally {
+    setTelegramLoading(false);
+  }
+};
+
+const copyTelegramLink = async () => {
+  if (telegramCode?.deepLink === undefined) return;
+  try {
+    await navigator.clipboard.writeText(telegramCode.deepLink);
+    setTelegramCopied(true);
+  } catch {
+    setTelegramError('No fue posible copiar el enlace; usa el comando mostrado.');
   }
 };
 
@@ -112,6 +140,24 @@ const revokeSession = async (session: AuthSessionDevice) => {
           <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <MfaSecurityPanel />
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-sky-400">send</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-zinc-100">Conectar Telegram</p>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-500">Genera un código de un solo uso y envíalo al bot con el comando <span className="font-mono text-zinc-300">/start código</span>.</p>
+                    <button type="button" onClick={() => void generateTelegramCode()} disabled={telegramLoading} className="mt-3 rounded-lg border border-sky-500/30 px-3 py-2 text-xs font-black uppercase tracking-widest text-sky-300 hover:bg-sky-500/10 disabled:opacity-50">
+                      {telegramLoading ? 'Generando…' : 'Generar código'}
+                    </button>
+                    {telegramCode !== null && <div className="mt-3 space-y-2 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                      {telegramCode.deepLink !== undefined && <div className="flex flex-wrap items-center gap-2"><a href={telegramCode.deepLink} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-300 underline">Abrir bot</a><button type="button" onClick={() => void copyTelegramLink()} className="text-[10px] font-black uppercase text-zinc-400 hover:text-white">{telegramCopied ? 'Copiado' : 'Copiar enlace'}</button></div>}
+                      <p className="break-all font-mono text-xs text-zinc-200">{telegramCode.startCommand}</p>
+                      <p className="text-[10px] text-zinc-500">Expira: {new Date(telegramCode.expiresAt).toLocaleTimeString('es-CO')}</p>
+                    </div>}
+                    {telegramError !== null && <p className="mt-2 text-xs text-red-400">{telegramError}</p>}
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Recordatorios de ahorro</p>

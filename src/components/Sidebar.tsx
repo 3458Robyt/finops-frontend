@@ -43,7 +43,7 @@ const initials = displayName
     { id: 'value_realization', icon: 'query_stats', label: 'Valor realizado', roles: ['admin', 'client'] },
     { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
 { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
-{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin', 'client'] },
+{ id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },
 { id: 'master_admin', icon: 'admin_panel_settings', label: 'Administracion MSP', roles: ['admin'], masterOnly: true },
 ];
 

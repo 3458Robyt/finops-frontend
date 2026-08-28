@@ -1,8 +1,15 @@
 import { apiRequest } from './apiClient';
-import type { TelegramLinksResponse, TelegramLinkResponse, OutboundChannelStatusResponse, OutboundDeliveriesResponse, OutboundSendResponse } from './apiTypes';
+import type { TelegramLinksResponse, TelegramLinkResponse, TelegramSelfLinkCodeResponse, OutboundChannelStatusResponse, OutboundDeliveriesResponse, OutboundSendResponse } from './apiTypes';
 
 export async function fetchTelegramLinks(token: string): Promise<TelegramLinksResponse> {
   return apiRequest<TelegramLinksResponse>('/telegram/links', { token });
+}
+
+export async function createTelegramSelfLinkCode(token: string): Promise<TelegramSelfLinkCodeResponse> {
+  return apiRequest<TelegramSelfLinkCodeResponse>('/telegram/self-link-code', {
+    method: 'POST',
+    token,
+  });
 }
 
 export async function createTelegramLink(

@@ -1,11 +1,11 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import Login from './views/Login';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog';
 import { AuthSessionProvider } from './auth/AuthSessionContext';
-import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, setAccessToken, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
+import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, restoreSession, setAccessToken, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Console = lazy(() => import('./views/Console'));
@@ -22,16 +22,45 @@ const CloudResourceDetail = lazy(() => import('./views/CloudInventory').then((mo
 const Budgets = lazy(() => import('./views/Budgets'));
 const CostAllocation = lazy(() => import('./views/CostAllocation'));
 const ValueRealization = lazy(() => import('./views/ValueRealization'));
+const ClientInvitationAccept = lazy(() => import('./views/ClientInvitationAccept'));
 
 type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<readonly string[] | null>(null);
   const [selectedResourceType, setSelectedResourceType] = useState<string | null>(null);
   const [selectedCloudResourceId, setSelectedCloudResourceId] = useState<string | null>(null);
   const [selectedCloudResourceCanonicalId, setSelectedCloudResourceCanonicalId] = useState<string | null>(null);
+  const invitationCode = typeof window !== 'undefined'
+    && window.location.pathname.startsWith('/cliente/')
+    ? new URLSearchParams(window.location.search).get('invite')
+    : null;
+
+  useEffect(() => {
+    let active = true;
+    void restoreSession()
+      .then((session) => {
+        if (!active || session === null) return;
+        setAuthSession(session);
+        setCurrentView(mapApiRoleToAppRole(session.user.role) === 'admin' ? 'console' : 'dashboard');
+      })
+      .catch(() => {
+        // El login sigue disponible cuando el backend está temporalmente fuera de línea.
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => subscribeToSessionRefresh((session) => {
+    setAuthSession(session);
+    setAccessToken(session.accessToken);
+  }), []);
 
   const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
 
@@ -89,7 +118,7 @@ const handleTenantChange = async (tenantId: string) => {
     if (currentView === 'cloud_resource_detail') setCurrentView('cloud_inventory');
 };
 
-const refreshAccessibleTenants = async () => {
+  const refreshAccessibleTenants = async () => {
 if (authSession === null) return;
 const response = await fetchAccessibleTenants(authSession.accessToken);
 setAuthSession((current) => current === null ? current : {
@@ -98,6 +127,25 @@ activeTenant: response.activeTenant ?? current.activeTenant,
 availableTenants: response.availableTenants,
 });
 };
+
+  const handleClientInvitationAccepted = (session: AuthSession): void => {
+    setAccessToken(session.accessToken);
+    setAuthSession(session);
+    setCurrentView(mapApiRoleToAppRole(session.user.role) === 'admin' ? 'console' : 'dashboard');
+    window.history.replaceState({}, document.title, '/');
+  };
+
+  if (invitationCode !== null) {
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm font-bold text-zinc-400">Cargando invitación…</div>}>
+        <ClientInvitationAccept code={invitationCode} onAccepted={handleClientInvitationAccepted} />
+      </Suspense>
+    );
+  }
+
+  if (!authReady) {
+    return <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm font-bold text-zinc-400">Restaurando sesión…</div>;
+  }
 
   if (currentView === 'login' || authSession === null) {
     return <Login onLogin={handleLogin} />;
@@ -113,13 +161,13 @@ availableTenants: response.availableTenants,
       case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} apiRole={authSession.user.role as ApiRole} onBack={() => setCurrentView('console')} />;
       case 'chat': return <Chat />;
       case 'history': return <History />;
-case 'agent_settings': return <AgentSettings
+      case 'agent_settings': return currentRole === 'admin' ? <AgentSettings
   role={authSession.user.role}
   onOpenRecommendation={(recommendationId) => {
     setSelectedResourceType(recommendationId);
     setCurrentView('resource_detail');
   }}
-/>;
+/> : <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
 case 'ingesta': return <Ingesta canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
       case 'metricas_tecnicas': return <MetricasTecnicas />;
 case 'budgets': return <Budgets canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
