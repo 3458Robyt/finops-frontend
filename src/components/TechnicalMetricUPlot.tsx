@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef } from 'react';
 import uPlot, { type AlignedData, type Options } from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { TechnicalMetricSeriesPoint } from '../services/api';
-import { TechnicalMetricLegend, type TechnicalMetricLegendItem } from './TechnicalMetricLegend';
+import { TechnicalMetricLegend } from './TechnicalMetricLegend';
+import { formatAxisValue, toUPlotChart } from './technicalMetricChartModel';
+import { hideTechnicalMetricTooltip, updateTechnicalMetricTooltip } from './technicalMetricTooltip';
 
 interface TechnicalMetricUPlotProps {
   readonly points: readonly TechnicalMetricSeriesPoint[];
@@ -25,6 +27,7 @@ export function TechnicalMetricUPlot({
 }: TechnicalMetricUPlotProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const plotRef = useRef<uPlot | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const selectTimerRef = useRef<number | null>(null);
   const onSelectRangeRef = useRef(onSelectRange);
   const chart = useMemo(
@@ -80,6 +83,9 @@ export function TechnicalMetricUPlot({
       ],
       series: seriesRef.current,
       hooks: {
+        setCursor: [
+          (plot) => updateTechnicalMetricTooltip(plot, tooltipRef.current, unit),
+        ],
         setSelect: [
           (plot) => {
             if (selectTimerRef.current !== null) {
@@ -132,11 +138,18 @@ export function TechnicalMetricUPlot({
 
   useEffect(() => {
     plotRef.current?.setData(data);
+    hideTechnicalMetricTooltip(tooltipRef.current);
   }, [data]);
 
   return (
     <div data-testid="technical-metric-chart" className="relative w-full">
       <div data-testid="technical-metric-plot" ref={containerRef} className="h-[300px] min-h-[280px] w-full sm:h-[340px] lg:h-[360px] [&_.uplot]:font-sans" />
+      <div
+        ref={tooltipRef}
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none absolute z-10 hidden max-w-[220px] rounded-xl border border-zinc-700 bg-zinc-950/95 px-3 py-2 text-[11px] shadow-xl"
+      />
       {loading && (
         <div className="pointer-events-none absolute right-3 top-3 rounded-xl border border-zinc-800 bg-zinc-950/90 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-tak-yellow">
           Cargando
@@ -150,182 +163,4 @@ export function TechnicalMetricUPlot({
       <TechnicalMetricLegend items={chart.legendItems} />
     </div>
   );
-}
-
-function toUPlotChart(
-  points: readonly TechnicalMetricSeriesPoint[],
-  separateResources: boolean,
-  unit: string | undefined,
-  statistic: string | undefined,
-  resourceLabels: ReadonlyMap<string, string> | undefined,
-): {
-  readonly data: AlignedData;
-  readonly series: NonNullable<Options['series']>;
-  readonly seriesSignature: string;
-  readonly legendItems: readonly TechnicalMetricLegendItem[];
-} {
-  if (!separateResources) {
-    const showEnvelope = shouldShowEnvelope(points, statistic);
-    const valueColor = '#FACC15';
-    const envelopeItems = showEnvelope ? [
-      { key: 'minimum', label: 'Mínimo del intervalo', fullLabel: 'Mínimo del intervalo', color: '#22c55e' },
-      { key: 'maximum', label: 'Máximo del intervalo', fullLabel: 'Máximo del intervalo', color: '#38bdf8' },
-    ] : [];
-    return {
-      data: [
-        points.map((point) => new Date(point.bucketStart).getTime() / 1000),
-        points.map((point) => point.value),
-        ...(showEnvelope ? [
-          points.map((point) => point.min),
-          points.map((point) => point.max),
-        ] : []),
-      ] as AlignedData,
-      series: [
-        {},
-        seriesOption(formatStatisticLabel(statistic), valueColor, unit, 2),
-        ...(showEnvelope ? [
-          seriesOption('Mínimo del intervalo', '#22c55e', unit, 1, [4, 4]),
-          seriesOption('Máximo del intervalo', '#38bdf8', unit, 1, [4, 4]),
-        ] : []),
-      ],
-      seriesSignature: `aggregate:${statistic ?? 'MEAN'}:${showEnvelope ? 'envelope' : 'native'}`,
-      legendItems: [
-        { key: 'value', label: formatStatisticLabel(statistic), fullLabel: formatStatisticLabel(statistic), color: valueColor },
-        ...(showEnvelope ? envelopeItems : []),
-      ],
-    };
-  }
-
-  const streamIds = [...new Set(points.map(streamIdentity))].sort();
-  const timestamps = [...new Set(points.map((point) => new Date(point.bucketStart).getTime() / 1000))].sort((a, b) => a - b);
-  const valuesByStream = new Map<string, Map<number, number>>();
-  for (const point of points) {
-    const streamId = streamIdentity(point);
-    const streamValues = valuesByStream.get(streamId) ?? new Map<number, number>();
-    streamValues.set(new Date(point.bucketStart).getTime() / 1000, point.value);
-    valuesByStream.set(streamId, streamValues);
-  }
-
-  const legendItems = streamIds.map((streamId, index) => {
-    const point = points.find((candidate) => streamIdentity(candidate) === streamId);
-    const label = streamLabel(streamId, points, resourceLabels);
-    return {
-      key: streamId,
-      label,
-      fullLabel: point === undefined ? label : `${label}\nID: ${point.externalResourceId}`,
-      color: resourceColor(index),
-    } satisfies TechnicalMetricLegendItem;
-  });
-
-  return {
-    data: [
-      timestamps,
-      ...streamIds.map((streamId) => timestamps.map((timestamp) => valuesByStream.get(streamId)?.get(timestamp) ?? null)),
-    ] as AlignedData,
-    series: [
-      {},
-      ...streamIds.map((streamId, index) => seriesOption(
-        streamLabel(streamId, points, resourceLabels),
-        resourceColor(index),
-        unit,
-        2,
-      )),
-    ],
-    seriesSignature: legendItems.map((item) => `${item.key}:${item.label}`).join('|'),
-    legendItems,
-  };
-}
-
-function shouldShowEnvelope(points: readonly TechnicalMetricSeriesPoint[], statistic: string | undefined): boolean {
-  if (points.length === 0 || statistic === 'MIN' || statistic === 'MAX' || statistic === 'LATEST' || statistic === 'COUNT') {
-    return false;
-  }
-
-  return points.some((point) => point.sampleCount > 1 && point.min !== point.max);
-}
-
-function streamIdentity(point: TechnicalMetricSeriesPoint): string {
-  return [
-    point.externalResourceId,
-    point.cloudResourceId ?? '',
-    point.providerNamespace ?? '',
-    point.regionId ?? '',
-    point.dimensionsHash ?? '',
-    point.sourceGranularitiesSeconds.join(','),
-  ].join('\u0000');
-}
-
-function streamLabel(
-  streamId: string,
-  points: readonly TechnicalMetricSeriesPoint[],
-  resourceLabels: ReadonlyMap<string, string> | undefined,
-): string {
-  const point = points.find((candidate) => streamIdentity(candidate) === streamId);
-  if (point === undefined) return 'Flujo';
-  const resourceLabel = resourceLabels?.get(point.cloudResourceId ?? '')
-    ?? resourceLabels?.get(point.externalResourceId)
-    ?? shortResource(point.externalResourceId);
-  const suffix = [
-    point.providerNamespace,
-    point.regionId,
-    point.dimensionsHash === undefined ? undefined : `dim ${point.dimensionsHash.slice(0, 8)}`,
-  ].filter((value): value is string => value !== undefined && value !== '').join(' · ');
-  return suffix === '' ? resourceLabel : `${resourceLabel} · ${suffix}`;
-}
-
-function seriesOption(label: string, stroke: string, unit: string | undefined, width: number, dash?: number[]) {
-  return {
-    label,
-    stroke,
-    width,
-    ...(dash === undefined ? {} : { dash }),
-    value: (_u: uPlot, value: number | null) => formatMetricValue(value, unit),
-  };
-}
-
-function shortResource(value: string): string {
-  return value.length > 28 ? `${value.slice(0, 25)}...` : value;
-}
-
-function resourceColor(index: number): string {
-  return ['#FACC15', '#38bdf8', '#22c55e', '#f472b6', '#a78bfa', '#fb923c'][index % 6] ?? '#FACC15';
-}
-
-function formatMetricValue(value: number | null, unit: string | undefined): string {
-  if (value === null || !Number.isFinite(value)) {
-    return '-';
-  }
-
-  const formatted = new Intl.NumberFormat('es-CO', {
-    maximumFractionDigits: Math.abs(value) >= 100 ? 0 : 2,
-  }).format(value);
-
-  return unit === undefined ? formatted : `${formatted} ${unit}`;
-}
-
-function formatAxisValue(value: number, unit: string | undefined): string {
-  if (unit === '%') {
-    return `${Math.round(value)}%`;
-  }
-
-  return Math.abs(value) >= 1000
-    ? new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
-    : new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(value);
-}
-
-function formatStatisticLabel(statistic: string | undefined): string {
-  const labels: Record<string, string> = {
-    MEAN: 'Promedio',
-    MIN: 'Mínimo',
-    MAX: 'Máximo',
-    P50: 'P50',
-    P90: 'P90',
-    P95: 'P95',
-    P99: 'P99',
-    SUM: 'Suma',
-    COUNT: 'Conteo',
-    RATE: 'Tasa',
-    LATEST: 'Último valor',
-  };
-  return labels[statistic ?? 'MEAN'] ?? statistic ?? 'Valor';
 }
