@@ -14,10 +14,13 @@ interface ApiErrorBody {
 }
 
 type SessionRefreshListener = (session: AuthSession) => void;
+type SessionExpiredListener = () => void;
 
 let inMemoryAccessToken: string | null = null;
 let refreshPromise: Promise<AuthSession | null> | null = null;
 const sessionRefreshListeners = new Set<SessionRefreshListener>();
+const sessionExpiredListeners = new Set<SessionExpiredListener>();
+let lastSessionExpiredNotificationAt = 0;
 
 export class ApiRequestError extends Error {
   public readonly code?: string;
@@ -62,6 +65,7 @@ export async function apiRequest<T>(
         skipAuthRefresh: true,
       });
     }
+    notifySessionExpired();
   }
 
   if (!response.ok) {
@@ -94,6 +98,7 @@ export async function apiRequestRaw(
     if (refreshedSession !== null) {
       return apiRequestRaw(path, { ...requestOptions, headers, token: refreshedSession.accessToken, skipAuthRefresh: true });
     }
+    notifySessionExpired();
   }
 
   if (!response.ok) {
@@ -121,6 +126,12 @@ export function clearAccessToken(): void {
 export function subscribeToSessionRefresh(listener: SessionRefreshListener): () => void {
   sessionRefreshListeners.add(listener);
   return () => sessionRefreshListeners.delete(listener);
+}
+
+/** Notifica a la aplicación cuando el refresh no pudo recuperar una sesión autenticada. */
+export function subscribeToSessionExpired(listener: SessionExpiredListener): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => sessionExpiredListeners.delete(listener);
 }
 
 /** Recupera la sesión persistida en la cookie HttpOnly al iniciar la aplicación. */
@@ -162,13 +173,24 @@ async function executeRequest(
   headers: Headers,
 ): Promise<Response> {
   const requestSignal = createRequestSignal(requestOptions.signal);
+  const maxAttempts = isRetryableMethod(requestOptions.method) ? 2 : 1;
   try {
-    return await fetch(`${API_BASE_URL}${path}`, {
-      ...requestOptions,
-      credentials: 'include',
-      signal: requestSignal.signal,
-      headers,
-    });
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await fetch(`${API_BASE_URL}${path}`, {
+          ...requestOptions,
+          credentials: 'include',
+          signal: requestSignal.signal,
+          headers,
+        });
+      } catch (error: unknown) {
+        if (attempt === maxAttempts || requestSignal.didTimeout() || requestSignal.signal.aborted) {
+          throw error;
+        }
+        await new Promise((resolve) => globalThis.setTimeout(resolve, 150 * attempt));
+      }
+    }
+    throw new Error('No se pudo ejecutar la solicitud.');
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError' && !requestSignal.didTimeout()) {
       throw error;
@@ -188,6 +210,11 @@ async function executeRequest(
   } finally {
     requestSignal.cleanup();
   }
+}
+
+function isRetryableMethod(method: string | undefined): boolean {
+  const normalized = method?.toUpperCase() ?? 'GET';
+  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
 }
 
 async function refreshAccessToken(): Promise<AuthSession | null> {
@@ -216,6 +243,13 @@ async function refreshAccessToken(): Promise<AuthSession | null> {
   })();
 
   return refreshPromise;
+}
+
+function notifySessionExpired(): void {
+  const now = Date.now();
+  if (now - lastSessionExpiredNotificationAt < 1_000) return;
+  lastSessionExpiredNotificationAt = now;
+  sessionExpiredListeners.forEach((listener) => listener());
 }
 
 async function readApiError(response: Response): Promise<ApiErrorBody> {

@@ -1,4 +1,4 @@
-export { ApiRequestError, apiRequestRaw, clearAccessToken, restoreSession, setAccessToken, subscribeToSessionRefresh } from './apiClient';
+export { ApiRequestError, apiRequestRaw, clearAccessToken, restoreSession, setAccessToken, subscribeToSessionExpired, subscribeToSessionRefresh } from './apiClient';
 export type { ApiRole, ApiUser, AppRole, AuthLoginResponse, AuthMfaChallenge, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaStatusResponse, TenantAccessRole } from './authTypes';
 export { acceptClientInvitation, completeMfaEnrollment, completeMfaLogin, confirmPasswordReset, fetchAccessibleTenants, fetchAuthSessions, fetchMfaStatus, login, logout, logoutAll, mapApiRoleToAppRole, regenerateMfaRecoveryCodes, requestPasswordReset, revokeAuthSession, switchTenant } from './authApi';
 export type * from './apiTypes';

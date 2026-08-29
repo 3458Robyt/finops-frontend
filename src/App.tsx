@@ -5,7 +5,7 @@ import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog';
 import { AuthSessionProvider } from './auth/AuthSessionContext';
-import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, restoreSession, setAccessToken, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
+import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, restoreSession, setAccessToken, subscribeToSessionExpired, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Console = lazy(() => import('./views/Console'));
@@ -60,6 +60,15 @@ function App() {
   useEffect(() => subscribeToSessionRefresh((session) => {
     setAuthSession(session);
     setAccessToken(session.accessToken);
+  }), []);
+
+  useEffect(() => subscribeToSessionExpired(() => {
+    clearAccessToken();
+    setAuthSession(null);
+    setCurrentView('login');
+    setSelectedResourceType(null);
+    setSelectedCloudResourceId(null);
+    setSelectedCloudResourceCanonicalId(null);
   }), []);
 
   const currentRole = authSession !== null ? mapApiRoleToAppRole(authSession.user.role) : 'client';
