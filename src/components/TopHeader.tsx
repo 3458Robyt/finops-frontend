@@ -139,7 +139,7 @@ export default function TopHeader({
   if (currentView === 'login') return null;
 
   return (
-    <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 px-4 lg:px-10 py-3 lg:py-4 flex items-center justify-between">
+    <header className="z-40 flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6 lg:py-4 xl:px-10">
       <div className="flex items-center gap-4 lg:gap-8 flex-1">
         <div className="lg:hidden size-8 bg-tak-yellow flex items-center justify-center rounded shadow-sm">
           <span className="material-symbols-outlined text-zinc-950 text-xl font-bold">query_stats</span>

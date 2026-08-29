@@ -153,8 +153,15 @@ availableTenants: response.availableTenants,
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
-      case 'console': return <Console onResourceSelect={(id) => {
+      case 'dashboard': return <Dashboard
+        apiRole={authSession.user.role}
+        onOpenBudgets={() => setCurrentView('budgets')}
+        onOpenAgentSettings={() => setCurrentView('agent_settings')}
+      />;
+      case 'console': return <Console
+        apiRole={authSession.user.role}
+        onOpenAgentSettings={() => setCurrentView('agent_settings')}
+        onResourceSelect={(id) => {
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
@@ -167,7 +174,7 @@ availableTenants: response.availableTenants,
     setSelectedResourceType(recommendationId);
     setCurrentView('resource_detail');
   }}
-/> : <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
+/> : <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
 case 'ingesta': return <Ingesta canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
       case 'metricas_tecnicas': return <MetricasTecnicas />;
 case 'budgets': return <Budgets canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
@@ -177,20 +184,20 @@ case 'cloud_inventory': return <CloudInventory onOpenResource={(resource) => { s
 case 'cloud_resource_detail': return <CloudResourceDetail externalResourceId={selectedCloudResourceId ?? ''} cloudResourceId={selectedCloudResourceCanonicalId ?? undefined} onBack={() => setCurrentView('cloud_inventory')} />;
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin onTenantsChanged={refreshAccessibleTenants} />
-: <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
+: <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
 case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
-      default: return <Dashboard onOpenBudgets={() => setCurrentView('budgets')} />;
+      default: return <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
     }
   };
 
   return (
     <AuthSessionProvider session={authSession}>
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-zinc-950 text-zinc-100">
 {mfaRecoveryCodes !== null && <MfaRecoveryCodesDialog codes={mfaRecoveryCodes} onClose={() => setMfaRecoveryCodes(null)} />}
 <Sidebar currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} user={authSession.user} />
 <BottomNav currentView={currentView} onViewChange={setCurrentView} currentRole={currentRole} apiRole={authSession.user.role} />
       
-      <div className="flex-1 lg:ml-[280px] flex flex-col min-h-[100dvh]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-20 xl:ml-[280px]">
         <TopHeader 
           currentView={currentView} 
           activeTenant={authSession.activeTenant}
@@ -198,7 +205,7 @@ case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole
           onTenantChange={handleTenantChange}
           role={authSession.user.role}
         />
-        <main className="flex-1 p-4 lg:p-10 pb-24 lg:pb-10 custom-scrollbar overflow-x-hidden">
+        <main className={`min-h-0 min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:p-6 lg:pb-10 xl:p-10 ${currentView === 'chat' ? 'overflow-hidden' : 'custom-scrollbar overflow-y-auto overflow-x-hidden'}`}>
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">Cargando módulo…</div>}>
             {renderView()}
           </Suspense>

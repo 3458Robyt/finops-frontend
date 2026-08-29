@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import RecommendationGenerationAction from '../components/RecommendationGenerationAction';
 import {
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsOpportunities,
@@ -8,10 +9,13 @@ import {
   type CostOpportunity,
   type Recommendation,
   type UsageInsight,
+  type ApiRole,
 } from '../services/api';
 
 interface ConsoleProps {
   readonly onResourceSelect?: (id: string) => void;
+  readonly apiRole?: ApiRole;
+  readonly onOpenAgentSettings?: () => void;
 }
 
 const severityWeight: Record<Recommendation['severity'], number> = {
@@ -21,13 +25,20 @@ const severityWeight: Record<Recommendation['severity'], number> = {
   LOW: 1,
 };
 
-export default function Console({ onResourceSelect }: ConsoleProps) {
+export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings }: ConsoleProps) {
   const token = useAccessToken();
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshVersion((version) => version + 1);
+    window.addEventListener('finops:recommendations-updated', refresh);
+    return () => window.removeEventListener('finops:recommendations-updated', refresh);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -70,7 +81,7 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [refreshVersion, token]);
 
   const tableData = useMemo(
     () => [...recommendations]
@@ -87,6 +98,14 @@ export default function Console({ onResourceSelect }: ConsoleProps) {
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">
           {error}
         </div>
+      )}
+
+      {apiRole !== undefined && (
+        <RecommendationGenerationAction
+          role={apiRole}
+          onCompleted={() => window.dispatchEvent(new CustomEvent('finops:recommendations-updated'))}
+          onOpenAnalysis={onOpenAgentSettings}
+        />
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">

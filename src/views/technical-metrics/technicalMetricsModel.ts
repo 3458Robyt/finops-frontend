@@ -33,8 +33,8 @@ export interface DrilldownWindow {
 export const seriesPageSize = 1000;
 // Keep the browser cache bounded: metric series can be large, but revisiting a
 // recently inspected metric should not trigger another expensive query.
-const maxSeriesCacheEntries = 12;
-const seriesCacheTtlMs = 5 * 60 * 1000;
+const maxSeriesCacheEntries = 8;
+const seriesCacheTtlMs = 2 * 60 * 1000;
 
 export function buildRangeParams(
   range: RangeFilter,

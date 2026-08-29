@@ -1,4 +1,4 @@
-import type { TechnicalMetricOpportunity, TechnicalMetricsOverview } from '../../services/api';
+import type { TechnicalMetricOpportunity, TechnicalMetricResourceSummary, TechnicalMetricsOverview } from '../../services/api';
 import type { MetricGroupFilter } from './technicalMetricsModel';
 
 export const groupLabels: Readonly<Record<MetricGroupFilter, string>> = {
@@ -66,4 +66,27 @@ export function formatGranularity(seconds: number): string {
 
 export function shortResource(value: string): string {
   return value.length <= 28 ? value : `${value.slice(0, 14)}...${value.slice(-10)}`;
+}
+
+export function resourceHasDisplayName(resource: Pick<TechnicalMetricResourceSummary, 'externalResourceId' | 'name'>): boolean {
+  const name = resource.name?.trim();
+  return name !== undefined && name !== '' && name !== resource.externalResourceId;
+}
+
+export function resourceLegendLabel(
+  resource: Pick<TechnicalMetricResourceSummary, 'externalResourceId' | 'name' | 'serviceName' | 'resourceType'>,
+): string {
+  if (resourceHasDisplayName(resource)) {
+    return resource.name!.trim();
+  }
+
+  const descriptor = resource.serviceName?.trim() || resource.resourceType?.trim() || 'Recurso cloud';
+  return `${descriptor} · ${shortResource(resource.externalResourceId)}`;
+}
+
+export function resourceOptionLabel(
+  resource: Pick<TechnicalMetricResourceSummary, 'externalResourceId' | 'name' | 'serviceName' | 'resourceType'>,
+): string {
+  const label = resourceLegendLabel(resource);
+  return resourceHasDisplayName(resource) ? `${label} · ${shortResource(resource.externalResourceId)}` : label;
 }

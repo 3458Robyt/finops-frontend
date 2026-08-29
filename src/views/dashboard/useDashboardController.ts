@@ -88,6 +88,13 @@ export function useDashboardController(): DashboardControllerState {
   const [budgetError, setBudgetError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshVersion((version) => version + 1);
+    window.addEventListener('finops:recommendations-updated', refresh);
+    return () => window.removeEventListener('finops:recommendations-updated', refresh);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -170,7 +177,7 @@ export function useDashboardController(): DashboardControllerState {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [refreshVersion, token]);
 
   useEffect(() => {
     const controller = new AbortController();

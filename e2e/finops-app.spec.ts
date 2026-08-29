@@ -1,6 +1,10 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+
+const fixtureFile = resolve(process.env['E2E_FIXTURE_FILE'] ?? '../finops-backend/.test-artifacts/e2e-fixtures.json');
+test.skip(!existsSync(fixtureFile), 'Requiere la suite E2E completa con fixtures aislados. Usa npm run test:e2e:full.');
 
 interface FixtureManifest {
   readonly password: string;
@@ -206,6 +210,5 @@ test.describe('FinOps app E2E', () => {
 });
 
 async function readManifest(): Promise<FixtureManifest> {
-  const fixtureFile = resolve(process.env['E2E_FIXTURE_FILE'] ?? '../finops-backend/.test-artifacts/e2e-fixtures.json');
   return JSON.parse(await readFile(fixtureFile, 'utf8')) as FixtureManifest;
 }

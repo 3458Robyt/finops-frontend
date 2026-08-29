@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
 import {
   ApiRequestError,
@@ -31,6 +31,9 @@ export default function Chat() {
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const historyRef = useRef<HTMLDivElement | null>(null);
+  const historyEndRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
 
   const history = useMemo<AiChatMessage[]>(
     () => messages
@@ -38,6 +41,11 @@ export default function Chat() {
       .map(({ role, content }) => ({ role, content })),
     [messages],
   );
+
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    historyEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages, isSending, isGenerating, error]);
 
   const submitMessage = async (message: string) => {
     const trimmed = message.trim();
@@ -104,8 +112,18 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-100px)] relative animate-in fade-in duration-500">
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-6">
+    <div data-testid="chat-module" className="relative flex h-full min-h-0 flex-col overflow-hidden animate-in fade-in duration-500">
+      <div
+        data-testid="chat-history"
+        ref={historyRef}
+        className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-2"
+        onScroll={() => {
+          const historyElement = historyRef.current;
+          if (historyElement === null) return;
+          const distanceToBottom = historyElement.scrollHeight - historyElement.scrollTop - historyElement.clientHeight;
+          stickToBottomRef.current = distanceToBottom < 48;
+        }}
+      >
         {messages.map((message) => (
           <div
             key={message.id}
@@ -141,10 +159,11 @@ export default function Chat() {
             {error}
           </div>
         )}
+        <div ref={historyEndRef} aria-hidden="true" />
       </div>
       
-      <div className="mt-4 pt-4 border-t border-zinc-800">
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+      <div data-testid="chat-composer" className="mt-4 shrink-0 border-t border-zinc-800 pt-4">
+        <div className="mb-4 flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
             <button
               key={prompt}

@@ -9,7 +9,8 @@ import {
   formatDateTime,
   formatNumber,
   groupLabels,
-  shortResource,
+  resourceLegendLabel,
+  resourceOptionLabel,
 } from './technical-metrics/technicalMetricsPresentation';
 import { useTechnicalMetricsController } from './technical-metrics/useTechnicalMetricsController';
 
@@ -38,12 +39,17 @@ export default function MetricasTecnicas() {
     setSelectedResource, setSelectedGroup, setSelectedMetric, setRange, setBucket, setSelectedStatistic, setDrilldownWindow,
     handleDrilldown, loadNextSeriesPage,
   } = useTechnicalMetricsController();
-  const resourceLabels = useMemo(() => new Map(
-    (overview?.resources ?? []).map((resource) => [
-      resource.externalResourceId,
-      resource.name ?? shortResource(resource.externalResourceId),
-    ]),
-  ), [overview?.resources]);
+  const canonicalResourceLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const resource of overview?.resources ?? []) {
+      const label = resourceLegendLabel(resource);
+      labels.set(resource.externalResourceId, label);
+      if (resource.cloudResourceId !== undefined) {
+        labels.set(resource.cloudResourceId, label);
+      }
+    }
+    return labels;
+  }, [overview?.resources]);
   const visibleGroupOptions = Object.entries(groupLabels).filter(([value]) => (
     value === 'ALL' || (overview?.metrics ?? []).some((metric) => metric.group === value)
   ));
@@ -117,7 +123,7 @@ export default function MetricasTecnicas() {
             <option value="ALL">Todos los recursos</option>
             {(overview?.resources ?? []).map((resource) => (
               <option key={resource.cloudResourceId ?? resource.externalResourceId} value={resource.externalResourceId}>
-                {resource.name !== undefined ? `${resource.name} · ` : ''}{shortResource(resource.externalResourceId)}
+                {resourceOptionLabel(resource)}
               </option>
             ))}
           </SelectField>
@@ -191,12 +197,12 @@ export default function MetricasTecnicas() {
             </div>
           )}
 
-          <div className="h-[360px] w-full">
+          <div className="w-full">
             <TechnicalMetricUPlot
               points={visibleSeries}
               unit={selectedMetricMeta?.metricUnit}
               statistic={selectedStatistic}
-              resourceLabels={resourceLabels}
+              resourceLabels={canonicalResourceLabels}
               loading={visibleLoadingSeries || loadingOverview}
               separateResources={selectedResource === 'ALL'}
               onSelectRange={handleDrilldown}
@@ -214,7 +220,7 @@ export default function MetricasTecnicas() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div data-testid="technical-metric-opportunities" className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-bold text-white">Oportunidades tecnicas</h3>

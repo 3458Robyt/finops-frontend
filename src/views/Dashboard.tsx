@@ -1,13 +1,17 @@
 import { CostHistoryUPlot } from '../components/CostHistoryUPlot';
 import { ForecastScenarioPanel } from '../components/ForecastScenarioPanel';
+import RecommendationGenerationAction from '../components/RecommendationGenerationAction';
+import type { ApiRole } from '../services/api';
 import { useDashboardController } from './dashboard/useDashboardController';
 import { formatCompactNumber, formatCurrency, hasPlottableCostData } from './dashboard/dashboardPresentation';
 
 export interface DashboardProps {
   readonly onOpenBudgets?: () => void;
+  readonly apiRole?: ApiRole;
+  readonly onOpenAgentSettings?: () => void;
 }
 
-export default function Dashboard({ onOpenBudgets }: DashboardProps) {
+export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings }: DashboardProps) {
   const {
     loading,
     error,
@@ -124,6 +128,14 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
         </div>
       )}
 
+      {apiRole !== undefined && (
+        <RecommendationGenerationAction
+          role={apiRole}
+          onCompleted={() => window.dispatchEvent(new CustomEvent('finops:recommendations-updated'))}
+          onOpenAnalysis={onOpenAgentSettings}
+        />
+      )}
+
       <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
@@ -140,10 +152,6 @@ export default function Dashboard({ onOpenBudgets }: DashboardProps) {
                 {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
               </select>
             </label>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-zinc-700"></span>
-              <span className="text-xs font-bold text-zinc-400">Current AS-IS</span>
-            </div>
           </div>
         </div>
 

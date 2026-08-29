@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import uPlot, { type AlignedData, type Options } from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { TechnicalMetricSeriesPoint } from '../services/api';
+import { TechnicalMetricLegend, type TechnicalMetricLegendItem } from './TechnicalMetricLegend';
 
 interface TechnicalMetricUPlotProps {
   readonly points: readonly TechnicalMetricSeriesPoint[];
@@ -65,6 +66,7 @@ export function TechnicalMetricUPlot({
       scales: {
         x: { time: true },
       },
+      legend: { show: false },
       axes: [
         {
           stroke: '#a1a1aa',
@@ -133,18 +135,19 @@ export function TechnicalMetricUPlot({
   }, [data]);
 
   return (
-    <div className="relative h-full min-h-[280px] w-full">
-      <div ref={containerRef} className="h-full min-h-[280px] w-full [&_.uplot]:font-sans [&_.u-legend]:!bg-zinc-950 [&_.u-legend]:!text-zinc-200 [&_.u-legend]:!border-zinc-800" />
+    <div data-testid="technical-metric-chart" className="relative w-full">
+      <div data-testid="technical-metric-plot" ref={containerRef} className="h-[300px] min-h-[280px] w-full sm:h-[340px] lg:h-[360px] [&_.uplot]:font-sans" />
       {loading && (
         <div className="pointer-events-none absolute right-3 top-3 rounded-xl border border-zinc-800 bg-zinc-950/90 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-tak-yellow">
           Cargando
         </div>
       )}
       {points.length === 0 && !loading && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-zinc-500">
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[300px] items-center justify-center text-sm font-bold text-zinc-500 sm:h-[340px] lg:h-[360px]">
           Sin datos para los filtros seleccionados
         </div>
       )}
+      <TechnicalMetricLegend items={chart.legendItems} />
     </div>
   );
 }
@@ -159,9 +162,15 @@ function toUPlotChart(
   readonly data: AlignedData;
   readonly series: NonNullable<Options['series']>;
   readonly seriesSignature: string;
+  readonly legendItems: readonly TechnicalMetricLegendItem[];
 } {
   if (!separateResources) {
     const showEnvelope = shouldShowEnvelope(points, statistic);
+    const valueColor = '#FACC15';
+    const envelopeItems = showEnvelope ? [
+      { key: 'minimum', label: 'Mínimo del intervalo', fullLabel: 'Mínimo del intervalo', color: '#22c55e' },
+      { key: 'maximum', label: 'Máximo del intervalo', fullLabel: 'Máximo del intervalo', color: '#38bdf8' },
+    ] : [];
     return {
       data: [
         points.map((point) => new Date(point.bucketStart).getTime() / 1000),
@@ -173,13 +182,17 @@ function toUPlotChart(
       ] as AlignedData,
       series: [
         {},
-        seriesOption(formatStatisticLabel(statistic), '#FACC15', unit, 2),
+        seriesOption(formatStatisticLabel(statistic), valueColor, unit, 2),
         ...(showEnvelope ? [
           seriesOption('Mínimo del intervalo', '#22c55e', unit, 1, [4, 4]),
           seriesOption('Máximo del intervalo', '#38bdf8', unit, 1, [4, 4]),
         ] : []),
       ],
       seriesSignature: `aggregate:${statistic ?? 'MEAN'}:${showEnvelope ? 'envelope' : 'native'}`,
+      legendItems: [
+        { key: 'value', label: formatStatisticLabel(statistic), fullLabel: formatStatisticLabel(statistic), color: valueColor },
+        ...(showEnvelope ? envelopeItems : []),
+      ],
     };
   }
 
@@ -192,6 +205,17 @@ function toUPlotChart(
     streamValues.set(new Date(point.bucketStart).getTime() / 1000, point.value);
     valuesByStream.set(streamId, streamValues);
   }
+
+  const legendItems = streamIds.map((streamId, index) => {
+    const point = points.find((candidate) => streamIdentity(candidate) === streamId);
+    const label = streamLabel(streamId, points, resourceLabels);
+    return {
+      key: streamId,
+      label,
+      fullLabel: point === undefined ? label : `${label}\nID: ${point.externalResourceId}`,
+      color: resourceColor(index),
+    } satisfies TechnicalMetricLegendItem;
+  });
 
   return {
     data: [
@@ -207,7 +231,8 @@ function toUPlotChart(
         2,
       )),
     ],
-    seriesSignature: streamIds.join('|'),
+    seriesSignature: legendItems.map((item) => `${item.key}:${item.label}`).join('|'),
+    legendItems,
   };
 }
 
@@ -237,7 +262,9 @@ function streamLabel(
 ): string {
   const point = points.find((candidate) => streamIdentity(candidate) === streamId);
   if (point === undefined) return 'Flujo';
-  const resourceLabel = resourceLabels?.get(point.externalResourceId) ?? shortResource(point.externalResourceId);
+  const resourceLabel = resourceLabels?.get(point.cloudResourceId ?? '')
+    ?? resourceLabels?.get(point.externalResourceId)
+    ?? shortResource(point.externalResourceId);
   const suffix = [
     point.providerNamespace,
     point.regionId,

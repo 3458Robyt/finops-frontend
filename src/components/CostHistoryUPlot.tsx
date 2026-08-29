@@ -9,7 +9,8 @@ export interface CostHistoryPoint {
 }
 
 export function CostHistoryUPlot({ points, currency }: { readonly points: readonly CostHistoryPoint[]; readonly currency: string }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const plotContainerRef = useRef<HTMLDivElement | null>(null);
+  const legendContainerRef = useRef<HTMLDivElement | null>(null);
   const plotRef = useRef<uPlot | null>(null);
   const chart = useMemo(() => toChart(points), [points]);
   const dataRef = useRef<AlignedData>(chart.data);
@@ -19,12 +20,14 @@ export function CostHistoryUPlot({ points, currency }: { readonly points: readon
   }, [chart.data]);
 
   useEffect(() => {
-    const container = containerRef.current;
+    const container = plotContainerRef.current;
     if (container === null) return;
+    const legendContainer = legendContainerRef.current;
+    legendContainer?.replaceChildren();
 
     const plot = new uPlot({
       width: Math.max(320, container.clientWidth),
-      height: Math.max(280, container.clientHeight),
+      height: Math.max(220, container.clientHeight),
       scales: { x: { time: true } },
       axes: [
         {
@@ -38,6 +41,13 @@ export function CostHistoryUPlot({ points, currency }: { readonly points: readon
           values: (_u, values) => values.map((value) => formatMoney(value, currency)),
         },
       ],
+      legend: {
+        show: true,
+        live: true,
+        mount: (_self, legendElement) => {
+          legendContainer?.appendChild(legendElement);
+        },
+      },
       series: [
         {},
         { label: `Costo AS-IS (${currency})`, stroke: '#FACC15', width: 3, value: (_u, value) => formatMoney(value, currency) },
@@ -46,13 +56,14 @@ export function CostHistoryUPlot({ points, currency }: { readonly points: readon
     plotRef.current = plot;
 
     const observer = new ResizeObserver(() => {
-      plot.setSize({ width: Math.max(320, container.clientWidth), height: Math.max(280, container.clientHeight) });
+      plot.setSize({ width: Math.max(320, container.clientWidth), height: Math.max(220, container.clientHeight) });
     });
     observer.observe(container);
 
     return () => {
       observer.disconnect();
       plot.destroy();
+      legendContainer?.replaceChildren();
       plotRef.current = null;
     };
   }, [chart.labels, currency, points.length]);
@@ -61,7 +72,16 @@ export function CostHistoryUPlot({ points, currency }: { readonly points: readon
     plotRef.current?.setData(chart.data);
   }, [chart.data]);
 
-  return <div ref={containerRef} className="h-full w-full [&_.uplot]:font-sans [&_.u-legend]:!bg-zinc-950 [&_.u-legend]:!text-zinc-200 [&_.u-legend]:!border-zinc-800" />;
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <div ref={plotContainerRef} className="min-h-0 min-w-0 flex-1 [&_.uplot]:font-sans" />
+      <div
+        ref={legendContainerRef}
+        aria-label="Leyenda de costos"
+        className="mt-2 min-h-5 shrink-0 overflow-x-auto px-1 text-left text-xs font-medium text-zinc-400 [&_.u-legend]:!mx-0 [&_.u-legend]:!bg-transparent [&_.u-legend]:!font-sans [&_.u-legend]:!text-xs [&_.u-legend]:!text-zinc-400"
+      />
+    </div>
+  );
 }
 
 function toChart(points: readonly CostHistoryPoint[]): { readonly data: AlignedData; readonly labels: readonly string[] } {
