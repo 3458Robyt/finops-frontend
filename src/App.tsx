@@ -5,7 +5,7 @@ import BottomNav from './components/BottomNav';
 import TopHeader from './components/TopHeader';
 import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog';
 import { AuthSessionProvider } from './auth/AuthSessionContext';
-import { clearAccessToken, completeMfaEnrollment, completeMfaLogin, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, restoreSession, setAccessToken, subscribeToSessionExpired, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
+import { beginSessionTransition, clearAccessToken, completeMfaEnrollment, completeMfaLogin, endSessionTransition, fetchAccessibleTenants, login, logout, mapApiRoleToAppRole, restoreSession, setAccessToken, subscribeToSessionExpired, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession, type AppRole } from './services/api';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Console = lazy(() => import('./views/Console'));
@@ -117,14 +117,19 @@ const handleTenantChange = async (tenantId: string) => {
       return;
     }
 
-    const nextSession = await switchTenant(authSession.accessToken, tenantId);
-    setAccessToken(nextSession.accessToken);
-    setAuthSession(nextSession);
-    setSelectedResourceType(null);
-    if (currentView === 'resource_detail') {
-      setCurrentView('console');
+    beginSessionTransition();
+    try {
+      const nextSession = await switchTenant(authSession.accessToken, tenantId);
+      setAccessToken(nextSession.accessToken);
+      setAuthSession(nextSession);
+      setSelectedResourceType(null);
+      if (currentView === 'resource_detail') {
+        setCurrentView('console');
+      }
+      if (currentView === 'cloud_resource_detail') setCurrentView('cloud_inventory');
+    } finally {
+      endSessionTransition();
     }
-    if (currentView === 'cloud_resource_detail') setCurrentView('cloud_inventory');
 };
 
   const refreshAccessibleTenants = async () => {

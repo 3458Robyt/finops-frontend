@@ -18,6 +18,8 @@ type SessionExpiredListener = () => void;
 
 let inMemoryAccessToken: string | null = null;
 let refreshPromise: Promise<AuthSession | null> | null = null;
+let sessionGeneration = 0;
+let sessionTransitionDepth = 0;
 const sessionRefreshListeners = new Set<SessionRefreshListener>();
 const sessionExpiredListeners = new Set<SessionExpiredListener>();
 let lastSessionExpiredNotificationAt = 0;
@@ -46,6 +48,7 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { token, headers, skipAuthRefresh, ...requestOptions } = options;
   const effectiveToken = inMemoryAccessToken ?? token;
+  const requestGeneration = sessionGeneration;
   const requestHeaders = new Headers(headers);
   requestHeaders.set('Content-Type', 'application/json');
 
@@ -56,6 +59,9 @@ export async function apiRequest<T>(
   const response = await executeRequest(path, requestOptions, requestHeaders);
 
   if (response.status === 401 && effectiveToken !== undefined && skipAuthRefresh !== true && !path.startsWith('/auth/')) {
+    if (sessionResponseIsStale(effectiveToken, requestGeneration)) {
+      return retryWithCurrentSession<T>(path, requestOptions, headers, effectiveToken);
+    }
     const refreshedSession = await refreshAccessToken();
     if (refreshedSession !== null) {
       return apiRequest<T>(path, {
@@ -89,11 +95,15 @@ export async function apiRequestRaw(
 ): Promise<Response> {
   const { token, headers, skipAuthRefresh, ...requestOptions } = options;
   const effectiveToken = inMemoryAccessToken ?? token;
+  const requestGeneration = sessionGeneration;
   const requestHeaders = new Headers(headers);
   if (effectiveToken !== undefined) requestHeaders.set('Authorization', `Bearer ${effectiveToken}`);
 
   const response = await executeRequest(path, requestOptions, requestHeaders);
   if (response.status === 401 && effectiveToken !== undefined && skipAuthRefresh !== true && !path.startsWith('/auth/')) {
+    if (sessionResponseIsStale(effectiveToken, requestGeneration)) {
+      return retryWithCurrentSessionRaw(path, requestOptions, headers, effectiveToken);
+    }
     const refreshedSession = await refreshAccessToken();
     if (refreshedSession !== null) {
       return apiRequestRaw(path, { ...requestOptions, headers, token: refreshedSession.accessToken, skipAuthRefresh: true });
@@ -115,11 +125,25 @@ export async function apiRequestRaw(
 }
 
 export function setAccessToken(token: string): void {
+  if (inMemoryAccessToken === token) return;
   inMemoryAccessToken = token;
+  sessionGeneration += 1;
 }
 
 export function clearAccessToken(): void {
+  if (inMemoryAccessToken === null) return;
   inMemoryAccessToken = null;
+  sessionGeneration += 1;
+}
+
+/** Evita que una respuesta 401 de peticiones iniciadas antes de cambiar de tenant cierre la sesión actual. */
+export function beginSessionTransition(): void {
+  sessionTransitionDepth += 1;
+}
+
+/** Finaliza una transición de sesión iniciada por un cambio de tenant. */
+export function endSessionTransition(): void {
+  sessionTransitionDepth = Math.max(0, sessionTransitionDepth - 1);
 }
 
 /** Registra el puente entre el cliente HTTP y el estado React de autenticación. */
@@ -215,6 +239,52 @@ async function executeRequest(
 function isRetryableMethod(method: string | undefined): boolean {
   const normalized = method?.toUpperCase() ?? 'GET';
   return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+}
+
+function sessionResponseIsStale(effectiveToken: string, requestGeneration: number): boolean {
+  return sessionTransitionDepth > 0
+    || requestGeneration !== sessionGeneration
+    || (inMemoryAccessToken !== null && inMemoryAccessToken !== effectiveToken);
+}
+
+function retryWithCurrentSession<T>(
+  path: string,
+  requestOptions: RequestInit,
+  headers: HeadersInit | undefined,
+  effectiveToken: string,
+): Promise<T> {
+  if (!isRetryableMethod(requestOptions.method) || inMemoryAccessToken === null || inMemoryAccessToken === effectiveToken) {
+    return Promise.reject(new ApiRequestError('La sesión cambió mientras se cargaba esta información.', {
+      status: 401,
+      code: 'STALE_SESSION_REQUEST',
+    }));
+  }
+  return apiRequest<T>(path, {
+    ...requestOptions,
+    headers,
+    token: inMemoryAccessToken,
+    skipAuthRefresh: true,
+  });
+}
+
+function retryWithCurrentSessionRaw(
+  path: string,
+  requestOptions: RequestInit,
+  headers: HeadersInit | undefined,
+  effectiveToken: string,
+): Promise<Response> {
+  if (!isRetryableMethod(requestOptions.method) || inMemoryAccessToken === null || inMemoryAccessToken === effectiveToken) {
+    return Promise.reject(new ApiRequestError('La sesión cambió mientras se cargaba esta información.', {
+      status: 401,
+      code: 'STALE_SESSION_REQUEST',
+    }));
+  }
+  return apiRequestRaw(path, {
+    ...requestOptions,
+    headers,
+    token: inMemoryAccessToken,
+    skipAuthRefresh: true,
+  });
 }
 
 async function refreshAccessToken(): Promise<AuthSession | null> {
