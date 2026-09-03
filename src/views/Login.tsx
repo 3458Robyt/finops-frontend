@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import QRCode from 'qrcode';
+import { useEffect, useState, type FormEvent } from 'react';
 import { confirmPasswordReset, requestPasswordReset, type AuthLoginResponse } from '../services/api';
 
 export default function Login({ onLogin }: {
@@ -16,9 +17,32 @@ export default function Login({ onLogin }: {
   const [resetPassword, setResetPassword] = useState('');
   const [resetConfirmation, setResetConfirmation] = useState('');
   const [mfaChallenge, setMfaChallenge] = useState<Extract<AuthLoginResponse, { readonly mfaRequired: true }> | null>(null);
+  const [mfaQrCode, setMfaQrCode] = useState<string | null>(null);
+  const [mfaQrError, setMfaQrError] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const resetToken = new URLSearchParams(window.location.search).get('token');
+
+  useEffect(() => {
+    const otpauthUri = mfaChallenge?.mfaSetupRequired === true ? mfaChallenge.otpauthUri : undefined;
+    if (otpauthUri === undefined) {
+      setMfaQrCode(null);
+      setMfaQrError(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMfaQrCode(null);
+    setMfaQrError(false);
+    void QRCode.toDataURL(otpauthUri, { width: 240, margin: 2, errorCorrectionLevel: 'M' })
+      .then((dataUrl) => {
+        if (!cancelled) setMfaQrCode(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setMfaQrError(true);
+      });
+    return () => { cancelled = true; };
+  }, [mfaChallenge]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -151,11 +175,18 @@ export default function Login({ onLogin }: {
                   {useRecoveryCode ? 'Usa uno de tus códigos de recuperación de un solo uso.' : 'El acceso requiere un código temporal de seis dígitos.'}
                 </p>
               </div>
-              {mfaChallenge.mfaSetupRequired === true && mfaChallenge.secret !== undefined && (
-                <div className="space-y-1 text-xs text-zinc-300">
-                  <p>Clave de configuración:</p>
-                  <code className="block break-all rounded bg-zinc-950 px-2 py-2 text-tak-yellow">{mfaChallenge.secret}</code>
-                  {mfaChallenge.otpauthUri !== undefined && <p className="break-all text-zinc-500">URI: {mfaChallenge.otpauthUri}</p>}
+              {mfaChallenge.mfaSetupRequired === true && (
+                <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-center">
+                  {mfaQrCode !== null && <img src={mfaQrCode} alt="Código QR para configurar MFA" className="mx-auto rounded bg-white p-2" width={240} height={240} />}
+                  {mfaQrCode === null && !mfaQrError && <p className="text-xs text-zinc-400">Generando código QR…</p>}
+                  {mfaQrError && <p className="text-xs text-red-300">No se pudo generar el código QR. Usa la configuración manual.</p>}
+                  {mfaQrCode !== null && <p className="text-xs text-zinc-400">Escanea este código desde tu aplicación autenticadora.</p>}
+                  {mfaChallenge.secret !== undefined && (
+                    <details className="text-left text-xs text-zinc-300">
+                      <summary className="cursor-pointer text-tak-yellow">¿No puedes escanear? Usar clave manual</summary>
+                      <code className="mt-2 block break-all rounded bg-zinc-900 px-2 py-2 text-tak-yellow">{mfaChallenge.secret}</code>
+                    </details>
+                  )}
                 </div>
               )}
               <input
