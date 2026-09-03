@@ -105,3 +105,11 @@ export function regenerateMfaRecoveryCodes(token: string, code: string): Promise
     body: JSON.stringify({ code }),
   });
 }
+
+export function disableMfa(token: string, code: string): Promise<{ readonly success: true; readonly enabled: false; readonly message: string }> {
+  return apiRequest('/auth/mfa/disable', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ code }),
+  });
+}
