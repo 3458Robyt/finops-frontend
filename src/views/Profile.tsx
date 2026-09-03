@@ -8,13 +8,13 @@ interface ToggleProps {
   onChange: () => void;
 }
 
-export default function Profile({ onLogout, currentRole, user }: {
+export default function Profile({ onLogout, onOpenMessaging, currentRole, user }: {
   onLogout: () => void | Promise<void>;
+  onOpenMessaging?: () => void;
   currentRole: 'admin' | 'client';
   user: ApiUser;
 }) {
   const token = useAccessToken();
-const [notifications, setNotifications] = useState(true);
 const [persistent, setPersistent] = useState(false);
 const [sessions, setSessions] = useState<readonly AuthSessionDevice[]>([]);
 const [sessionError, setSessionError] = useState<string | null>(null);
@@ -158,13 +158,13 @@ const copyTelegramLink = async () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
+              {onOpenMessaging !== undefined && <div className="flex items-center justify-between gap-4 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4">
                 <div>
-                  <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Recordatorios de ahorro</p>
-                  <p className="text-xs text-zinc-500 mt-1">Avisos in-app sobre oportunidades y ahorro no capturado.</p>
+                  <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Preferencias de mensajería</p>
+                  <p className="text-xs text-zinc-500 mt-1">Configura correo, Telegram y los tipos de alertas desde el centro de Mensajería.</p>
                 </div>
-                <Toggle checked={notifications} onChange={() => setNotifications(!notifications)} />
-              </div>
+                <button type="button" onClick={onOpenMessaging} className="shrink-0 rounded-lg border border-sky-500/30 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-sky-300 hover:bg-sky-500/10">Abrir</button>
+              </div>}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-zinc-100 uppercase tracking-tight">Sesión Persistente</p>

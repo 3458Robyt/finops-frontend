@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import type { CurrentView } from './navigation';
 import {
   dismissNotification,
   fetchNotifications,
@@ -10,7 +11,6 @@ import {
   type InAppNotification,
 } from '../services/api';
 
-type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 interface TopHeaderProps {
   currentView: CurrentView;
   activeTenant: AuthTenant;
@@ -28,6 +28,7 @@ const viewTitles: Partial<Record<CurrentView, string>> = {
   history: 'Historial de Optimizaciones',
   profile: 'Perfil de Usuario y Seguridad',
   agent_settings: 'Gobierno del Agente IA',
+  messaging: 'Mensajería',
   ingesta: 'Ingesta y Calidad de Datos',
   metricas_tecnicas: 'Métricas Técnicas',
   master_admin: 'Administracion MSP',

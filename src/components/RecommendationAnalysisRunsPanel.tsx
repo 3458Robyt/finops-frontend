@@ -45,6 +45,7 @@ export default function RecommendationAnalysisRunsPanel({
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const hasActiveRun = useMemo(
     () => runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING'),
@@ -55,12 +56,15 @@ export default function RecommendationAnalysisRunsPanel({
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    Promise.all([
-      fetchRecommendationAnalysisPreview(token, { signal: controller.signal }),
-      fetchRecommendationAnalysisRuns(token, { signal: controller.signal }),
-    ])
-      .then(([previewResponse, runsResponse]) => {
-        setPreview(previewResponse.preview);
+    setPreview(null);
+    setPreviewError(null);
+
+    // El readiness es útil para explicar el análisis, pero no debe impedir que
+    // el historial se muestre ni convertir una consulta lenta en un bloqueo del
+    // módulo. La corrida vuelve a validar toda la evidencia en el worker.
+    void fetchRecommendationAnalysisRuns(token, { signal: controller.signal })
+      .then((runsResponse) => {
+        if (controller.signal.aborted) return;
         setRuns(runsResponse.runs);
         setSelected(runsResponse.runs[0] ?? null);
       })
@@ -69,6 +73,16 @@ export default function RecommendationAnalysisRunsPanel({
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
+      });
+
+    void fetchRecommendationAnalysisPreview(token, { signal: controller.signal })
+      .then((previewResponse) => {
+        if (!controller.signal.aborted) setPreview(previewResponse.preview);
+      })
+      .catch((requestError: unknown) => {
+        if (!controller.signal.aborted) {
+           setPreviewError(`La vista previa no está disponible todavía: ${readPreviewError(requestError)} La corrida puede iniciarse y volverá a validar la evidencia.`);
+        }
       });
     return () => controller.abort();
   }, [token]);
@@ -172,6 +186,7 @@ export default function RecommendationAnalysisRunsPanel({
   return (
     <section className="space-y-4">
       {error !== null && <Notice tone="error">{error}</Notice>}
+      {previewError !== null && <Notice tone="warning">{previewError}</Notice>}
       {message !== null && <Notice tone="success">{message}</Notice>}
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
@@ -195,7 +210,11 @@ export default function RecommendationAnalysisRunsPanel({
           )}
         </div>
         {preview === null ? (
-          <Notice tone="warning">No fue posible determinar un período analizable para el tenant activo.</Notice>
+          <Notice tone="warning">
+            {previewError !== null
+              ? 'La vista previa no está disponible todavía. La corrida puede iniciarse y volverá a validar la evidencia en segundo plano.'
+              : 'Consultando la evidencia disponible del tenant activo…'}
+          </Notice>
         ) : (
           <>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -254,4 +273,11 @@ export default function RecommendationAnalysisRunsPanel({
 
 function readError(error: unknown): string {
   return error instanceof Error ? error.message : 'No fue posible completar la operación de análisis.';
+}
+
+function readPreviewError(error: unknown): string {
+  const message = readError(error);
+  return message.includes('tardó demasiado')
+    ? 'la consulta de evidencia está tardando más de lo esperado.'
+    : message;
 }

@@ -138,7 +138,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
             <span className="material-symbols-outlined text-tak-yellow">speed</span>
             Consumo y Eficiencia FOCUS
           </h3>
-          <p className="text-xs text-zinc-500 mt-1">Estas señales usan consumo facturado; CPU, memoria e IOPS requieren métricas técnicas separadas.</p>
+          <p className="text-xs text-zinc-500 mt-1">Costo unitario = costo facturado ÷ consumo. Se muestra en la moneda nativa reportada por FOCUS (por ejemplo, COP); CPU, memoria e IOPS requieren métricas técnicas separadas.</p>
         </div>
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[720px]">
@@ -147,7 +147,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Señal</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Severidad</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Consumo</th>
-                <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Costo unitario</th>
+                <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Costo unitario (moneda nativa)</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Lectura</th>
               </tr>
             </thead>
@@ -166,7 +166,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
                     {insight.consumedQuantity === undefined ? '-' : `${formatNumber(insight.consumedQuantity)} ${insight.consumedUnit ?? ''}`}
                   </td>
                   <td className="p-4 text-sm text-white font-black">
-                    {insight.unitCost === undefined ? '-' : formatCurrency(insight.unitCost, insight.currency)}
+                    {insight.unitCost === undefined ? '-' : formatUnitCost(insight.unitCost, insight.currency)}
                   </td>
                   <td className="p-4 text-sm text-zinc-400 font-medium">{insight.description}</td>
                 </tr>
@@ -310,14 +310,32 @@ function formatNumber(value: number): string {
 }
 
 function formatCurrency(value: number, currency: string): string {
-  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
-    ? currency.trim().toUpperCase()
-    : 'USD';
+  const normalizedCurrency = normalizeCurrency(currency);
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: normalizedCurrency,
+    currencyDisplay: 'code',
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+/**
+ * Muestra precios unitarios con suficiente precisión y el código ISO explícito.
+ * Estos valores son costo facturado FOCUS / consumo FOCUS en la moneda nativa;
+ * no se convierten silenciosamente ni se confunden con USD por el símbolo `$`.
+ */
+function formatUnitCost(value: number, currency: string): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: normalizeCurrency(currency),
+    currencyDisplay: 'code',
+    maximumFractionDigits: 8,
+  }).format(value);
+}
+
+function normalizeCurrency(currency: string): string {
+  const normalizedCurrency = currency.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalizedCurrency) ? normalizedCurrency : 'USD';
 }
 
 function formatCurrencySummary(recommendations: readonly Recommendation[]): string {

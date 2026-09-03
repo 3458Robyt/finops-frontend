@@ -44,9 +44,14 @@ export class ApiRequestError extends Error {
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit & { readonly token?: string; readonly skipAuthRefresh?: boolean } = {},
+  options: RequestInit & {
+    readonly token?: string;
+    readonly skipAuthRefresh?: boolean;
+    /** Timeout específico para operaciones que pueden tardar más que una lectura normal. */
+    readonly timeoutMs?: number;
+  } = {},
 ): Promise<T> {
-  const { token, headers, skipAuthRefresh, ...requestOptions } = options;
+  const { token, headers, skipAuthRefresh, timeoutMs, ...requestOptions } = options;
   const effectiveToken = inMemoryAccessToken ?? token;
   const requestGeneration = sessionGeneration;
   const requestHeaders = new Headers(headers);
@@ -56,11 +61,11 @@ export async function apiRequest<T>(
     requestHeaders.set('Authorization', `Bearer ${effectiveToken}`);
   }
 
-  const response = await executeRequest(path, requestOptions, requestHeaders);
+  const response = await executeRequest(path, requestOptions, requestHeaders, timeoutMs);
 
   if (response.status === 401 && effectiveToken !== undefined && skipAuthRefresh !== true && !path.startsWith('/auth/')) {
     if (sessionResponseIsStale(effectiveToken, requestGeneration)) {
-      return retryWithCurrentSession<T>(path, requestOptions, headers, effectiveToken);
+      return retryWithCurrentSession<T>(path, requestOptions, headers, effectiveToken, timeoutMs);
     }
     const refreshedSession = await refreshAccessToken();
     if (refreshedSession !== null) {
@@ -69,6 +74,7 @@ export async function apiRequest<T>(
         headers,
         token: refreshedSession.accessToken,
         skipAuthRefresh: true,
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
       });
     }
     notifySessionExpired();
@@ -91,22 +97,32 @@ export async function apiRequest<T>(
 /** Ejecuta una petición autenticada conservando la respuesta binaria/textual. */
 export async function apiRequestRaw(
   path: string,
-  options: RequestInit & { readonly token?: string; readonly skipAuthRefresh?: boolean } = {},
+  options: RequestInit & {
+    readonly token?: string;
+    readonly skipAuthRefresh?: boolean;
+    readonly timeoutMs?: number;
+  } = {},
 ): Promise<Response> {
-  const { token, headers, skipAuthRefresh, ...requestOptions } = options;
+  const { token, headers, skipAuthRefresh, timeoutMs, ...requestOptions } = options;
   const effectiveToken = inMemoryAccessToken ?? token;
   const requestGeneration = sessionGeneration;
   const requestHeaders = new Headers(headers);
   if (effectiveToken !== undefined) requestHeaders.set('Authorization', `Bearer ${effectiveToken}`);
 
-  const response = await executeRequest(path, requestOptions, requestHeaders);
+  const response = await executeRequest(path, requestOptions, requestHeaders, timeoutMs);
   if (response.status === 401 && effectiveToken !== undefined && skipAuthRefresh !== true && !path.startsWith('/auth/')) {
     if (sessionResponseIsStale(effectiveToken, requestGeneration)) {
-      return retryWithCurrentSessionRaw(path, requestOptions, headers, effectiveToken);
+      return retryWithCurrentSessionRaw(path, requestOptions, headers, effectiveToken, timeoutMs);
     }
     const refreshedSession = await refreshAccessToken();
     if (refreshedSession !== null) {
-      return apiRequestRaw(path, { ...requestOptions, headers, token: refreshedSession.accessToken, skipAuthRefresh: true });
+      return apiRequestRaw(path, {
+        ...requestOptions,
+        headers,
+        token: refreshedSession.accessToken,
+        skipAuthRefresh: true,
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      });
     }
     notifySessionExpired();
   }
@@ -167,17 +183,20 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
 
-function createRequestSignal(signal: AbortSignal | null | undefined): {
+function createRequestSignal(signal: AbortSignal | null | undefined, timeoutMs?: number): {
   readonly signal: AbortSignal;
   readonly didTimeout: () => boolean;
   readonly cleanup: () => void;
 } {
   const controller = new AbortController();
   let timedOut = false;
+  const effectiveTimeoutMs = timeoutMs !== undefined && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : API_REQUEST_TIMEOUT_MS;
   const timeout = globalThis.setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, API_REQUEST_TIMEOUT_MS);
+  }, effectiveTimeoutMs);
   const abort = () => controller.abort();
   if (signal?.aborted === true) controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -195,8 +214,9 @@ async function executeRequest(
   path: string,
   requestOptions: RequestInit,
   headers: Headers,
+  timeoutMs?: number,
 ): Promise<Response> {
-  const requestSignal = createRequestSignal(requestOptions.signal);
+  const requestSignal = createRequestSignal(requestOptions.signal, timeoutMs);
   const maxAttempts = isRetryableMethod(requestOptions.method) ? 2 : 1;
   try {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -252,6 +272,7 @@ function retryWithCurrentSession<T>(
   requestOptions: RequestInit,
   headers: HeadersInit | undefined,
   effectiveToken: string,
+  timeoutMs?: number,
 ): Promise<T> {
   if (!isRetryableMethod(requestOptions.method) || inMemoryAccessToken === null || inMemoryAccessToken === effectiveToken) {
     return Promise.reject(new ApiRequestError('La sesión cambió mientras se cargaba esta información.', {
@@ -264,6 +285,7 @@ function retryWithCurrentSession<T>(
     headers,
     token: inMemoryAccessToken,
     skipAuthRefresh: true,
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
   });
 }
 
@@ -272,6 +294,7 @@ function retryWithCurrentSessionRaw(
   requestOptions: RequestInit,
   headers: HeadersInit | undefined,
   effectiveToken: string,
+  timeoutMs?: number,
 ): Promise<Response> {
   if (!isRetryableMethod(requestOptions.method) || inMemoryAccessToken === null || inMemoryAccessToken === effectiveToken) {
     return Promise.reject(new ApiRequestError('La sesión cambió mientras se cargaba esta información.', {
@@ -284,6 +307,7 @@ function retryWithCurrentSessionRaw(
     headers,
     token: inMemoryAccessToken,
     skipAuthRefresh: true,
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
   });
 }
 

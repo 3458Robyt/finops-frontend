@@ -7,6 +7,10 @@ export async function fetchRecommendationAnalysisPreview(
 ): Promise<{ readonly success: true; readonly preview: RecommendationAnalysisPreview }> {
   return apiRequest('/ai/analysis-runs/readiness', {
     token,
+    // La vista previa consulta agregados y métricas técnicas; no debe heredar
+    // el timeout corto de las lecturas simples. Sigue siendo opcional para que
+    // no bloquee el botón de encolar el análisis.
+    timeoutMs: 60_000,
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
   });
 }
@@ -17,6 +21,9 @@ export async function queueRecommendationAnalysis(
   return apiRequest('/ai/analysis-runs', {
     method: 'POST',
     token,
+    // La cola solo inserta/recupera una corrida; si tarda más, informar pronto
+    // en lugar de dejar la interfaz en un estado ambiguo.
+    timeoutMs: 10_000,
     body: JSON.stringify({}),
   });
 }

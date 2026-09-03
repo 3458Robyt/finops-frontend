@@ -14,6 +14,7 @@ const History = lazy(() => import('./views/History'));
 const Profile = lazy(() => import('./views/Profile'));
 const ResourceDetail = lazy(() => import('./views/ResourceDetail'));
 const AgentSettings = lazy(() => import('./views/AgentSettings'));
+const Messaging = lazy(() => import('./views/Messaging'));
 const Ingesta = lazy(() => import('./views/Ingesta'));
 const MetricasTecnicas = lazy(() => import('./views/MetricasTecnicas'));
 const MasterAdmin = lazy(() => import('./views/MasterAdmin'));
@@ -24,7 +25,7 @@ const CostAllocation = lazy(() => import('./views/CostAllocation'));
 const ValueRealization = lazy(() => import('./views/ValueRealization'));
 const ClientInvitationAccept = lazy(() => import('./views/ClientInvitationAccept'));
 
-type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
+type View = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'messaging' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 export type Role = AppRole;
 function App() {
   const [currentView, setCurrentView] = useState<View>('login');
@@ -189,6 +190,7 @@ availableTenants: response.availableTenants,
     setCurrentView('resource_detail');
   }}
 /> : <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
+      case 'messaging': return <Messaging role={authSession.user.role} />;
 case 'ingesta': return <Ingesta canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onNavigate={setCurrentView} />;
       case 'metricas_tecnicas': return <MetricasTecnicas />;
 case 'budgets': return <Budgets canManage={['MASTER_ADMIN', 'OPERATOR_ADMIN', 'ADMIN', 'FINOPS_TECHNICIAN'].includes(authSession.user.role)} onOpenAllocation={() => setCurrentView('cost_allocation')} />;
@@ -199,7 +201,7 @@ case 'cloud_resource_detail': return <CloudResourceDetail externalResourceId={se
 case 'master_admin': return authSession.user.role === 'MASTER_ADMIN'
 ? <MasterAdmin onTenantsChanged={refreshAccessibleTenants} />
 : <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
-case 'profile': return <Profile onLogout={handleLogout} currentRole={currentRole} user={authSession.user} />;
+case 'profile': return <Profile onLogout={handleLogout} onOpenMessaging={() => setCurrentView('messaging')} currentRole={currentRole} user={authSession.user} />;
       default: return <Dashboard apiRole={authSession.user.role} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
     }
   };

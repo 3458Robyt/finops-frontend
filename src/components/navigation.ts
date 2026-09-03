@@ -1,6 +1,6 @@
 export type AppRole = 'admin' | 'client';
 export type ApiRole = 'ADMIN' | 'MASTER_ADMIN' | 'VIEWER' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
-export type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
+export type CurrentView = 'login' | 'dashboard' | 'console' | 'chat' | 'history' | 'profile' | 'resource_detail' | 'agent_settings' | 'messaging' | 'ingesta' | 'metricas_tecnicas' | 'master_admin' | 'cloud_inventory' | 'cloud_resource_detail' | 'budgets' | 'cost_allocation' | 'value_realization';
 export type NavView = Exclude<CurrentView, 'login' | 'resource_detail' | 'cloud_resource_detail'>;
 
 export interface NavItem {
@@ -23,6 +23,7 @@ const allNavItems: readonly NavItem[] = [
   { id: 'chat', icon: 'smart_toy', label: 'Asistente IA', roles: ['admin', 'client'] },
   { id: 'history', icon: 'history', label: 'Historial', roles: ['admin', 'client'] },
   { id: 'agent_settings', icon: 'settings_suggest', label: 'Agente IA', roles: ['admin'] },
+  { id: 'messaging', icon: 'campaign', label: 'Mensajería', roles: ['admin', 'client'] },
   { id: 'master_admin', icon: 'admin_panel_settings', label: 'Administración MSP', roles: ['admin'], masterOnly: true },
 ];
 

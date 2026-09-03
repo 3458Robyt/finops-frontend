@@ -1,5 +1,29 @@
 import { apiRequest } from './apiClient';
-import type { TelegramLinksResponse, TelegramLinkResponse, TelegramSelfLinkCodeResponse, OutboundChannelStatusResponse, OutboundDeliveriesResponse, OutboundSendResponse } from './apiTypes';
+import type { TelegramLinksResponse, TelegramLinkResponse, TelegramSelfLinkCodeResponse, OutboundChannelStatusResponse, OutboundDeliveriesResponse, OutboundSendResponse, EmailVerifyResponse, TelegramVerifyResponse, MessagingPreferences, MessagingPreferencesResponse } from './apiTypes';
+
+export async function fetchMessagingPreferences(token: string): Promise<MessagingPreferencesResponse> {
+  return apiRequest<MessagingPreferencesResponse>('/outbound-messages/preferences', { token });
+}
+
+export async function updateMessagingPreferences(token: string, preferences: Partial<MessagingPreferences>): Promise<MessagingPreferencesResponse> {
+  const metadataKeys = new Set(['id', 'userId', 'createdAt', 'updatedAt']);
+  const update = Object.fromEntries(
+    Object.entries(preferences).filter(([key]) => !metadataKeys.has(key)),
+  ) as Partial<MessagingPreferences>;
+  return apiRequest<MessagingPreferencesResponse>('/outbound-messages/preferences', {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(update),
+  });
+}
+
+export async function verifyEmailConfiguration(token: string): Promise<EmailVerifyResponse> {
+  return apiRequest<EmailVerifyResponse>('/outbound-messages/email/verify', { method: 'POST', token });
+}
+
+export async function verifyTelegramConfiguration(token: string): Promise<TelegramVerifyResponse> {
+  return apiRequest<TelegramVerifyResponse>('/outbound-messages/telegram/verify', { method: 'POST', token });
+}
 
 export async function fetchTelegramLinks(token: string): Promise<TelegramLinksResponse> {
   return apiRequest<TelegramLinksResponse>('/telegram/links', { token });

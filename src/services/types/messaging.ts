@@ -13,6 +13,7 @@ export interface TelegramChatLink {
   readonly tenantId: string;
   readonly userId: string;
   readonly chatId: string;
+  readonly activeTenantId?: string;
   readonly telegramUserId?: string;
   readonly telegramUsername?: string;
   readonly status: 'ACTIVE' | 'DISABLED';
@@ -37,6 +38,19 @@ export interface TelegramSelfLinkCodeResponse {
   readonly startCommand: string;
   readonly deepLink?: string;
 }
+export interface MessagingPreferences {
+  readonly id: string;
+  readonly userId: string;
+  readonly emailEnabled: boolean;
+  readonly telegramEnabled: boolean;
+  readonly operationalAlerts: boolean;
+  readonly recommendationAlerts: boolean;
+  readonly financialAlerts: boolean;
+  readonly executiveSummaries: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+export interface MessagingPreferencesResponse { readonly success: true; readonly preferences: MessagingPreferences; }
 export type OutboundMessageChannel = 'TELEGRAM' | 'EMAIL';
 export type OutboundMessageType = 'TEST' | 'SAVINGS_REMINDER' | 'AI_CHAT_RESPONSE' | 'RECOMMENDATION_SUMMARY' | 'EXECUTION_PLAN_READY' | 'BUDGET_ALERT' | 'EXECUTIVE_SUMMARY';
 export type OutboundMessageStatus = 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'SKIPPED';
@@ -72,6 +86,8 @@ export interface OutboundChannelStatusResponse {
     };
   };
 }
+export interface EmailVerifyResponse { readonly success: true; readonly verified: boolean; }
+export interface TelegramVerifyResponse { readonly success: true; readonly verified: boolean; }
 export interface OutboundDeliveriesResponse {
   readonly success: true;
   readonly deliveries: readonly OutboundMessageDelivery[];
