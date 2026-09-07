@@ -61,20 +61,22 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
   } = useAgentSettingsController(role);
 
   if (loading) {
-    return <div className="p-8 text-sm font-bold text-zinc-500">Cargando configuracion del agente...</div>;
+    return <div className="ui-state-screen text-sm font-bold">Cargando configuración del agente…</div>;
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <header className="rounded-lg border border-zinc-800 bg-zinc-950 p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">Agente IA</p>
+    <div className="ui-page space-y-6">
+      <header className="ui-page-header">
+        <div>
+        <p className="ui-kicker">Agente IA</p>
         <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-black text-white">Gobierno, evidencia y canales externos</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
+            <h1 className="ui-page-title mt-2">Gobierno, evidencia y canales externos</h1>
+            <p className="ui-page-lead">
               El modulo conserva instrucciones, reglas tenant, trazas de IA y entregas por Telegram/correo. El grafo visual fue retirado porque no aportaba evidencia confiable ni ahorro real de tokens.
             </p>
           </div>
+        </div>
           <StatusBadge label={profile?.status ?? 'Sin perfil'} tone={profile?.status === 'ACTIVE' ? 'success' : 'warning'} />
         </div>
       </header>
@@ -85,7 +87,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`inline-flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-black ${
-              activeTab === tab.id ? 'border-tak-yellow bg-tak-yellow text-zinc-950' : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white'
+              activeTab === tab.id ? 'ui-button-primary' : 'ui-button-secondary'
             }`}
           >
             <span className="material-symbols-outlined text-lg">{tab.icon}</span>
@@ -94,8 +96,8 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
         ))}
       </nav>
 
-      {message !== null && <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">{message}</p>}
-      {error !== null && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">{error}</p>}
+      {message !== null && <p className="ui-alert-positive px-4 py-3 text-sm font-bold">{message}</p>}
+      {error !== null && <p className="ui-alert-danger px-4 py-3 text-sm font-bold">{error}</p>}
 
       {activeTab === 'analysis' && (
         <RecommendationAnalysisRunsPanel

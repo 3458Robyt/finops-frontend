@@ -23,14 +23,22 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
 
   if (loading) {
     return (
-      <div className="p-6 lg:p-8">
+      <div className="ui-state-screen text-sm font-bold">
         <p className="text-sm font-bold text-zinc-500">Cargando administracion MSP...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-28 lg:pb-8">
+    <div className="ui-page space-y-6 pb-28 lg:pb-8">
+      <header className="ui-page-header">
+        <div>
+          <p className="ui-kicker">Administración MSP</p>
+          <h1 className="ui-page-title mt-2">Tenants, usuarios y accesos</h1>
+          <p className="ui-page-lead">Administra el perímetro multi-tenant y asigna accesos sin crear cuentas duplicadas.</p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">Vista global</span>
+      </header>
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Metric title="Tenants" value={tenants.length} helper={`${activeTenants.length} activos`} />
         <Metric title="Suspendidos" value={suspendedTenants} helper="No aparecen en selector operativo" />
@@ -53,7 +61,7 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
       <MasterAdminIngestionJobsPanel tenants={tenants} />
 
       <section className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6">
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="ui-surface overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-white">Tenants existentes</h2>
@@ -198,7 +206,7 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
           </form>
         </FormPanel>
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="ui-surface overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-white">Accesos activos</h2>

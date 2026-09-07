@@ -14,21 +14,25 @@ export default function Ingesta({ canManage, onNavigate }: {
   const controller = useIngestionController();
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 lg:space-y-8">
-      <header>
-        <h2 className="text-2xl font-black text-white">Ingesta y calidad de datos</h2>
-        <p className="mt-1 text-sm text-zinc-400">
+    <div className="ui-page space-y-6 animate-in fade-in duration-500 lg:space-y-8">
+      <header className="ui-page-header">
+        <div>
+        <p className="ui-kicker">Operación de datos</p>
+        <h2 className="ui-page-title mt-2">Ingesta y calidad de datos</h2>
+        <p className="ui-page-lead">
           Historial de trabajos de ingesta y resultados de los controles de calidad del tenant.
         </p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">Flujo manual controlado</span>
       </header>
 
       {controller.error !== null && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-medium text-red-300">
+        <div className="ui-alert-danger p-4 text-sm font-medium">
           {controller.error}
         </div>
       )}
       {controller.queueMessage !== null && (
-        <div className="rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-sm font-medium text-green-300">
+        <div className="ui-alert-positive p-4 text-sm font-medium">
           {controller.queueMessage}
         </div>
       )}

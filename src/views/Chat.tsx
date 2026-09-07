@@ -127,11 +127,19 @@ export default function Chat({ role }: ChatProps) {
   };
 
   return (
-    <div data-testid="chat-module" className="relative flex h-full min-h-0 flex-col overflow-hidden animate-in fade-in duration-500">
+    <div data-testid="chat-module" className="ui-page relative flex h-full min-h-0 flex-col overflow-hidden animate-in fade-in duration-500">
+      <header className="ui-page-header shrink-0 pb-4">
+        <div>
+          <p className="ui-kicker">Asistente de operaciones</p>
+          <h1 className="ui-page-title mt-2 text-3xl">Conversa con tus datos FinOps</h1>
+          <p className="ui-page-lead">Consulta costos, consumo y oportunidades del tenant activo. Las respuestas se generan con contexto gobernado.</p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">IA · español</span>
+      </header>
       <div
         data-testid="chat-history"
         ref={historyRef}
-        className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-2"
+        className="custom-scrollbar mt-4 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-2"
         onScroll={() => {
           const historyElement = historyRef.current;
           if (historyElement === null) return;
@@ -155,8 +163,8 @@ export default function Chat({ role }: ChatProps) {
             <div
               className={
                 message.role === 'user'
-                  ? 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] sm:max-w-[70%] text-sm whitespace-pre-wrap'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[95%] sm:max-w-[80%] text-sm leading-relaxed'
+                  ? 'ui-surface-raised max-w-[85%] rounded-xl rounded-tr-sm px-4 py-3 text-sm text-zinc-100 whitespace-pre-wrap sm:max-w-[70%]'
+                  : 'ui-surface max-w-[95%] rounded-xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed text-zinc-300 sm:max-w-[80%]'
               }
             >
               {message.role === 'assistant'
@@ -186,7 +194,7 @@ export default function Chat({ role }: ChatProps) {
               key={prompt}
               onClick={() => void submitMessage(prompt)}
               disabled={isSending || isGenerating}
-              className="whitespace-nowrap bg-zinc-900 border border-zinc-800 hover:border-tak-yellow disabled:opacity-50 text-xs font-bold text-zinc-400 hover:text-tak-yellow px-4 py-1.5 rounded-full transition-colors flex items-center gap-1"
+              className="ui-button ui-button-secondary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
             >
               <span className="material-symbols-outlined text-[14px]">bolt</span> {prompt}
             </button>
@@ -194,14 +202,14 @@ export default function Chat({ role }: ChatProps) {
           <button
             onClick={() => void handleGenerateRecommendations(false)}
             disabled={isSending || isGenerating}
-            className="whitespace-nowrap bg-zinc-900 border border-zinc-800 hover:border-tak-yellow disabled:opacity-50 text-xs font-bold text-zinc-400 hover:text-tak-yellow px-4 py-1.5 rounded-full transition-colors flex items-center gap-1"
+            className="ui-button ui-button-secondary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
           >
             <span className="material-symbols-outlined text-[14px]">auto_awesome</span> Previsualizar recomendaciones IA
           </button>
           <button
             onClick={() => void handleGenerateRecommendations(true)}
             disabled={isSending || isGenerating}
-            className="whitespace-nowrap bg-tak-yellow/10 border border-tak-yellow/30 hover:bg-tak-yellow disabled:opacity-50 text-xs font-bold text-tak-yellow hover:text-zinc-950 px-4 py-1.5 rounded-full transition-colors flex items-center gap-1"
+            className="ui-button ui-button-primary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
           >
             <span className="material-symbols-outlined text-[14px]">save</span> Guardar recomendaciones IA
           </button>
@@ -218,12 +226,12 @@ export default function Chat({ role }: ChatProps) {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Escribe tu consulta a la IA (ej: Muéstrame el ROI actual)..." 
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-4 pr-12 text-sm text-white focus:outline-none focus:border-tak-yellow transition-all shadow-inner"
+            className="ui-control w-full rounded-xl py-4 pl-4 pr-12 text-sm"
           />
           <button
             type="submit"
             disabled={isSending || input.trim() === ''}
-            className="absolute right-2 top-1/2 -translate-y-1/2 size-10 bg-tak-yellow text-zinc-950 rounded-xl flex items-center justify-center hover:bg-yellow-400 disabled:opacity-50 transition-colors shadow"
+            className="ui-button ui-button-primary absolute right-2 top-1/2 size-10 -translate-y-1/2 px-0 disabled:opacity-50"
           >
             <span className="material-symbols-outlined font-bold">send</span>
           </button>

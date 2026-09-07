@@ -15,7 +15,7 @@ const kindLabels: Readonly<Record<DeterministicFinOpsOpportunity['kind'], string
 export default function DeterministicOpportunityPanel({ catalog }: { readonly catalog: DeterministicOpportunityCatalog }) {
   const visible = catalog.opportunities.slice(0, 8);
   return (
-    <section className="border-t border-zinc-800 bg-zinc-950/30 p-6">
+    <section className="ui-surface-raised border-t-0 p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export default function DeterministicOpportunityPanel({ catalog }: { readonly ca
 
 function OpportunityCard({ opportunity }: { readonly opportunity: DeterministicFinOpsOpportunity }) {
   return (
-    <article className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+    <article className="ui-surface-raised p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wide ${priorityClasses[opportunity.priority]}`}>{priorityLabels[opportunity.priority]}</span>
         <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{kindLabels[opportunity.kind]}</span>

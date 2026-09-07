@@ -28,7 +28,7 @@ export function CanonicalEvidencePanel({ snapshot, evidence }: { readonly snapsh
 
       <div className="mt-5 space-y-4">
         {snapshot.resources.map((resource) => (
-          <div key={resource.externalResourceId} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <div key={resource.externalResourceId} className="ui-surface-raised p-4">
             <div className="flex flex-wrap justify-between gap-2 text-xs font-bold text-zinc-200">
               <span className="break-all">{resource.externalResourceId}</span>
               <span className="text-cyan-300">{resource.linkQuality === 'COST_AND_TECHNICAL' ? 'Costo y métrica enlazados' : 'Métrica sin costo enlazado'}</span>
@@ -143,14 +143,14 @@ export function ExecutionPlanPanel({
                 <button
                   onClick={onApprove}
                   disabled={decisionLoading}
-                  className="bg-green-500 hover:bg-green-400 disabled:opacity-60 py-3 rounded-2xl text-zinc-950 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98]"
+                  className="bg-green-500 hover:bg-green-400 disabled:opacity-60 py-3 rounded-2xl text-zinc-950 font-black text-xs uppercase tracking-widest transition-[transform,background-color,opacity] active:scale-[0.98]"
                 >
                   Aprobar plan
                 </button>
                 <button
                   onClick={onReject}
                   disabled={decisionLoading}
-                  className="bg-red-500/10 hover:bg-red-500/20 disabled:opacity-60 py-3 rounded-2xl text-red-300 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] border border-red-500/20"
+                  className="bg-red-500/10 hover:bg-red-500/20 disabled:opacity-60 py-3 rounded-2xl text-red-300 font-black text-xs uppercase tracking-widest transition-[transform,background-color,opacity] active:scale-[0.98] border border-red-500/20"
                 >
                   Rechazar
                 </button>

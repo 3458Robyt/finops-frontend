@@ -28,7 +28,7 @@ export function ManualExecutionPanel({
   readonly onSubmit: () => void;
 }) {
   return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-950/40 p-6 md:p-8">
+    <div className="ui-surface-raised p-6 md:p-8">
       <p className="text-[10px] font-black text-tak-yellow uppercase tracking-[0.25em]">Ejecucion manual gobernada</p>
       <h4 className="mt-2 text-xl font-black text-white">Registrar resultado</h4>
       <div className="mt-6 space-y-4">
@@ -119,7 +119,7 @@ export function SavingsMeasurementPanel({
       : 'border-cyan-500/20 bg-cyan-500/5';
 
   return (
-    <section className={`rounded-3xl border p-6 md:p-8 ${tone}`}>
+    <section className={`ui-surface p-6 md:p-8 ${tone}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Medición verificable del ahorro</p>

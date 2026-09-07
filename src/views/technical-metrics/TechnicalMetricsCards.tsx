@@ -14,7 +14,7 @@ export function StatCard({ icon, label, value, helper }: {
   readonly helper: string;
 }) {
   return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+    <div className="ui-surface p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <span className="material-symbols-outlined text-tak-yellow">{icon}</span>
         <span className="h-2 w-2 rounded-full bg-tak-yellow" />
@@ -48,7 +48,7 @@ export function SelectField({ label, value, onChange, children }: {
 
 export function KpiCard({ kpi }: { readonly kpi: TechnicalMetricKpi }) {
   return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+    <div className="ui-surface p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm font-black text-white">{kpi.label}</p>
         <span className="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-[10px] font-black text-tak-yellow">
@@ -89,7 +89,7 @@ function KpiSparkline({ values }: { readonly values: readonly number[] }) {
 
 export function MiniMetric({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+    <div className="ui-surface-raised p-3">
       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
       <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
     </div>

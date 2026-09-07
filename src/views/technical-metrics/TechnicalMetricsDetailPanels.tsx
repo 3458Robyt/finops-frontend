@@ -11,7 +11,7 @@ import {
 export function ResourceCostPanel({ overview }: { readonly overview: TechnicalMetricsOverview | null }) {
   const resources = overview?.resources ?? [];
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <section className="ui-surface overflow-hidden">
       <div className="border-b border-zinc-800 p-5">
         <h3 className="text-lg font-bold text-white">Recursos y costo asociado</h3>
         <p className="text-xs text-zinc-500">El costo solo se muestra cuando hay relacion exacta por recurso.</p>
@@ -46,7 +46,7 @@ export function SamplesTable({ samples, loading }: {
   readonly loading: boolean;
 }) {
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <section className="ui-surface overflow-hidden">
       <div className="border-b border-zinc-800 p-5">
         <h3 className="text-lg font-bold text-white">Muestras recientes</h3>
         <p className="text-xs text-zinc-500">Detalle crudo para auditoria rapida.</p>

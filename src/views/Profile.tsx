@@ -83,9 +83,9 @@ const copyTelegramLink = async () => {
 };
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
-      <section className="bg-zinc-900 rounded-3xl p-6 lg:p-8 border border-zinc-800 shadow-2xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-tak-yellow/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-tak-yellow/10 transition-all"></div>
+    <div className="ui-page space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <section className="ui-surface relative overflow-hidden p-6 lg:p-8">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-tak-yellow/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-tak-yellow/10 transition-colors"></div>
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
           <div className="relative">
             <div className="size-32 rounded-3xl border-2 border-zinc-800 shadow-2xl bg-zinc-800 flex items-center justify-center text-5xl font-black text-zinc-600">
@@ -133,7 +133,7 @@ const copyTelegramLink = async () => {
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-        <div className="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden flex flex-col">
+        <div className="ui-surface flex flex-col overflow-hidden">
           <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
             <span className="material-symbols-outlined text-tak-yellow">security</span>
             <h3 className="text-lg font-bold text-white">Seguridad y Acceso</h3>
@@ -176,11 +176,11 @@ const copyTelegramLink = async () => {
             </div>
 
             <div className="pt-6 space-y-3">
-              <button className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-black rounded-xl transition-all uppercase tracking-widest border border-zinc-700 flex items-center justify-center gap-2">
+              <button className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-black rounded-xl transition-colors uppercase tracking-widest border border-zinc-700 flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-lg">lock_reset</span>
                 Cambiar Contraseña
               </button>
-              <button onClick={onLogout} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-black rounded-xl transition-all uppercase tracking-widest border border-red-500/20 flex items-center justify-center gap-2">
+              <button onClick={onLogout} className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-black rounded-xl transition-colors uppercase tracking-widest border border-red-500/20 flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-lg">logout</span>
                 Cerrar Sesión
               </button>
@@ -188,7 +188,7 @@ const copyTelegramLink = async () => {
           </div>
         </div>
 
-        <div className="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
+        <div className="ui-surface overflow-hidden">
           <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
             <span className="material-symbols-outlined text-tak-yellow">history</span>
             <h3 className="text-lg font-bold text-white">Sesiones Activas</h3>
@@ -222,7 +222,7 @@ function Toggle({ checked, onChange }: ToggleProps) {
         type="checkbox" 
         checked={checked}
         onChange={onChange}
-        className="absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer checked:right-0 checked:bg-tak-yellow checked:border-tak-yellow transition-all"
+        className="absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer checked:right-0 checked:bg-tak-yellow checked:border-tak-yellow transition-colors"
       />
       <label className={`block overflow-hidden h-6 rounded-full cursor-pointer transition-colors ${checked ? 'bg-tak-yellow/20 border-tak-yellow/30' : 'bg-zinc-800 border-zinc-700 border'}`}></label>
     </div>

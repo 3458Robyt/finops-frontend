@@ -23,7 +23,7 @@ export default function MetricCoveragePanel({ coverage, loading }: {
   readonly loading: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+    <section className="ui-surface overflow-hidden">
       <header className="border-b border-zinc-800 p-6">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-tak-yellow">data_check</span>
@@ -67,7 +67,7 @@ export default function MetricCoveragePanel({ coverage, loading }: {
 }
 
 function SummaryCard({ label, value, detail, tone = 'text-white' }: { readonly label: string; readonly value: number; readonly detail: string; readonly tone?: string }) {
-  return <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4"><p className="text-xs font-bold uppercase tracking-widest text-zinc-500">{label}</p><p className={`mt-2 text-2xl font-black ${tone}`}>{value.toLocaleString('es-CO')}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div>;
+  return <div className="ui-surface-raised p-4"><p className="text-xs font-bold uppercase tracking-widest text-zinc-500">{label}</p><p className={`mt-2 text-2xl font-black ${tone}`}>{value.toLocaleString('es-CO')}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div>;
 }
 
 function Th({ children }: { readonly children: React.ReactNode }) { return <th className="border-b border-zinc-800 p-4 text-xs font-bold uppercase tracking-widest text-zinc-500">{children}</th>; }

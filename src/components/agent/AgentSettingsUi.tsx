@@ -1,6 +1,6 @@
 export function AgentMetric({ title, value, helper, icon }: { readonly title: string; readonly value: string | number; readonly helper: string; readonly icon: string }) {
   return (
-    <article className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+    <article className="ui-surface-raised p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{title}</p>
@@ -38,7 +38,7 @@ export function Input({ label, value, onChange }: { readonly label: string; read
   return (
     <label className="block">
       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm font-bold text-zinc-100 outline-none focus:border-tak-yellow" />
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="ui-control mt-2 w-full px-3 py-3 text-sm font-bold outline-none" />
     </label>
   );
 }
@@ -47,7 +47,7 @@ export function TextArea({ label, value, rows, onChange }: { readonly label: str
   return (
     <label className="block">
       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      <textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className="mt-2 w-full resize-y rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm font-bold leading-relaxed text-zinc-100 outline-none focus:border-tak-yellow" />
+      <textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className="ui-control mt-2 w-full resize-y px-3 py-3 text-sm font-bold leading-relaxed outline-none" />
     </label>
   );
 }

@@ -37,7 +37,7 @@ export default function BillingSourcePanel({
   readonly onFocusSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+    <section className="ui-surface overflow-hidden">
       <header className="flex items-center gap-2 border-b border-zinc-800 p-6"><span className="material-symbols-outlined text-tak-yellow">folder_managed</span><h3 className="text-lg font-bold text-white">Fuente de facturación</h3></header>
       <form onSubmit={onBillingSubmit} className="border-b border-zinc-800 p-6">
         <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto]">
@@ -52,7 +52,7 @@ export default function BillingSourcePanel({
         <div className="grid gap-4 lg:grid-cols-4">
           <label className="space-y-2 lg:col-span-2"><FieldLabel>Conexión</FieldLabel><ConnectionSelectBare connections={connections} value={focus.connectionId} onChange={(connectionId) => onFocusChange({ connectionId })} /></label>
           <label className="space-y-2"><FieldLabel>Modo</FieldLabel><select value={focus.mode} onChange={(event) => onFocusChange({ mode: event.target.value as FocusFormState['mode'] })} className={inputClassName}><option value="location">Prefijo</option><option value="object">Objeto directo</option></select></label>
-          <label className="flex items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2"><input type="checkbox" checked={focus.replace} onChange={(event) => onFocusChange({ replace: event.target.checked })} className="h-4 w-4 accent-tak-yellow" /><span className="text-sm font-bold text-zinc-300">Reemplazar lista</span></label>
+          <label className="ui-surface-raised flex items-end gap-3 px-3 py-2"><input type="checkbox" checked={focus.replace} onChange={(event) => onFocusChange({ replace: event.target.checked })} className="h-4 w-4 accent-tak-yellow" /><span className="text-sm font-bold text-zinc-300">Reemplazar lista</span></label>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           {provider === 'oci' && <TextField label="Namespace OCI" value={focus.namespace} onChange={(namespace) => onFocusChange({ namespace })} required />}
@@ -73,5 +73,5 @@ function ConnectionSelectBare({ connections, value, onChange }: { readonly conne
 function TextField({ label, value, onChange, required = false, className = '' }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly required?: boolean; readonly className?: string }) { return <label className={`space-y-2 ${className}`}><FieldLabel>{label}</FieldLabel><input value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName} required={required} /></label>; }
 function FieldLabel({ children }: { readonly children: React.ReactNode }) { return <span className="block text-xs font-bold uppercase tracking-widest text-zinc-500">{children}</span>; }
 
-const inputClassName = 'w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-tak-yellow';
-const buttonClassName = 'inline-flex h-10 items-center justify-center rounded-xl bg-zinc-100 px-4 text-sm font-black text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
+const inputClassName = 'ui-control w-full px-3 py-2 text-sm font-medium outline-none';
+const buttonClassName = 'ui-button ui-button-secondary h-10 disabled:cursor-not-allowed disabled:opacity-60';

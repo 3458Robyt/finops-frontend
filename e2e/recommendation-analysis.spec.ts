@@ -50,7 +50,10 @@ test('el chat responde en español y la generación directa conserva la auditor�
 });
 
 for (const viewport of [
-  { width: 390, height: 844, label: 'móvil' },
+  { width: 320, height: 720, label: 'móvil compacto' },
+  { width: 375, height: 812, label: 'móvil estándar' },
+  { width: 414, height: 896, label: 'móvil amplio' },
+  { width: 768, height: 1024, label: 'tablet' },
   { width: 1024, height: 768, label: 'portátil con rail' },
   { width: 1280, height: 720, label: 'escritorio con barra completa' },
 ]) {
@@ -59,7 +62,7 @@ for (const viewport of [
     await mockApi(page, 'ADMIN');
     await login(page);
 
-    if (viewport.width < 640) {
+    if (viewport.width < 1024) {
       await expect(page.getByRole('button', { name: 'Más', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Más', exact: true }).click();
       await expect(page.getByRole('dialog', { name: 'Todos los módulos' })).toBeVisible();

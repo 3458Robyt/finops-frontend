@@ -48,8 +48,16 @@ export default function History() {
   }, [token]);
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
-      <div className="flex bg-zinc-900 border border-zinc-800 p-1 rounded-xl w-full max-w-sm mx-auto sm:mx-0">
+    <div className="ui-page space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <header className="ui-page-header">
+        <div>
+          <p className="ui-kicker">Gobierno y resultados</p>
+          <h1 className="ui-page-title mt-2">Historial y estado operativo</h1>
+          <p className="ui-page-lead">Conserva la trazabilidad de las oportunidades y el estado de las integraciones que sostienen el análisis.</p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">Auditoría continua</span>
+      </header>
+      <div className="flex w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900 p-1">
         <button
           onClick={() => setActiveTab('audit')}
           className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors ${activeTab === 'audit' ? 'bg-zinc-800 text-tak-yellow shadow' : 'text-zinc-500 hover:text-white'}`}
@@ -65,7 +73,7 @@ export default function History() {
       </div>
 
       {activeTab === 'audit' ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+        <div className="ui-surface overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
           <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-tak-yellow">history_toggle_off</span>
@@ -131,7 +139,7 @@ export default function History() {
 
 function SummaryCard({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+    <div className="ui-surface-raised p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
       <p className="mt-2 text-xl font-black text-white">{value}</p>
     </div>
@@ -142,7 +150,7 @@ function IntegrationCard({ title, icon, status }: IntegrationCardProps) {
   const [isActive, setIsActive] = useState(status);
 
   return (
-    <div className="p-6 bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col justify-between hover:border-zinc-700 transition-all shadow-lg relative overflow-hidden group">
+    <div className="ui-surface relative flex flex-col justify-between overflow-hidden p-6 transition-colors hover:border-zinc-700">
       {isActive && <div className="absolute top-0 right-0 w-24 h-24 bg-tak-yellow/5 rounded-full blur-2xl pointer-events-none"></div>}
       <div className="flex justify-between items-start mb-6 z-10 relative">
         <div className={`size-12 rounded-xl flex items-center justify-center transition-colors ${isActive ? 'bg-zinc-800 text-tak-yellow' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -153,7 +161,7 @@ function IntegrationCard({ title, icon, status }: IntegrationCardProps) {
             type="checkbox"
             checked={isActive}
             onChange={() => setIsActive(!isActive)}
-            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer checked:right-0 checked:bg-tak-yellow checked:border-tak-yellow transition-all"
+            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer checked:right-0 checked:bg-tak-yellow checked:border-tak-yellow transition-colors"
           />
           <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors ${isActive ? 'bg-tak-yellow/20 border-tak-yellow/30' : 'bg-zinc-800 border-zinc-700 border'}`}></label>
         </div>

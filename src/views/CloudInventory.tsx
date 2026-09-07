@@ -46,10 +46,14 @@ export default function CloudInventory({ onOpenResource }: CloudInventoryProps) 
   const providers = useMemo(() => [...new Set(['OCI', 'AWS', ...resources.map((resource) => resource.provider)])].sort(), [resources]);
   const filtered = resources;
 
-  return <div className="space-y-6 animate-in fade-in duration-500">
-    <header>
-      <h2 className="text-2xl font-black text-white">Inventario Cloud</h2>
-      <p className="mt-1 text-sm text-zinc-400">Recursos detectados para el tenant activo. La sincronización sigue siendo manual durante desarrollo.</p>
+  return <div className="ui-page space-y-6 animate-in fade-in duration-500">
+    <header className="ui-page-header">
+      <div>
+        <p className="ui-kicker">Catálogo operativo</p>
+        <h2 className="ui-page-title mt-2">Inventario cloud</h2>
+        <p className="ui-page-lead">Recursos detectados para el tenant activo, listos para cruzar consumo, costo y evidencia técnica.</p>
+      </div>
+      <span className="ui-status ui-status-accent shrink-0">{costFilter === 'WITH_COST' ? 'Solo con costo' : 'Inventario completo'}</span>
     </header>
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar recurso, servicio o identificador"
@@ -71,8 +75,8 @@ export default function CloudInventory({ onOpenResource }: CloudInventoryProps) 
       </select>
     </div>
     <p className="text-xs text-zinc-500">Los filtros se aplican en el servidor. “Con costo” exige al menos un registro facturado positivo asociado exactamente al recurso.</p>
-    {error !== null && <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>}
-    <section className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
+    {error !== null && <p className="ui-alert-danger p-4 text-sm">{error}</p>}
+    <section className="ui-surface overflow-hidden">
       <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm">
         <thead className="border-b border-zinc-800 bg-zinc-950/50 text-xs uppercase tracking-wider text-zinc-500"><tr><th className="p-4">Recurso</th><th>Proveedor</th><th>Servicio</th><th>Región</th><th>Evidencia</th><th>Estado</th><th>Última vez visto</th><th /></tr></thead>
         <tbody>{filtered.map((resource) => <tr key={resource.id} className="border-b border-zinc-800/70 text-zinc-300">
@@ -117,7 +121,7 @@ export function CloudResourceDetail({ externalResourceId, cloudResourceId, onBac
     })();
     return () => { active = false; };
   }, [cloudResourceId, externalResourceId, token]);
-  if (error !== null) return <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</p>;
+  if (error !== null) return <p className="ui-alert-danger p-4 text-sm">{error}</p>;
   if (summary === null) return <p className="p-8 text-sm text-zinc-400">Cargando detalle del recurso...</p>;
   const { resource, coverage, metrics, cost, evidence } = summary;
   const generateForResource = async () => {
@@ -128,25 +132,33 @@ export function CloudResourceDetail({ externalResourceId, cloudResourceId, onBac
     } catch (cause: unknown) { setError(cause instanceof Error ? cause.message : 'No se pudo analizar el recurso con IA.'); }
     finally { setGenerating(false); }
   };
-  return <div className="space-y-6 animate-in fade-in duration-500">
-    <button onClick={onBack} className="text-sm font-bold text-tak-yellow">← Volver al inventario</button>
-    <header><h2 className="text-2xl font-black text-white">{resource.name ?? resource.externalResourceId}</h2><p className="mt-1 text-sm text-zinc-400">{resource.externalResourceId} · {resource.provider} · {resource.regionId ?? 'Sin región'}</p><p className="mt-1 text-xs text-zinc-500">{resource.serviceName} · {resource.resourceType} · {resource.status} · detectado desde {formatDate(resource.firstSeenAt)}</p></header>
+  return <div className="ui-page space-y-6 animate-in fade-in duration-500">
+    <button onClick={onBack} className="ui-button ui-button-quiet px-0">← Volver al inventario</button>
+    <header className="ui-page-header">
+      <div>
+        <p className="ui-kicker">Ficha de recurso</p>
+        <h2 className="ui-page-title mt-2">{resource.name ?? resource.externalResourceId}</h2>
+        <p className="ui-page-lead">{resource.externalResourceId} · {resource.provider} · {resource.regionId ?? 'Sin región'} · {resource.serviceName} · {resource.resourceType}</p>
+        <p className="mt-1 text-xs text-zinc-500">{resource.status} · detectado desde {formatDate(resource.firstSeenAt)}</p>
+      </div>
+      <span className="ui-status ui-status-accent shrink-0">{resource.status}</span>
+    </header>
     <div className="grid gap-4 md:grid-cols-3">
       <MetricCard label="Cobertura técnica" value={`${coverage.coveragePercent.toFixed(0)}%`} detail={`${coverage.totalSamples} muestras`} />
      <MetricCard label="Costo asociado" value={cost !== undefined ? formatCurrency(cost.totalCost, cost.currency) : 'Sin match exacto'} detail={cost !== undefined ? `${cost.metricCount} métricas facturadas` : 'No se inventa costo'} />
       <MetricCard label="Asignación de costo" value={allocationError !== null ? 'No disponible' : allocation[0]?.dimensions.find((item) => item.allocationKey !== 'UNALLOCATED')?.allocationKey ?? 'Sin asignar'} detail={allocationError ?? (allocation.length === 0 ? 'No hay costo FOCUS para asignar' : allocation[0]!.period)} />
       <MetricCard label="Última muestra" value={coverage.maxSampledAt !== undefined ? formatDate(coverage.maxSampledAt) : 'Sin muestras'} detail={resource.status} />
     </div>
-    <section className={`rounded-2xl border p-5 ${evidence.strength === 'HIGH' ? 'border-green-500/30 bg-green-500/10' : evidence.strength === 'MEDIUM' ? 'border-tak-yellow/30 bg-tak-yellow/10' : 'border-red-500/30 bg-red-500/10'}`}>
+    <section className={`ui-callout p-5 ${evidence.strength === 'HIGH' ? 'border-green-500/30 bg-green-500/10' : evidence.strength === 'MEDIUM' ? 'border-tak-yellow/30 bg-tak-yellow/10' : 'border-red-500/30 bg-red-500/10'}`}>
       <h3 className="font-black text-white">Estado de evidencia para IA: {evidence.strength === 'HIGH' ? 'fuerte' : evidence.strength === 'MEDIUM' ? 'moderada' : 'limitada'}</h3>
       <p className="mt-1 text-sm text-zinc-300">{evidence.readiness === 'GENERATABLE' ? 'La evidencia permite analizar una oportunidad técnica, sujeto a auditoría IA.' : 'La IA solo puede proponer validación técnica previa; no debe recomendar una ejecución directa.'}</p>
       {evidence.blockers.length > 0 && <p className="mt-2 text-xs text-zinc-400">Validaciones pendientes: {evidence.blockers.map(formatEvidenceBlocker).join(', ')}.</p>}
     </section>
     {aiMessage !== null && <p className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-300">{aiMessage}</p>}
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><h3 className="font-black text-white">Evidencia técnica</h3>
+    <section className="ui-surface p-5"><h3 className="font-black text-white">Evidencia técnica</h3>
       {metrics.length === 0 ? <p className="mt-3 text-sm text-tak-yellow">No hay evidencia técnica suficiente para generar una recomendación ejecutable.</p> : <div className="mt-4 grid gap-3 md:grid-cols-2">{metrics.map((metric) => <div key={metric.metricName} className="rounded-xl bg-zinc-950 p-4"><p className="font-bold text-white">{metric.metricName}</p><p className="mt-1 text-sm text-zinc-400">Promedio {metric.avg.toFixed(2)} {metric.metricUnit ?? ''} · p95 {metric.p95.toFixed(2)}</p><p className="mt-1 text-xs text-zinc-500">{metric.sampleCount} muestras · {metric.coverageDays} días</p></div>)}</div>}
     </section>
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+    <section className="ui-surface p-5">
       <h3 className="font-black text-white">Oportunidades relacionadas</h3>
       <p className="mt-1 text-sm text-zinc-400">Solo se muestran recomendaciones cuya evidencia apunta exactamente a este recurso.</p>
       {recommendationsError !== null ? <p className="mt-3 rounded-xl border border-tak-yellow/30 bg-tak-yellow/10 p-3 text-sm text-tak-yellow">{recommendationsError}</p> : recommendations.length === 0 ? <p className="mt-3 text-sm text-zinc-500">No hay oportunidades persistidas para este recurso.</p> : <div className="mt-4 space-y-3">{recommendations.map((recommendation) => <article key={recommendation.id} className="rounded-xl bg-zinc-950 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-white">{recommendation.title}</p><p className="mt-1 text-sm text-zinc-400">{recommendation.description}</p></div><span className="rounded-full bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">{recommendation.status}</span></div><p className="mt-2 text-xs text-tak-yellow">Ahorro estimado: {recommendation.estimatedMonthlySavings !== undefined ? formatCurrency(recommendation.estimatedMonthlySavings, recommendation.currency) : 'Por validar'}</p></article>)}</div>}

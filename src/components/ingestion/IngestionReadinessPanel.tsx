@@ -26,7 +26,7 @@ export default function IngestionReadinessPanel({
   readonly loading: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+    <section className="ui-surface overflow-hidden">
       <header className="flex flex-col gap-3 border-b border-zinc-800 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-tak-yellow">health_and_safety</span>
@@ -46,7 +46,7 @@ export default function IngestionReadinessPanel({
           {loading ? <Empty text="Cargando preparación..." /> : connections.length === 0
             ? <Empty text="Sin conexiones AWS/OCI activas para evaluar." />
             : connections.map((connection) => (
-              <article key={connection.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <article key={connection.id} className="ui-surface-raised p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div><p className="text-sm font-black text-white">{connection.name}</p><p className="text-xs font-medium text-zinc-500">{connection.providerCode.toUpperCase()} · {connection.defaultRegion ?? 'Sin región por defecto'}</p></div>
                   <p className="text-xs font-bold text-zinc-400">{connection.recentJobs.length} jobs recientes</p>
@@ -63,7 +63,7 @@ export default function IngestionReadinessPanel({
           {loading ? <Empty text="Cargando hallazgos..." /> : issues.length === 0
             ? <p className="text-sm font-medium text-green-300">No hay bloqueantes ni advertencias registradas.</p>
             : issues.map((issue, index) => (
-              <article key={`${issue.provider}-${issue.severity}-${index}`} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <article key={`${issue.provider}-${issue.severity}-${index}`} className="ui-surface-raised p-4">
                 <div className="flex items-center justify-between gap-3"><p className="text-xs font-black uppercase tracking-widest text-zinc-500">{issue.provider.toUpperCase()}</p><StatusBadge {...severityStyles[issue.severity]} /></div>
                 <p className="mt-2 text-sm font-medium leading-relaxed text-zinc-300">{issue.message}</p>
                 <p className="mt-2 text-xs text-zinc-500">Afecta: {issue.affectedData.join(', ')}.</p>

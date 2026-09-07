@@ -27,12 +27,12 @@ export default function RecommendationAnalysisRunDetail({
   onOpenRecommendation,
 }: Props) {
   if (run === null) {
-    return <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm text-zinc-500">Selecciona una corrida para revisar su detalle.</div>;
+    return <div className="ui-surface p-5 text-sm text-zinc-500">Selecciona una corrida para revisar su detalle.</div>;
   }
 
   const progress = Math.round(((stages.indexOf(run.stage) + 1) / stages.length) * 100);
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+    <div className="ui-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">{outcomeLabel(run)}</p>

@@ -159,14 +159,14 @@ availableTenants: response.availableTenants,
 
   if (invitationCode !== null) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm font-bold text-zinc-400">Cargando invitación…</div>}>
+        <Suspense fallback={<div className="ui-state-screen">Cargando invitación…</div>}>
         <ClientInvitationAccept code={invitationCode} onAccepted={handleClientInvitationAccepted} />
       </Suspense>
     );
   }
 
   if (!authReady) {
-    return <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-sm font-bold text-zinc-400">Restaurando sesión…</div>;
+    return <div className="ui-state-screen">Restaurando sesión…</div>;
   }
 
   if (currentView === 'login' || authSession === null) {
@@ -220,12 +220,12 @@ case 'profile': return <Profile onLogout={handleLogout} onOpenMessaging={() => s
 
   return (
     <AuthSessionProvider session={authSession}>
-    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-zinc-950 text-zinc-100">
+    <div className="app-shell flex h-[100dvh] min-h-0 overflow-hidden">
 {mfaRecoveryCodes !== null && <MfaRecoveryCodesDialog codes={mfaRecoveryCodes} onClose={() => setMfaRecoveryCodes(null)} />}
 <Sidebar currentView={currentView} onViewChange={setCurrentView} role={currentRole} user={authSession.user} />
 <BottomNav currentView={currentView} onViewChange={setCurrentView} role={currentRole} />
       
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-20 xl:ml-[280px]">
+      <div className="app-content flex min-h-0 min-w-0 flex-1 flex-col lg:ml-20 xl:ml-[280px]">
         <TopHeader 
           currentView={currentView} 
           activeTenant={authSession.activeTenant}
@@ -233,7 +233,7 @@ case 'profile': return <Profile onLogout={handleLogout} onOpenMessaging={() => s
           onTenantChange={handleTenantChange}
           role={currentRole}
         />
-        <main className={`min-h-0 min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:p-6 lg:pb-10 xl:p-10 ${currentView === 'chat' ? 'overflow-hidden' : 'custom-scrollbar overflow-y-auto overflow-x-hidden'}`}>
+        <main className={`min-h-0 min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:p-6 lg:pb-10 xl:p-8 ${currentView === 'chat' ? 'overflow-hidden' : 'custom-scrollbar overflow-y-auto overflow-x-hidden'}`}>
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">Cargando módulo…</div>}>
             {renderView()}
           </Suspense>

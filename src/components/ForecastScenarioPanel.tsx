@@ -20,7 +20,7 @@ const tones: Record<CostForecastScenario['scenario'], string> = {
 export function ForecastScenarioPanel({ scenarios }: { readonly scenarios: readonly CostForecastScenario[] }) {
   const ordered = [...scenarios].sort((left, right) => scenarioOrder(left.scenario) - scenarioOrder(right.scenario));
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5 lg:p-6">
+    <section className="ui-surface p-5 lg:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">Proyección con evidencia</p>

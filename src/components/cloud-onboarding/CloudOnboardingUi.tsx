@@ -2,9 +2,9 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import type { CloudCredentialSummary } from '../../services/api';
 import { HelpTooltip } from './HelpTooltip';
 
-export const inputClass = 'mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-tak-yellow disabled:opacity-50';
-export const primaryButton = 'w-full rounded-xl bg-tak-yellow px-4 py-2.5 text-sm font-black text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50';
-export const secondaryButton = 'rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-bold text-zinc-200 hover:border-zinc-600 disabled:cursor-not-allowed disabled:opacity-50';
+export const inputClass = 'ui-control mt-2 w-full px-3 py-2.5 text-sm outline-none disabled:opacity-50';
+export const primaryButton = 'ui-button ui-button-primary w-full disabled:cursor-not-allowed disabled:opacity-50';
+export const secondaryButton = 'ui-button ui-button-secondary disabled:cursor-not-allowed disabled:opacity-50';
 
 export function Field({ label, help, children }: { readonly label: string; readonly help?: string; readonly children: ReactNode }) {
   return <div className="block text-xs font-bold uppercase tracking-wider text-zinc-500"><span className="flex items-center gap-2"><span>{label}</span>{help !== undefined && <HelpTooltip label={`Ayuda: ${label}`}>{help}</HelpTooltip>}</span>{Children.map(children, (child) => isValidElement(child) && isFormControl(child) ? cloneElement(child as ReactElement<{ readonly 'aria-label'?: string }>, { 'aria-label': label }) : child)}</div>;

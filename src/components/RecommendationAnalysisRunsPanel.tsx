@@ -181,7 +181,7 @@ export default function RecommendationAnalysisRunsPanel({
   };
 
   if (loading) {
-    return <p className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm font-bold text-zinc-400">Preparando el análisis de datos disponibles...</p>;
+    return <p className="ui-surface p-5 text-sm font-bold text-zinc-400">Preparando el análisis de datos disponibles...</p>;
   }
 
   return (
@@ -190,7 +190,7 @@ export default function RecommendationAnalysisRunsPanel({
       {previewError !== null && <Notice tone="warning">{previewError}</Notice>}
       {message !== null && <Notice tone="success">{message}</Notice>}
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+      <div className="ui-surface p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-tak-yellow">Readiness previo</p>
@@ -235,7 +235,7 @@ export default function RecommendationAnalysisRunsPanel({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+        <div className="ui-surface p-4">
           <h3 className="text-sm font-black text-white">Historial de corridas</h3>
           <div className="mt-3 space-y-2">
             {runs.length === 0 ? (

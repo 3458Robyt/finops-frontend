@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-06",
+  "framework": "React 19 + Vite 7",
+  "styling": "Tailwind CSS 3",
+  "fontStack": "IBM Plex Sans Condensed display, Inter body, IBM Plex Mono telemetry, Material Symbols for icons",
+  "palette": "semantic OKLCH graphite surfaces with TAK yellow accent in tokens.css",
+  "motion": "no motion dependency; CSS/Tailwind transitions only",
+  "spacing": "Tailwind default scale",
+  "assets": ["src/assets/react.svg"],
+  "preserve": ["Inter body font", "TAK yellow identity", "Tailwind", "uPlot", "Material Symbols"],
+  "introduce": ["IBM Plex Sans Condensed display font", "IBM Plex Mono telemetry font", "semantic OKLCH tokens", "Workbench app structure"]
+}

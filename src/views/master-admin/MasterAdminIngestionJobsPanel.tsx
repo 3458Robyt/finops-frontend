@@ -12,7 +12,7 @@ export default function MasterAdminIngestionJobsPanel({ tenants }: Props) {
   const { jobs, summary, loading, saving, message, error } = controller;
 
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+    <section className="ui-surface overflow-hidden">
       <header className="flex flex-col gap-4 border-b border-zinc-800 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-tak-yellow">monitoring</span><h2 className="text-sm font-black uppercase tracking-widest text-white">Consola central de jobs</h2></div>

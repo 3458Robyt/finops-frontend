@@ -9,7 +9,7 @@ export function AgentQualityPanel({ report }: AgentQualityPanelProps) {
   if (report === null) return null;
   const totals = report.totals;
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="ui-surface p-5">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <SectionHeader title="Calibración de recomendaciones" eyebrow="Calidad basada en evidencia" icon="fact_check" />
         <p className="max-w-xl text-xs leading-relaxed text-zinc-500">
@@ -28,7 +28,7 @@ export function AgentQualityPanel({ report }: AgentQualityPanelProps) {
         <QualityStat label="Error estimado vs verificado" value={formatPercent(totals.estimatedVsVerifiedErrorPercent)} helper="Solo mediciones VERIFIED pareadas" />
       </div>
       <QualityTable dimensions={report.dimensions} />
-      <div className="mt-4 space-y-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4 text-xs leading-relaxed text-zinc-500">
+      <div className="ui-surface-raised mt-4 space-y-1 p-4 text-xs leading-relaxed text-zinc-500">
         <p className="font-black uppercase tracking-widest text-zinc-400">Lectura responsable</p>
         {report.notes.map((note) => <p key={note}>• {note}</p>)}
         <p>Coste de tokens: {report.traces.costEstimateAvailable ? formatMoney(report.traces.estimatedCostUsd) : 'no configurado; agrega precios por millón de tokens en el entorno.'}</p>
@@ -39,7 +39,7 @@ export function AgentQualityPanel({ report }: AgentQualityPanelProps) {
 
 function QualityTable({ dimensions }: { readonly dimensions: readonly AgentQualityDimensionMetric[] }) {
   return (
-    <div className="mt-5 overflow-x-auto rounded-lg border border-zinc-800">
+    <div className="ui-surface-raised mt-5 overflow-x-auto">
       <div className="border-b border-zinc-800 px-4 py-3"><SectionHeader title="Desglose por tipo, regla y proveedor" eyebrow="Muestra de la ventana seleccionada" icon="table_chart" /></div>
       {dimensions.length === 0 ? <p className="px-4 py-5 text-sm font-bold text-zinc-500">No hay recomendaciones en esta ventana.</p> : (
         <table className="min-w-full text-left text-xs">
@@ -52,7 +52,7 @@ function QualityTable({ dimensions }: { readonly dimensions: readonly AgentQuali
 }
 
 function QualityStat({ label, value, helper }: { readonly label: string; readonly value: string | number; readonly helper: string }) {
-  return <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</p><p className="mt-2 text-xl font-black text-white">{value}</p><p className="mt-1 text-xs text-zinc-500">{helper}</p></div>;
+  return <div className="ui-surface-raised p-4"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</p><p className="mt-2 text-xl font-black text-white">{value}</p><p className="mt-1 text-xs text-zinc-500">{helper}</p></div>;
 }
 
 function dimensionLabel(dimension: AgentQualityDimensionMetric['dimension']): string {

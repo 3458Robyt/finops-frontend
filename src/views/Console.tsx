@@ -93,9 +93,17 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
   const computeCount = tableData.filter((row) => row.type.includes('COMPUTE')).length;
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500 relative">
+    <div className="ui-page relative space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <header className="ui-page-header">
+        <div>
+          <p className="ui-kicker">Operación FinOps</p>
+          <h2 className="ui-page-title mt-2">Consola de decisiones</h2>
+          <p className="ui-page-lead">Prioriza oportunidades con impacto financiero y señales de consumo antes de enviarlas a revisión.</p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">{loading ? 'Actualizando' : `${tableData.length} recomendaciones`}</span>
+      </header>
       {error !== null && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">
+        <div className="ui-alert-danger px-4 py-3 text-sm font-bold">
           {error}
         </div>
       )}

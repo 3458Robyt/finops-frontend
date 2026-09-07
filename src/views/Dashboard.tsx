@@ -42,15 +42,23 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
   ])].sort();
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+    <div className="ui-page space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <header className="ui-page-header">
+        <div>
+          <p className="ui-kicker">Centro de control</p>
+          <h2 className="ui-page-title mt-2">Decisiones cloud con evidencia</h2>
+          <p className="ui-page-lead">Una lectura ejecutiva del gasto, el consumo y el ahorro que todavía puede capturarse.</p>
+        </div>
+        <span className="ui-status ui-status-accent shrink-0">Tenant activo · datos gobernados</span>
+      </header>
       {error !== null && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">
+        <div className="ui-alert-danger px-4 py-3 text-sm font-bold">
           {error}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        <button type="button" onClick={onOpenBudgets} className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl relative overflow-hidden group text-left">
+        <button type="button" onClick={onOpenBudgets} className="ui-surface-raised relative overflow-hidden p-6 text-left transition hover:border-tak-yellow/40">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <span className="material-symbols-outlined text-6xl text-white">account_balance_wallet</span>
           </div>
@@ -76,7 +84,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
           </div>
         </button>
 
-        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center gap-5 lg:gap-6">
+        <div className="ui-surface flex items-center gap-5 p-6 lg:gap-6">
           <div className="size-12 lg:size-14 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20 shrink-0">
             <span className="material-symbols-outlined text-red-500 text-2xl lg:text-3xl">delete_sweep</span>
           </div>
@@ -91,7 +99,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center gap-5 lg:gap-6 md:col-span-2 lg:col-span-1">
+        <div className="ui-surface flex items-center gap-5 p-6 lg:gap-6 md:col-span-2 lg:col-span-1">
           <div className="size-12 lg:size-14 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/20 shrink-0">
             <span className="material-symbols-outlined text-green-500 text-2xl lg:text-3xl">account_balance_wallet</span>
           </div>
@@ -106,7 +114,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
       </div>
 
       {missedSavingsAmount > 0 && (
-        <div className="bg-tak-yellow/10 border border-tak-yellow/20 rounded-3xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="ui-callout ui-callout-accent flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
           <div className="flex items-start gap-4">
             <div className="size-11 rounded-xl bg-tak-yellow/10 border border-tak-yellow/20 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-tak-yellow">savings</span>
@@ -136,7 +144,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
         />
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+      <section className="ui-surface p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -179,13 +187,13 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
             Datos disponibles hasta {new Date(costHistory.meta.dataAsOf).toLocaleDateString('es-CO', { timeZone: 'UTC' })}. La fuente está {costHistory.meta.staleDays} días atrasada; no se interpretan los días faltantes como consumo cero.
           </p>
         )}
-      </div>
+      </section>
 
       <ForecastScenarioPanel scenarios={forecastScenarios} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {suggestions.map((suggestion) => (
-          <div key={suggestion.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 hover:border-zinc-700 transition-colors">
+          <div key={suggestion.id} className="ui-surface p-5 transition-colors hover:border-zinc-700">
             <div className="flex justify-between items-start mb-4">
               <div className="size-10 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-center text-tak-yellow">
                 <span className="material-symbols-outlined">memory</span>
@@ -208,7 +216,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
+        <div className="ui-surface p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-white font-bold">Consumo y eficiencia FOCUS</h3>
@@ -238,7 +246,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
+        <div className="ui-surface p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-white font-bold">Insights de consumo</h3>

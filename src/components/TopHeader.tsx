@@ -134,19 +134,19 @@ export default function TopHeader({
   if (currentView === 'login') return null;
 
   return (
-    <header className="z-40 flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6 lg:py-4 xl:px-10">
-      <div className="flex items-center gap-4 lg:gap-8 flex-1">
-        <div className="lg:hidden size-8 bg-tak-yellow flex items-center justify-center rounded shadow-sm">
+    <header className="sticky top-0 z-40 flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-3 py-3 backdrop-blur-sm sm:px-4 lg:px-6 lg:py-4 xl:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-8">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded bg-tak-yellow shadow-sm lg:hidden">
           <span className="material-symbols-outlined text-zinc-950 text-xl font-bold">query_stats</span>
         </div>
-        <h1 className="text-lg font-bold text-white uppercase tracking-tight hidden lg:block">
+        <h1 className="hidden min-w-0 truncate font-display text-xl font-bold tracking-tight text-white sm:block">
           {viewTitles[currentView] || 'FinOps FinOps Demo'}
         </h1>
       </div>
       
-      <div className="flex items-center gap-3 lg:gap-6 ml-4">
-          <div className="hidden sm:flex flex-col items-end mr-2 relative group cursor-pointer">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+      <div className="ml-3 flex min-w-0 items-center gap-2 sm:gap-3 lg:gap-6">
+          <div className="relative flex min-w-0 max-w-[calc(100vw-7rem)] cursor-pointer flex-col items-end sm:mr-2">
+            <span className="mb-1 hidden text-[10px] font-bold uppercase tracking-widest text-zinc-500 sm:block">
                Tenant activo · {roleLabel(role)}
             </span>
             <select
@@ -154,7 +154,7 @@ export default function TopHeader({
               value={activeTenant.id}
               onChange={(e) => { void handleTenantChange(e.target.value); }}
               disabled={switchingTenant || availableTenants.length <= 1}
-              className="appearance-none bg-zinc-900 border border-zinc-700 text-xs font-bold text-tak-yellow rounded px-3 py-1 pr-8 outline-none focus:ring-1 focus:ring-tak-yellow focus:border-tak-yellow cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 max-w-[220px]"
+              className="ui-control max-w-[170px] appearance-none px-2 pr-7 text-xs font-bold text-tak-yellow outline-none focus:ring-1 focus:ring-tak-yellow sm:max-w-[220px] sm:px-3"
             >
               {availableTenants.map((tenant) => (
                 <option key={tenant.id} value={tenant.id}>
@@ -162,17 +162,17 @@ export default function TopHeader({
                 </option>
               ))}
             </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-tak-yellow mt-4 text-sm">
+          <div className="pointer-events-none absolute inset-y-0 right-0 mt-1 flex items-center px-2 text-sm text-tak-yellow sm:mt-4">
             <span className="material-symbols-outlined text-sm">expand_more</span>
           </div>
         </div>
 
-        <div className="h-8 w-px bg-zinc-800 hidden sm:block"></div>
+        <div className="hidden h-8 w-px bg-zinc-800 sm:block"></div>
 
         <div ref={containerRef} className="relative">
           <button
             onClick={() => setOpen((current) => !current)}
-            className="relative p-1.5 text-zinc-400 hover:text-tak-yellow transition-colors bg-zinc-900 rounded-full border border-zinc-800"
+            className="ui-icon-button relative shrink-0"
             aria-label="Abrir notificaciones"
           >
             <span className="material-symbols-outlined text-xl">notifications</span>
@@ -184,7 +184,7 @@ export default function TopHeader({
           </button>
 
           {open && (
-            <div className="absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="ui-popover absolute right-0 mt-3 w-[min(360px,calc(100vw-2rem))] overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-white">Notificaciones FinOps</p>

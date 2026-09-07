@@ -47,7 +47,7 @@ export function AgentSettingsEvidence({ traces, learningSummary, qualityReport, 
 
 function TraceTable({ traces }: { readonly traces: readonly AiContextTrace[] }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/60">
+    <section className="ui-surface overflow-hidden">
       <div className="border-b border-zinc-800 px-5 py-4"><SectionHeader title="Trazas de contexto IA" eyebrow="Observabilidad" icon="manage_search" /></div>
       <div className="hidden grid-cols-[1.2fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-zinc-800 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 md:grid"><span>Operacion</span><span>Modelo</span><span>Estado</span><span>Tokens</span><span>Fecha</span></div>
       {traces.length === 0 ? <p className="px-4 py-6 text-sm font-bold text-zinc-500">Aun no hay trazas de contexto.</p> : traces.map((trace) => (
@@ -78,7 +78,7 @@ function LearningSummaryPanel({
   const approvalRate = feedbackTotal === 0 ? null : Math.round((stats.feedbackApproved / feedbackTotal) * 100);
 
   return (
-    <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+    <section className="ui-surface p-5">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between"><SectionHeader title="Aprendizaje basado en decisiones" eyebrow="Feedback humano + auditor IA" icon="model_training" /><p className="max-w-md text-xs leading-relaxed text-zinc-500">La aprobación humana y la aprobación del auditor son métricas distintas. Una memoria solo se incorpora después de superar la auditoría.</p></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <AgentMetric title="Feedback aprobado" value={stats.feedbackApproved} helper={approvalRate === null ? 'Sin decisiones' : `${approvalRate}% de las decisiones`} icon="thumb_up" />
@@ -98,7 +98,7 @@ function LearningSummaryPanel({
         ) : (
           <div className="mt-4 space-y-3">
             {summary.memories.map((memory) => (
-              <article key={memory.id} className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4">
+              <article key={memory.id} className="ui-surface-raised p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">

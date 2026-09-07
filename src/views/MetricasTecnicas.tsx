@@ -55,23 +55,24 @@ export default function MetricasTecnicas() {
   ));
 
   return (
-    <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="ui-page space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+      <header className="ui-page-header flex-col lg:flex-row lg:items-end">
         <div>
-          <h2 className="text-2xl font-black text-white">Metricas de uso</h2>
-          <p className="mt-1 max-w-3xl text-sm text-zinc-400">
+          <p className="ui-kicker">Observabilidad operativa</p>
+          <h2 className="ui-page-title mt-2">Métricas de uso</h2>
+          <p className="ui-page-lead">
             Analisis tecnico de CPU, memoria, red, disco y sistema. FOCUS se usa solo como contexto de costo
             cuando puede asociarse al recurso.
           </p>
         </div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400">
+        <div className="ui-callout ui-callout-accent shrink-0 px-4 py-3 text-xs text-zinc-400">
           Ultimo dato: <span className="font-bold text-white">{formatDateTime(overview?.latestSampledAt)}</span>
           {loadingOverview && overview !== null && <span className="ml-2 font-semibold text-tak-yellow" aria-live="polite">Actualizando…</span>}
         </div>
       </header>
 
       {error !== null && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-medium text-red-300">
+        <div className="ui-alert-danger p-4 text-sm font-medium">
           {error}
         </div>
       )}
@@ -88,7 +89,7 @@ export default function MetricasTecnicas() {
         />
       </section>
 
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+      <section className="ui-surface p-5">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-lg font-bold text-white">Cobertura de datos</h3>
@@ -117,7 +118,7 @@ export default function MetricasTecnicas() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4 lg:p-5">
+      <section className="ui-surface p-4 lg:p-5">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
           <SelectField label="Recurso" value={selectedResource} onChange={(value) => { setDrilldownWindow(null); setSelectedResource(value); }}>
             <option value="ALL">Todos los recursos</option>
@@ -167,7 +168,7 @@ export default function MetricasTecnicas() {
       </section>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(340px,0.8fr)]">
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="ui-surface p-5">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Serie temporal</h3>
@@ -220,7 +221,7 @@ export default function MetricasTecnicas() {
           )}
         </div>
 
-        <div data-testid="technical-metric-opportunities" className="rounded-3xl border border-zinc-800 bg-zinc-900 p-5">
+        <div data-testid="technical-metric-opportunities" className="ui-surface p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-bold text-white">Oportunidades tecnicas</h3>
@@ -240,7 +241,7 @@ export default function MetricasTecnicas() {
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {filteredKpis.length === 0 ? (
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6 text-sm font-bold text-zinc-500 lg:col-span-5">
+          <div className="ui-surface p-6 text-sm font-bold text-zinc-500 lg:col-span-5">
             Sin KPIs para el grupo seleccionado.
           </div>
         ) : filteredKpis.map((kpi) => (

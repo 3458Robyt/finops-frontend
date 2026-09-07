@@ -124,7 +124,7 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
   if (!canManage) return null;
 
   return (
-    <section className="rounded-2xl border border-tak-yellow/20 bg-gradient-to-r from-tak-yellow/10 via-zinc-900 to-zinc-900 p-4 sm:p-5" aria-label="Generación gobernada de recomendaciones">
+    <section className="ui-callout ui-callout-accent p-4 sm:p-5" aria-label="Generación gobernada de recomendaciones">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-tak-yellow">Motor FinOps gobernado</p>
@@ -143,13 +143,13 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
             type="button"
             onClick={() => void handleQueue()}
             disabled={working || isActive}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-tak-yellow px-4 py-3 text-xs font-black text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ui-button ui-button-primary min-h-11 px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-base">auto_awesome</span>
             {isActive ? 'Análisis en curso' : 'Generar recomendaciones'}
           </button>
           {onOpenAnalysis !== undefined && (
-            <button type="button" onClick={onOpenAnalysis} className="min-h-11 rounded-xl border border-zinc-700 px-4 py-3 text-xs font-black text-zinc-300 hover:border-zinc-500 hover:text-white">
+            <button type="button" onClick={onOpenAnalysis} className="ui-button ui-button-secondary min-h-11 px-4 text-xs">
               Ver auditoría
             </button>
           )}

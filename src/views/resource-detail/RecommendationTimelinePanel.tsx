@@ -3,7 +3,7 @@ import { formatDateTime, shortenType } from './resourceDetailEvidence';
 
 export function TimelinePanel({ events }: { readonly events: readonly RecommendationTimelineEvent[] }) {
   return (
-    <div className="rounded-3xl border border-zinc-800 bg-zinc-950/40 p-6 md:p-8">
+    <div className="ui-surface-raised p-6 md:p-8">
       <p className="text-[10px] font-black text-tak-yellow uppercase tracking-[0.25em]">Trazabilidad</p>
       <h4 className="mt-2 text-xl font-black text-white">Timeline auditable</h4>
       <div className="mt-6 space-y-3">

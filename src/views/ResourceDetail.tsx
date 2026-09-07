@@ -58,7 +58,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
   if (loading) {
     return (
       <DetailShell onBack={onBack}>
-        <div className="p-10 text-center text-sm font-bold text-zinc-500">Cargando detalle de recomendacion...</div>
+        <div className="ui-state-screen min-h-[50vh] text-sm font-bold">Cargando detalle de recomendación…</div>
       </DetailShell>
     );
   }
@@ -66,7 +66,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
   if (error !== null || recommendation === null) {
     return (
       <DetailShell onBack={onBack}>
-        <div className="p-10 text-center">
+        <div className="ui-state-screen min-h-[50vh] p-10 text-center">
           <p className="text-sm font-bold text-red-300">{error ?? 'Recomendacion no encontrada'}</p>
           <button onClick={onBack} className="mt-6 bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
             Volver
@@ -101,7 +101,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10">
           <div className="lg:col-span-7 space-y-8">
-            <div className="bg-zinc-950/30 border border-zinc-800 p-6 md:p-8 rounded-3xl">
+            <div className="ui-surface-raised p-6 md:p-8">
               <span className="text-[10px] font-black text-tak-yellow uppercase tracking-[0.25em]">Recomendacion seleccionada</span>
               <h3 className="text-xl md:text-2xl font-black mt-2 text-white tracking-tight">{recommendation.title}</h3>
               <div className="flex flex-wrap gap-2 mt-5">
@@ -112,7 +112,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
               </div>
             </div>
 
-            <div className="bg-zinc-950/20 border border-zinc-800 rounded-3xl p-6 md:p-8">
+            <div className="ui-surface-raised p-6 md:p-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
                   <h4 className="font-black text-zinc-200 text-base md:text-lg uppercase tracking-tight">Evidencia de consumo</h4>
@@ -168,14 +168,14 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
 
           <div className="lg:col-span-5 flex flex-col gap-8">
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-5">
-              <div className="bg-zinc-950/20 border border-zinc-800 p-6 md:p-7 rounded-3xl">
+              <div className="ui-surface-raised p-6 md:p-7">
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Costo observado</p>
                 <p className="text-2xl md:text-3xl font-black text-white">
                   {formatCurrency(currentCost, currency)}
                   <span className="text-xs font-medium text-zinc-500 ml-1 tracking-tight">{currency}</span>
                 </p>
               </div>
-              <div className="bg-tak-yellow/5 border border-tak-yellow/20 p-6 md:p-7 rounded-3xl relative overflow-hidden group">
+              <div className="ui-callout ui-callout-accent relative overflow-hidden p-6 md:p-7">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-tak-yellow/10 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
                 <p className="text-[10px] font-black text-tak-yellow uppercase tracking-widest mb-2">Potencial de ahorro</p>
                 <p className="text-3xl md:text-4xl font-black text-tak-yellow tracking-tighter">
@@ -190,7 +190,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
               </div>
             </div>
 
-            <div className="bg-zinc-950/50 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl flex-1 flex flex-col relative">
+            <div className="ui-surface-raised relative flex flex-1 flex-col overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-tak-yellow/0 via-tak-yellow/50 to-tak-yellow/0"></div>
               <div className="bg-zinc-900/50 px-6 py-4 flex items-center gap-3 border-b border-zinc-800">
                 <span className="material-symbols-outlined text-tak-yellow text-2xl">auto_awesome</span>
@@ -244,7 +244,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
                 <button
                   onClick={handleReviewPlan}
                   disabled={planLoading || planLookupLoading}
-                  className="w-full bg-tak-yellow hover:bg-yellow-400 disabled:opacity-60 disabled:hover:bg-tak-yellow py-4 rounded-2xl text-zinc-950 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-[0_10px_30px_-10px_rgba(250,204,21,0.3)]"
+                  className="ui-button ui-button-primary w-full py-4 text-sm uppercase tracking-widest"
                 >
                   <span className="material-symbols-outlined font-black">bolt</span>
                   {planLoading ? 'Generando plan auditado...' : planLookupLoading ? 'Buscando plan guardado...' : 'Revisar plan de ejecucion'}
@@ -255,7 +255,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
                   Un técnico FinOps o administrador puede generar el plan. Cuando esté aprobado, podrás consultarlo aquí.
                 </p>
               )}
-              <button onClick={onBack} className="w-full bg-zinc-900 hover:bg-zinc-800 py-4 rounded-2xl text-zinc-400 font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] border border-zinc-800">
+              <button onClick={onBack} className="ui-button ui-button-secondary w-full py-4 text-xs uppercase tracking-widest">
                 Volver a recomendaciones
               </button>
             </div>
@@ -265,7 +265,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
         {(planError !== null || executionPlan !== null) && (
           <div className="mt-8">
             {planError !== null ? (
-              <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-sm font-bold text-red-300">
+              <div className="ui-alert-danger p-6 text-sm font-bold">
                 {planError}
               </div>
             ) : executionPlan !== null ? (

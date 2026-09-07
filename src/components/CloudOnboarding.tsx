@@ -261,7 +261,7 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
   const pendingSources = uniqueJobSources(detail, 'PENDING');
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
+    <section className="ui-surface overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-zinc-800 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-lg font-bold text-white">Agregar y activar una cuenta cloud</h3>
@@ -270,7 +270,7 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
         {readinessStatus !== undefined && <Badge text={statusLabels[readinessStatus]} tone={readinessStatus === 'READY' ? 'green' : readinessStatus === 'REQUIRES_ATTENTION' ? 'red' : 'yellow'} />}
       </div>
 
-      {(error !== null || message !== null) && <div aria-live="polite" className={`m-6 rounded-2xl border p-4 text-sm ${error !== null ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-green-500/30 bg-green-500/10 text-green-300'}`}>{error ?? message}</div>}
+      {(error !== null || message !== null) && <div aria-live="polite" className={`m-6 p-4 text-sm ${error !== null ? 'ui-alert-danger' : 'ui-alert-positive'}`}>{error ?? message}</div>}
 
       <div className="grid gap-6 p-6 xl:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)]">
         <div className="space-y-5">
@@ -283,7 +283,7 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
           </div>
 
           {canManage && (
-            <form onSubmit={createConnection} className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <form onSubmit={createConnection} className="ui-surface-raised space-y-3 p-4">
               <h4 className="font-bold text-white">1. Crear conexión</h4>
               <Field label="Proveedor" help="Selecciona el proveedor de la cuenta que vas a conectar."><select value={providerCode} onChange={(event) => setProviderCode(event.target.value as 'oci' | 'aws')} className={inputClass}>{providers.length === 0 ? <><option value="oci">Oracle Cloud</option><option value="aws">Amazon Web Services</option></> : providers.map((provider) => <option key={provider.code} value={provider.code}>{provider.displayName}</option>)}</select></Field>
               <Field label="Nombre reconocible" help="Usa un nombre que permita distinguir fácilmente la cuenta, por ejemplo: OCI Producción TAK."><input required maxLength={120} value={connectionName} onChange={(event) => setConnectionName(event.target.value)} className={inputClass} placeholder="Producción del cliente" /></Field>
@@ -296,7 +296,7 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
 
         {detail === null ? <Empty text="Crea o selecciona una conexión para continuar." /> : (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="ui-surface-raised flex flex-wrap items-center justify-between gap-3 p-4">
               <div><h4 className="font-bold text-white">{detail.connection.name}</h4><p className="mt-1 break-all text-xs text-zinc-500">{detail.connection.providerCode.toUpperCase()} · {detail.connection.rootExternalId} · {detail.connection.defaultRegion ?? 'Sin región'}</p></div>
               {canManage && <button type="button" disabled={busy !== null} onClick={() => { const next = detail.connection.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'; if (next === 'ACTIVE' || window.confirm('¿Deshabilitar esta conexión? Los datos históricos se conservarán y no se crearán nuevas ingestas.')) void run('status', async () => { await setCloudConnectionStatus(token, detail.connection.id, next); return next === 'ACTIVE' ? 'Conexión habilitada.' : 'Conexión deshabilitada; se conservaron los datos históricos.'; }); }} className={secondaryButton}>{detail.connection.status === 'ACTIVE' ? 'Deshabilitar' : 'Habilitar'}</button>}
             </div>
@@ -308,9 +308,9 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
               <OnboardingStep number="4" title="Sincronización" complete={readinessStatus === 'READY'} active={canActivate && readinessStatus !== 'READY'} />
             </ol>
 
-            {canManage && <form onSubmit={(event) => { event.preventDefault(); void run('update', async () => { await updateCloudConnection(token, detail.connection.id, { name: editName, ...(editRegion.trim() === '' ? {} : { defaultRegion: editRegion }) }); return 'Datos de la conexión actualizados.'; }); }} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><Field label="Nombre de la conexión"><input required maxLength={120} value={editName} onChange={(event) => setEditName(event.target.value)} className={inputClass} /></Field><Field label="Región principal"><input value={editRegion} onChange={(event) => setEditRegion(event.target.value)} className={inputClass} /></Field><button disabled={busy !== null} className={secondaryButton}>{busy === 'update' ? 'Guardando…' : 'Guardar datos'}</button></form>}
+            {canManage && <form onSubmit={(event) => { event.preventDefault(); void run('update', async () => { await updateCloudConnection(token, detail.connection.id, { name: editName, ...(editRegion.trim() === '' ? {} : { defaultRegion: editRegion }) }); return 'Datos de la conexión actualizados.'; }); }} className="ui-surface-raised grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"><Field label="Nombre de la conexión"><input required maxLength={120} value={editName} onChange={(event) => setEditName(event.target.value)} className={inputClass} /></Field><Field label="Región principal"><input value={editRegion} onChange={(event) => setEditRegion(event.target.value)} className={inputClass} /></Field><button disabled={busy !== null} className={secondaryButton}>{busy === 'update' ? 'Guardando…' : 'Guardar datos'}</button></form>}
 
-            {canManage && <form onSubmit={saveCredential} className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+            {canManage && <form onSubmit={saveCredential} className="ui-surface-raised space-y-3 p-4">
               <div><h4 className="font-bold text-white">2. Acceso seguro de solo lectura</h4><p className="mt-1 text-xs text-zinc-500">La credencial se cifra al guardarse. La aplicación nunca volverá a mostrar la clave privada o el External ID.</p></div>
               <Field label="Etiqueta" help="Nombre visible para identificar esta credencial. Nunca escribas aquí la clave privada ni una contraseña."><input required maxLength={120} value={credentialLabel} onChange={(event) => setCredentialLabel(event.target.value)} className={inputClass} /></Field>
               {selectedProvider === 'aws' ? <>
@@ -326,12 +326,12 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
               <button disabled={busy !== null} className={primaryButton}>{busy === 'credential-save' ? 'Guardando…' : detail.credentials.some((credential) => credential.status === 'ACTIVE') ? 'Reemplazar credencial' : 'Guardar credencial'}</button>
             </form>}
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="ui-surface-raised p-4">
               <h4 className="font-bold text-white">Credenciales registradas</h4>
               {detail.credentials.length === 0 ? <p className="mt-2 text-sm text-zinc-500">Todavía no hay credenciales operativas.</p> : detail.credentials.map((credential) => <CredentialRow key={credential.id} credential={credential} canManage={canManage} busy={busy} onRevoke={() => { if (window.confirm('¿Revocar esta credencial localmente?')) void run('revoke', async () => { await revokeCloudCredential(token, detail.connection.id, credential.id); return 'Credencial revocada.'; }); }} onRetry={() => startCredentialValidation(detail.connection.id, credential.id)} />)}
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="ui-surface-raised p-4">
               <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-bold text-white">3. Validar capacidades</h4><p className="mt-1 text-xs text-zinc-500">Primero se verifica la firma; solo después se consultan permisos por capacidad.</p>{detail.readiness?.authentication && <p className={`mt-2 text-xs leading-relaxed ${detail.readiness.authentication.status === 'VERIFIED' ? 'text-green-300' : 'text-amber-300'}`}><strong>{detail.readiness.authentication.status === 'VERIFIED' ? 'Autenticación verificada.' : 'Autenticación no verificada.'}</strong> {detail.readiness.authentication.message}</p>}</div>{canManage && <button type="button" disabled={busy !== null || detail.credentials.every((credential) => credential.status !== 'ACTIVE')} onClick={() => void run('validate', async () => { await validateCloudConnection(token, detail.connection.id); return 'Validación completada. Revisa el resultado de autenticación y de cada capacidad.'; })} className={secondaryButton}>{busy === 'validate' ? 'Validando…' : 'Validar acceso'}</button>}</div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{detail.readiness?.capabilities.length ? detail.readiness.capabilities.map((item) => <div key={item.capability} className="rounded-xl border border-zinc-800 p-3"><div className="flex justify-between gap-2"><p className="text-sm font-bold text-zinc-200">{capabilityLabels[item.capability] ?? item.capability}</p><Badge text={item.status === 'AVAILABLE' ? 'Disponible' : item.status === 'NOT_CONFIGURED' ? 'No configurado' : item.status === 'DENIED' ? 'Sin permiso' : item.status === 'BLOCKED' ? 'No consultado' : 'Error'} tone={item.status === 'AVAILABLE' ? 'green' : item.status === 'DENIED' || item.status === 'ERROR' ? 'red' : 'yellow'} /></div><p className="mt-2 text-xs leading-relaxed text-zinc-500">{item.message}</p></div>) : <p className="text-sm text-zinc-500">Valida la conexión para comprobar identidad, inventario, costos, métricas y FOCUS.</p>}</div>
               {detail.issues.length > 0 && <div className="mt-4 space-y-2"><p className="text-xs font-black uppercase tracking-wider text-zinc-500">Qué debes corregir</p>{detail.issues.map((issue, index) => <div key={`${issue.actionCode}-${index}`} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3"><p className="text-sm font-semibold text-zinc-200">{issue.message}</p><p className="mt-1 text-xs text-zinc-500">Afecta: {issue.affectedData.join(', ')}.</p><p className="mt-1 text-xs text-amber-300">Siguiente acción: {issue.action}</p></div>)}</div>}

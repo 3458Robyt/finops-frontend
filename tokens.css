@@ -1,0 +1,60 @@
+/* Hallmark · macrostructure: Workbench · tone: Centro FinOps · anchor hue: TAK yellow · pre-emit critique: P4 H4 E4 S5 R4 V4 · contrast: pass (40–41) · nav: rail/dock · footer: none · slop: pass (42–45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49, 50–57) · icons: pass (30) */
+
+:root {
+  --color-paper: oklch(13% 0.012 255);
+  --color-paper-2: oklch(17% 0.014 255);
+  --color-paper-3: oklch(22% 0.016 255);
+  --color-ink: oklch(96% 0.008 95);
+  --color-ink-2: oklch(77% 0.018 255);
+  --color-ink-3: oklch(61% 0.022 255);
+  --color-rule: oklch(30% 0.018 255);
+  --color-rule-strong: oklch(39% 0.02 255);
+  --color-accent: oklch(86% 0.18 96);
+  --color-accent-hover: oklch(90% 0.16 96);
+  --color-accent-soft: oklch(86% 0.18 96 / 0.12);
+  --color-accent-ink: oklch(17% 0.014 255);
+  --color-focus: oklch(78% 0.14 220);
+  --color-info: oklch(76% 0.13 220);
+  --color-positive: oklch(74% 0.16 150);
+  --color-warning: oklch(82% 0.15 78);
+  --color-danger: oklch(70% 0.19 25);
+  --color-overlay: oklch(5% 0.012 255 / 0.76);
+  --color-glare: oklch(100% 0 0 / 0.04);
+  --color-shadow: oklch(4% 0.01 255 / 0.2);
+  --color-shadow-strong: oklch(4% 0.01 255 / 0.48);
+
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", monospace;
+
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --text-2xl: clamp(2rem, 3vw, 3.25rem);
+
+  --radius-control: 0.5rem;
+  --radius-panel: 0.75rem;
+  --radius-dialog: 1rem;
+  --radius-pill: 999px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 140ms;
+  --dur-standard: 220ms;
+  --dur-long: 360ms;
+
+  --shadow-panel: 0 1px 0 var(--color-glare), 0 16px 40px var(--color-shadow);
+  --shadow-popover: 0 18px 50px var(--color-shadow-strong);
+}
