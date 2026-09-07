@@ -23,7 +23,7 @@ interface ResourceDetailProps {
   readonly onBack: () => void;
 }
 function isOperationalRole(role: ApiRole): boolean {
-  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN';
+  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'LEAD_TECHNICIAN' || role === 'FINOPS_TECHNICIAN';
 }
 
 function canApproveRecommendation(role: ApiRole): boolean {
@@ -76,7 +76,11 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
     );
   }
 
-  const source = evidence.source === 'nvidia-nim' ? 'NVIDIA NIM' : 'Seed / FOCUS';
+  const source = evidence.source === 'nvidia-nim'
+    ? 'NVIDIA NIM (histórico)'
+    : evidence.source === 'openai-compatible'
+      ? 'IA compatible · GPT-5.6 Luna'
+      : 'Seed / FOCUS';
   const currentCost = evidence.serviceCost ?? evidence.accountCost ?? recommendation.estimatedMonthlySavings ?? 0;
   const savings = recommendation.estimatedMonthlySavings ?? 0;
   const currency = recommendation.currency;

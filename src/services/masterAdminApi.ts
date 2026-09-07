@@ -37,7 +37,7 @@ export async function createMasterAdminUser(
   input: {
     readonly name: string;
     readonly email: string;
-    readonly role: 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN';
+    readonly role: 'OPERATOR_ADMIN' | 'LEAD_TECHNICIAN' | 'FINOPS_TECHNICIAN';
     readonly temporaryPassword: string;
   },
 ): Promise<MasterAdminUserResponse> {

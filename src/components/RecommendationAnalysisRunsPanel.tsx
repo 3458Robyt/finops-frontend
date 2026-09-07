@@ -29,6 +29,7 @@ interface Props {
 const managerRoles = new Set<ApiRole>([
   'MASTER_ADMIN',
   'OPERATOR_ADMIN',
+  'LEAD_TECHNICIAN',
   'ADMIN',
   'FINOPS_TECHNICIAN',
 ]);

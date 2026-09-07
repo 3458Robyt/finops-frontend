@@ -1,15 +1,14 @@
 import type { ApiUser } from '../services/api';
-import { getVisibleNavItems, type ApiRole, type AppRole, type CurrentView, type NavView } from './navigation';
+import { getVisibleNavItems, roleLabel, type ApiRole, type CurrentView, type NavView } from './navigation';
 
 interface SidebarProps {
   readonly currentView: CurrentView;
   readonly onViewChange: (view: NavView) => void;
-  readonly currentRole: AppRole;
-  readonly apiRole: ApiRole;
+  readonly role: ApiRole;
   readonly user: ApiUser;
 }
 
-export default function Sidebar({ currentView, onViewChange, currentRole, apiRole, user }: SidebarProps) {
+export default function Sidebar({ currentView, onViewChange, role, user }: SidebarProps) {
   if (currentView === 'login') return null;
 
   const displayName = user.name.trim() !== '' ? user.name : user.email;
@@ -19,7 +18,7 @@ export default function Sidebar({ currentView, onViewChange, currentRole, apiRol
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('') || user.email.slice(0, 2).toUpperCase();
-  const navItems = getVisibleNavItems(currentRole, apiRole);
+  const navItems = getVisibleNavItems(role);
 
   return (
     <aside className="fixed left-0 top-0 z-50 hidden h-[100dvh] w-20 flex-col border-r border-zinc-800 bg-zinc-900 lg:flex xl:w-[280px]">
@@ -30,7 +29,7 @@ export default function Sidebar({ currentView, onViewChange, currentRole, apiRol
           </div>
           <div className="hidden min-w-0 xl:block">
             <span className="block text-xl font-bold leading-none tracking-tight text-white">FinOps Demo</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{currentRole === 'admin' ? 'Ingeniería FinOps' : 'Cloud Client'}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{roleLabel(role)}</span>
           </div>
         </div>
       </div>

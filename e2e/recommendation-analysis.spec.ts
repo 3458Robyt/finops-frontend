@@ -25,7 +25,7 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
   await login(page);
 
   await page.getByRole('button', { name: /asistente ia/i }).click();
-  await expect(page.getByText(/estoy conectado al motor ia/i)).toBeVisible();
+  await expect(page.getByText(/puedo ayudarte a interpretar los costos/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
 });
 
@@ -36,10 +36,16 @@ test('el chat responde en español y la generación directa conserva la auditor�
 
   await page.getByPlaceholder(/escribe tu consulta/i).fill('¿Cuál es la mayor oportunidad del periodo?');
   await page.getByRole('button', { name: 'send' }).click();
-  await expect(page.getByText(/la mayor oportunidad es reducir/i)).toBeVisible();
+  const assistantMessage = page.getByTestId('assistant-markdown').last();
+  await expect(assistantMessage).toContainText('La mayor oportunidad');
+  await expect(assistantMessage).toContainText('reducir el costo');
+  await expect(assistantMessage.locator('strong')).toContainText('La mayor oportunidad');
+  await expect(assistantMessage).not.toContainText('**');
+  await expect(assistantMessage.locator('script')).toHaveCount(0);
+  await expect(assistantMessage.locator('img')).toHaveCount(0);
 
   await page.getByRole('button', { name: /previsualizar recomendaciones ia/i }).click();
-  await expect(page.getByText(/previsualizacion de recomendaciones ia/i)).toBeVisible();
+  await expect(page.getByText(/previsualizaci[oó]n de recomendaciones ia/i)).toBeVisible();
   await expect(page.getByText(/oportunidad validada por auditor/i)).toBeVisible();
 });
 
@@ -150,7 +156,7 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
     if (path.endsWith('/ai/chat')) {
       return json(route, {
         success: true,
-        answer: 'La mayor oportunidad es reducir el costo de la instancia con baja utilización. La evidencia técnica está disponible para revisión.',
+        answer: '## Resumen de costos\n\n**La mayor oportunidad** es reducir el costo de la instancia con baja utilización.\n\n- La evidencia técnica está disponible para revisión.\n\n<script>alert("no ejecutar")</script>\n\n![imagen no permitida](https://example.invalid/evidence.png)',
         context: {
           periodStart: '2026-07-01T00:00:00.000Z',
           periodEnd: '2026-07-23T12:00:00.000Z',

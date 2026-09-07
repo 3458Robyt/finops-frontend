@@ -124,6 +124,7 @@ export default function MasterAdmin({ onTenantsChanged }: MasterAdminProps) {
               <Field label="Rol">
                 <select value={userRole} onChange={(event) => setUserRole(event.target.value as StaffCreateRole)} className={inputClass}>
                   <option value="FINOPS_TECHNICIAN">Tecnico FinOps</option>
+                  <option value="LEAD_TECHNICIAN">Tecnico lider</option>
                   <option value="OPERATOR_ADMIN">Admin operador</option>
                 </select>
               </Field>

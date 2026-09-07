@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { ChatMessageContent } from '../components/ChatMessageContent';
 import {
   ApiRequestError,
   generateAiRecommendations,
   sendAiChatMessage,
   type AiChatMessage,
+  type ApiRole,
   type Recommendation,
 } from '../services/api';
 
@@ -13,18 +15,31 @@ interface UiMessage extends AiChatMessage {
 }
 
 const quickPrompts = [
-  'Explica donde esta el mayor costo del periodo',
+  'Explica dónde está el mayor costo del periodo',
   'Detecta posibles oportunidades en el gasto',
-  'Que acciones priorizarias para reducir costos?',
+  '¿Qué acciones priorizarías para reducir costos?',
 ] as const;
 
-export default function Chat() {
+interface ChatProps {
+  readonly role: ApiRole;
+}
+
+const recommendationRoles: readonly ApiRole[] = [
+  'ADMIN',
+  'MASTER_ADMIN',
+  'OPERATOR_ADMIN',
+  'LEAD_TECHNICIAN',
+  'FINOPS_TECHNICIAN',
+];
+
+export default function Chat({ role }: ChatProps) {
   const token = useAccessToken();
+  const canGenerateRecommendations = recommendationRoles.includes(role);
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Estoy conectado al motor IA y al resumen FOCUS cargado en Supabase. Preguntame por costos, oportunidades o acciones FinOps.',
+      content: 'Puedo ayudarte a interpretar los costos, el consumo y las oportunidades FinOps disponibles para este tenant. Pregúntame por un periodo, servicio o recurso concreto.',
     },
   ]);
   const [input, setInput] = useState('');
@@ -141,10 +156,12 @@ export default function Chat() {
               className={
                 message.role === 'user'
                   ? 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] sm:max-w-[70%] text-sm whitespace-pre-wrap'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[95%] sm:max-w-[80%] text-sm leading-relaxed whitespace-pre-wrap'
+                  : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[95%] sm:max-w-[80%] text-sm leading-relaxed'
               }
             >
-              {message.content}
+              {message.role === 'assistant'
+                ? <ChatMessageContent content={message.content} />
+                : message.content}
             </div>
           </div>
         ))}
@@ -163,7 +180,7 @@ export default function Chat() {
       </div>
       
       <div data-testid="chat-composer" className="mt-4 shrink-0 border-t border-zinc-800 pt-4">
-        <div className="mb-4 flex flex-wrap gap-2">
+        {canGenerateRecommendations && <div className="mb-4 flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
             <button
               key={prompt}
@@ -188,7 +205,7 @@ export default function Chat() {
           >
             <span className="material-symbols-outlined text-[14px]">save</span> Guardar recomendaciones IA
           </button>
-        </div>
+        </div>}
         <form
           className="relative"
           onSubmit={(event) => {
@@ -221,12 +238,12 @@ function formatRecommendations(
   persisted: boolean,
 ): string {
   if (recommendations.length === 0) {
-    return 'La IA no genero recomendaciones validas con el contexto actual.';
+    return 'La IA no generó recomendaciones válidas con el contexto actual.';
   }
 
   const header = persisted
-    ? 'Recomendaciones IA guardadas en la base de datos:'
-    : 'Previsualizacion de recomendaciones IA:';
+    ? '### Recomendaciones IA guardadas\n'
+    : '### Previsualización de recomendaciones IA\n';
 
   return [
     header,
@@ -235,7 +252,7 @@ function formatRecommendations(
         ? ` Ahorro estimado: ${recommendation.currency} ${recommendation.estimatedMonthlySavings.toFixed(2)}.`
         : '';
 
-      return `${index + 1}. [${recommendation.severity}] ${recommendation.title}\n${recommendation.description}${savings}`;
+      return `${index + 1}. **[${recommendation.severity}] ${recommendation.title}**\n\n   ${recommendation.description}${savings}`;
     }),
   ].join('\n\n');
 }

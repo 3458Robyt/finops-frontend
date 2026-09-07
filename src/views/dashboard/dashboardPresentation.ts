@@ -75,7 +75,7 @@ export function formatCompactNumber(value: number): string {
 
 function readRecommendationSource(recommendation: Recommendation): Suggestion['source'] {
   const source = readEvidenceString(recommendation.evidence, 'source')?.trim().toLowerCase();
-  return source === 'nvidia-nim' ? 'AI' : 'FOCUS';
+  return source === 'nvidia-nim' || source === 'openai-compatible' ? 'AI' : 'FOCUS';
 }
 
 function readEvidenceString(value: unknown, key: string): string | undefined {

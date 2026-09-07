@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
-import { createTelegramSelfLinkCode, fetchAuthSessions, revokeAuthSession, type ApiUser, type AuthSessionDevice, type TelegramSelfLinkCodeResponse } from '../services/api';
+import { createTelegramSelfLinkCode, fetchAuthSessions, revokeAuthSession, type ApiRole, type ApiUser, type AuthSessionDevice, type TelegramSelfLinkCodeResponse } from '../services/api';
+import { roleLabel } from '../components/navigation';
 import MfaSecurityPanel from '../components/profile/MfaSecurityPanel';
 
 interface ToggleProps {
@@ -8,10 +9,10 @@ interface ToggleProps {
   onChange: () => void;
 }
 
-export default function Profile({ onLogout, onOpenMessaging, currentRole, user }: {
+export default function Profile({ onLogout, onOpenMessaging, role, user }: {
   onLogout: () => void | Promise<void>;
   onOpenMessaging?: () => void;
-  currentRole: 'admin' | 'client';
+  role: ApiRole;
   user: ApiUser;
 }) {
   const token = useAccessToken();
@@ -98,13 +99,13 @@ const copyTelegramLink = async () => {
           <div className="flex-1 text-center md:text-left space-y-4">
             <div>
               <span className="inline-block bg-tak-yellow/10 text-tak-yellow text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest mb-2">
-                {currentRole === 'admin' ? 'Administrador del Sistema' : 'Nivel de Acceso: Ejecutivo'}
+                {roleLabel(role)}
               </span>
               <h2 className="text-3xl font-black text-white">
                 {displayName}
               </h2>
               <p className="text-zinc-500 font-medium">
-                {currentRole === 'admin' ? 'Admin de Cloud & FinOps Lead' : 'Lector Panel de Control'}
+                {role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER' || role === 'VIEWER' ? 'Portal ejecutivo FinOps' : 'Operación y gobierno FinOps'}
               </p>
             </div>
             

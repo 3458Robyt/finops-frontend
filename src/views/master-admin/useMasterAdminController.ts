@@ -18,7 +18,7 @@ import {
   type ClientInvitationRole,
 } from '../../services/api';
 
-export type StaffCreateRole = 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN';
+export type StaffCreateRole = 'OPERATOR_ADMIN' | 'LEAD_TECHNICIAN' | 'FINOPS_TECHNICIAN';
 
 export interface MasterAdminControllerState {
   readonly tenants: readonly MasterAdminTenant[];

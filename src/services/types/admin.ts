@@ -1,6 +1,6 @@
 // Master-admin DTOs.
 export type MasterAdminTenantStatus = 'ACTIVE' | 'SUSPENDED';
-export type MasterAdminStaffRole = 'MASTER_ADMIN' | 'OPERATOR_ADMIN' | 'FINOPS_TECHNICIAN' | 'ADMIN';
+export type MasterAdminStaffRole = 'MASTER_ADMIN' | 'OPERATOR_ADMIN' | 'LEAD_TECHNICIAN' | 'FINOPS_TECHNICIAN' | 'ADMIN';
 export type MasterAdminAssignmentRole = 'TECHNICIAN' | 'LEAD_TECHNICIAN' | 'OPERATOR_ADMIN';
 export type ClientInvitationRole = 'CLIENT_APPROVER' | 'CLIENT_VIEWER';
 export interface MasterAdminTenant {

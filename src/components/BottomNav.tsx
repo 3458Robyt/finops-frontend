@@ -1,24 +1,23 @@
 import { useState } from 'react';
-import { getVisibleNavItems, type ApiRole, type AppRole, type CurrentView, type NavItem, type NavView } from './navigation';
+import { getVisibleNavItems, type ApiRole, type CurrentView, type NavItem, type NavView } from './navigation';
 
 interface BottomNavProps {
   readonly currentView: CurrentView;
   readonly onViewChange: (view: NavView) => void;
-  readonly currentRole: AppRole;
-  readonly apiRole: ApiRole;
+  readonly role: ApiRole;
 }
 
-const primaryByRole: Readonly<Record<AppRole, readonly Exclude<NavView, 'profile'>[]>> = {
-  admin: ['dashboard', 'console', 'metricas_tecnicas', 'chat'],
-  client: ['dashboard', 'budgets', 'value_realization', 'chat'],
-};
+const primaryForTechnical: readonly Exclude<NavView, 'profile'>[] = ['dashboard', 'console', 'metricas_tecnicas', 'chat'];
+const primaryForClient: readonly Exclude<NavView, 'profile'>[] = ['dashboard', 'budgets', 'value_realization', 'chat'];
 
-export default function BottomNav({ currentView, onViewChange, currentRole, apiRole }: BottomNavProps) {
+export default function BottomNav({ currentView, onViewChange, role }: BottomNavProps) {
   const [open, setOpen] = useState(false);
   if (currentView === 'login') return null;
 
-  const items = getVisibleNavItems(currentRole, apiRole);
-  const primaryIds = primaryByRole[currentRole];
+  const items = getVisibleNavItems(role);
+  const primaryIds = role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER' || role === 'VIEWER'
+    ? primaryForClient
+    : primaryForTechnical;
   const primaryItems = items.filter((item) => primaryIds.includes(item.id));
   const secondaryItems = items.filter((item) => !primaryIds.includes(item.id));
   const currentInMenu = secondaryItems.some((item) => item.id === currentView) || currentView === 'profile';
@@ -26,7 +25,7 @@ export default function BottomNav({ currentView, onViewChange, currentRole, apiR
     onViewChange(view);
     setOpen(false);
   };
-  const profileItem = { id: 'profile' as const, icon: 'person', label: 'Perfil y Seguridad', roles: ['admin', 'client'] as const };
+  const profileItem = { id: 'profile' as const, icon: 'person', label: 'Perfil y Seguridad', roles: [] as const };
 
   return (
     <>
@@ -66,7 +65,7 @@ function BottomItem({ item, active, onSelect }: { readonly item: NavItem; readon
   );
 }
 
-function MenuItem({ item, active, onSelect }: { readonly item: NavItem | { readonly id: 'profile'; readonly icon: string; readonly label: string; readonly roles: readonly AppRole[] }; readonly active: boolean; readonly onSelect: () => void }) {
+function MenuItem({ item, active, onSelect }: { readonly item: NavItem | { readonly id: 'profile'; readonly icon: string; readonly label: string; readonly roles: readonly ApiRole[] }; readonly active: boolean; readonly onSelect: () => void }) {
   return (
     <button type="button" onClick={onSelect} className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-left text-xs font-bold ${active ? 'border-tak-yellow/40 bg-tak-yellow/10 text-tak-yellow' : 'border-zinc-800 bg-zinc-900 text-zinc-300'}`}>
       <span className="material-symbols-outlined shrink-0 text-lg">{item.icon}</span>

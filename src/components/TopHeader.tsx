@@ -1,7 +1,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
-import type { CurrentView } from './navigation';
+import { roleLabel, type CurrentView } from './navigation';
 import {
   dismissNotification,
   fetchNotifications,
@@ -131,12 +131,6 @@ export default function TopHeader({
     }
   };
 
-  const roleLabel = role === 'MASTER_ADMIN'
-    ? 'Maestro'
-    : role === 'ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
-      ? 'Admin'
-      : 'Cliente';
-
   if (currentView === 'login') return null;
 
   return (
@@ -153,7 +147,7 @@ export default function TopHeader({
       <div className="flex items-center gap-3 lg:gap-6 ml-4">
           <div className="hidden sm:flex flex-col items-end mr-2 relative group cursor-pointer">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-              Tenant activo · {roleLabel}
+               Tenant activo · {roleLabel(role)}
             </span>
             <select
               aria-label="Tenant activo"

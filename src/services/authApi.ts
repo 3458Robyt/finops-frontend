@@ -2,9 +2,17 @@ import { apiRequest } from './apiClient';
 import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaStatusResponse } from './authTypes';
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
-  return role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'FINOPS_TECHNICIAN'
-    ? 'admin'
-    : 'client';
+  return role;
+}
+
+export function getEffectiveRole(session: Pick<AuthSession, 'user' | 'activeTenant' | 'authorization'>): ApiRole {
+  if (session.authorization?.effectiveRole !== undefined) return session.authorization.effectiveRole;
+  if (session.activeTenant.effectiveRole !== undefined) return session.activeTenant.effectiveRole;
+  if (session.activeTenant.accessRole === 'MASTER') return 'MASTER_ADMIN';
+  if (session.activeTenant.accessRole === 'OPERATOR_ADMIN') return 'OPERATOR_ADMIN';
+  if (session.activeTenant.accessRole === 'LEAD_TECHNICIAN') return 'LEAD_TECHNICIAN';
+  if (session.activeTenant.accessRole === 'TECHNICIAN') return 'FINOPS_TECHNICIAN';
+  return session.user.role;
 }
 
 export async function login(email: string, password: string): Promise<AuthLoginResponse> {

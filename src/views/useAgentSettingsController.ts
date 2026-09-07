@@ -60,7 +60,7 @@ function listToLines(value: readonly string[]): string {
 
 export function useAgentSettingsController(role: ApiRole) {
   const token = useAccessToken();
-  const canConfigureAgent = role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN';
+  const canConfigureAgent = role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'LEAD_TECHNICIAN';
   const analysisOnly = role === 'VIEWER' || role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER';
   const [profile, setProfile] = useState<AgentInstructionProfile | null>(null);
   const [rules, setRules] = useState<readonly TenantAgentRule[]>([]);

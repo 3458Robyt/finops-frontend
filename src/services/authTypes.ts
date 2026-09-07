@@ -3,11 +3,36 @@ export type ApiRole =
   | 'MASTER_ADMIN'
   | 'VIEWER'
   | 'OPERATOR_ADMIN'
+  | 'LEAD_TECHNICIAN'
   | 'FINOPS_TECHNICIAN'
   | 'CLIENT_APPROVER'
   | 'CLIENT_VIEWER';
 
-export type AppRole = 'admin' | 'client';
+export type AppRole = ApiRole;
+
+export type FinOpsPermission =
+  | 'FINOPS_READ'
+  | 'TENANT_MANAGE'
+  | 'CLOUD_MANAGE'
+  | 'INGESTION_MANAGE'
+  | 'AGENT_OBSERVE'
+  | 'AGENT_CONFIGURE'
+  | 'RECOMMENDATION_GENERATE'
+  | 'RECOMMENDATION_DECIDE'
+  | 'RECOMMENDATION_EXECUTE'
+  | 'SAVINGS_MEASURE'
+  | 'SAVINGS_VERIFY'
+  | 'BUDGET_MANAGE'
+  | 'COST_ALLOCATION_MANAGE'
+  | 'VALUE_RECONCILE'
+  | 'OUTBOUND_MANAGE'
+  | 'PRIVILEGED_ACCOUNT';
+
+export interface AuthorizationSnapshot {
+  readonly effectiveRole: ApiRole;
+  readonly persona: 'MASTER' | 'TECHNICAL' | 'CLIENT';
+  readonly permissions: readonly FinOpsPermission[];
+}
 
 export interface ApiUser {
   readonly id: string;
@@ -25,6 +50,7 @@ export interface AuthTenant {
   readonly name: string;
   readonly slug: string;
   readonly accessRole: TenantAccessRole;
+  readonly effectiveRole?: ApiRole;
   readonly isCurrent: boolean;
 }
 
@@ -34,6 +60,7 @@ export interface AuthSession {
   readonly user: ApiUser;
   readonly activeTenant: AuthTenant;
   readonly availableTenants: readonly AuthTenant[];
+  readonly authorization?: AuthorizationSnapshot;
   /** Returned once immediately after MFA enrollment; callers must not persist it. */
   readonly mfaRecoveryCodes?: readonly string[];
 }
