@@ -146,7 +146,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
             <span className="material-symbols-outlined text-tak-yellow">speed</span>
             Consumo y Eficiencia FOCUS
           </h3>
-          <p className="text-xs text-zinc-500 mt-1">Costo unitario = costo facturado ÷ consumo. Se muestra en la moneda nativa reportada por FOCUS (por ejemplo, COP); CPU, memoria e IOPS requieren métricas técnicas separadas.</p>
+          <p className="text-xs text-zinc-500 mt-1">Costo unitario = costo facturado ÷ consumo. Los importes se muestran en la moneda de reporte del tenant; CPU, memoria e IOPS requieren métricas técnicas separadas.</p>
         </div>
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse min-w-[720px]">
@@ -155,7 +155,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Señal</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Severidad</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Consumo</th>
-                <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Costo unitario (moneda nativa)</th>
+                <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Costo unitario (moneda de reporte)</th>
                 <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Lectura</th>
               </tr>
             </thead>
@@ -360,7 +360,7 @@ function formatCurrencySummary(recommendations: readonly Recommendation[]): stri
 }
 
 function formatOpportunityAmount(opportunity: CostOpportunity): string {
-  const currency = readCurrency(opportunity.evidence);
+  const currency = opportunity.currency ?? readCurrency(opportunity.evidence);
   return currency === undefined
     ? `${formatNumber(opportunity.deltaAmount)} (moneda no disponible)`
     : formatCurrency(opportunity.deltaAmount, currency);

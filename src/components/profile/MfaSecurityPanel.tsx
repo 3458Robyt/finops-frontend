@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAccessToken } from '../../auth/authSession';
 import { disableMfa, fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
 import MfaRecoveryCodesDialog from './MfaRecoveryCodesDialog';
+import MfaSetupFlow from './MfaSetupFlow';
 
 export default function MfaSecurityPanel() {
   const token = useAccessToken();
@@ -11,6 +12,7 @@ export default function MfaSecurityPanel() {
   const [code, setCode] = useState('');
   const [removeCode, setRemoveCode] = useState('');
   const [removeRequested, setRemoveRequested] = useState(false);
+  const [setupRequested, setSetupRequested] = useState(false);
   const [codes, setCodes] = useState<readonly string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -110,6 +112,21 @@ export default function MfaSecurityPanel() {
             <button type="button" disabled={removing} onClick={() => void remove()} className="rounded-xl bg-red-500 px-3 py-2 text-xs font-black uppercase text-white disabled:opacity-50">{removing ? 'Quitando…' : 'Confirmar y quitar'}</button>
           </div>
         </div>
+      )}
+      {enabled === false && !setupRequested && (
+        <button type="button" onClick={() => { setSetupRequested(true); setError(null); setMessage(null); }} className="ui-button ui-button-primary text-xs">
+          Activar MFA
+        </button>
+      )}
+      {setupRequested && (
+        <MfaSetupFlow
+          onCompleted={() => {
+            setEnabled(true);
+            setRemaining(10);
+            setMessage('MFA quedó activado. Guarda tus códigos de recuperación.');
+          }}
+          onCancel={() => setSetupRequested(false)}
+        />
       )}
       {error !== null && <p className="text-xs text-red-400">{error}</p>}
       {message !== null && <p className="text-xs text-emerald-300">{message}</p>}

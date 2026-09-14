@@ -31,6 +31,7 @@ export default function RecommendationAnalysisRunDetail({
   }
 
   const progress = Math.round(((stages.indexOf(run.stage) + 1) / stages.length) * 100);
+  const isPublishing = run.stage === 'PERSISTENCE';
   return (
     <div className="ui-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -40,14 +41,17 @@ export default function RecommendationAnalysisRunDetail({
           <p className="mt-1 text-xs text-zinc-500">Corrida {run.id}</p>
         </div>
         <div className="flex gap-2">
-          {canManage && run.status === 'PENDING' && (
-            <button type="button" disabled={working} onClick={onCancel} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-black text-zinc-300 disabled:opacity-50">Cancelar</button>
+          {canManage && !isPublishing && (run.status === 'PENDING' || run.status === 'RUNNING') && (
+            <button type="button" disabled={working || run.cancelRequestedAt !== undefined} onClick={onCancel} className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-black text-zinc-300 disabled:opacity-50">
+              {run.cancelRequestedAt !== undefined ? 'Cancelación solicitada' : 'Cancelar'}
+            </button>
           )}
           {canManage && run.status === 'FAILED' && (
             <button type="button" disabled={working} onClick={onRetry} className="rounded-lg bg-tak-yellow px-3 py-2 text-xs font-black text-zinc-950 disabled:opacity-50">Reintentar</button>
           )}
         </div>
       </div>
+      {isPublishing && <Notice tone="warning">La corrida está publicando resultados; la cancelación ya no está disponible en este último paso.</Notice>}
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
         <div className="h-full bg-tak-yellow transition-[width]" style={{ width: `${progress}%` }} />
       </div>

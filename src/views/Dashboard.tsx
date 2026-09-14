@@ -31,15 +31,8 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
     missedSavingsAmount,
     forecastScenarios,
     reportingCurrency,
-    setReportingCurrency,
     costHistory,
   } = useDashboardController();
-  const currencyOptions = [...new Set([
-    'USD',
-    'COP',
-    reportingCurrency,
-    ...(costHistory?.totalsByCurrency ?? []).map((item) => item.currency),
-  ])].sort();
 
   return (
     <div className="ui-page space-y-6 lg:space-y-8 animate-in fade-in duration-500">
@@ -153,14 +146,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
             </h3>
             <p className="text-zinc-500 text-sm">Datos reales hasta el ultimo reporte descargado</p>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-xs font-bold text-zinc-400">
-              Moneda
-              <select value={reportingCurrency} onChange={(event) => setReportingCurrency(event.target.value)} className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-white">
-                {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-              </select>
-            </label>
-          </div>
+          <span className="text-xs font-bold text-zinc-400">Moneda de reporte: <strong className="text-white">{reportingCurrency}</strong></span>
         </div>
 
         <div className="h-[300px] w-full">

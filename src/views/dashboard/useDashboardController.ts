@@ -56,7 +56,6 @@ export interface DashboardControllerState {
   readonly chartData: readonly ChartPoint[];
   readonly costHistory: CostHistoryResponse | null;
   readonly reportingCurrency: string;
-  readonly setReportingCurrency: (currency: string) => void;
   readonly suggestions: readonly Suggestion[];
   readonly totalCost: number;
   readonly dashboardBudget: Budget | undefined;
@@ -75,7 +74,7 @@ export function useDashboardController(): DashboardControllerState {
   const token = useAccessToken();
   const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [costHistory, setCostHistory] = useState<CostHistoryResponse | null>(null);
-  const [reportingCurrency, setReportingCurrency] = useState<string | null>(null);
+  const [reportingCurrency, setReportingCurrency] = useState<string>('USD');
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
@@ -185,13 +184,12 @@ export function useDashboardController(): DashboardControllerState {
     void fetchCostHistory(token, {
       rangeMode: 'LATEST_AVAILABLE',
       lookbackDays: 90,
-      ...(reportingCurrency === null ? {} : { reportingCurrency }),
       granularity: 'day',
       signal: controller.signal,
     }).then((response) => {
       if (!active) return;
       setCostHistory(response);
-      if (reportingCurrency === null) setReportingCurrency(response.reportingCurrency);
+      setReportingCurrency(response.reportingCurrency);
     }).catch((requestError: unknown) => {
       if (active && !(requestError instanceof DOMException && requestError.name === 'AbortError')) {
         setError('El histórico de costos no pudo actualizarse. Los demás datos siguen disponibles.');
@@ -201,7 +199,7 @@ export function useDashboardController(): DashboardControllerState {
       active = false;
       controller.abort();
     };
-  }, [reportingCurrency, token]);
+  }, [token]);
 
   const metrics = useMemo(() => costs?.metrics ?? [], [costs]);
   const totalCost = useMemo(
@@ -243,7 +241,6 @@ export function useDashboardController(): DashboardControllerState {
     missedSavingsAmount: savingsKpis?.missedSavingsAmount ?? 0,
     forecastScenarios,
     costHistory,
-    reportingCurrency: reportingCurrency ?? costHistory?.reportingCurrency ?? 'USD',
-    setReportingCurrency: (currency: string) => setReportingCurrency(currency.toUpperCase()),
+    reportingCurrency: reportingCurrency || costHistory?.reportingCurrency || 'USD',
   };
 }

@@ -42,6 +42,9 @@ export function outcomeLabel(run: RecommendationAnalysisRun): string {
   if (run.errorCode === 'INSUFFICIENT_EVIDENCE') return 'Evidencia insuficiente';
   if (run.errorCode === 'NO_NEW_OPPORTUNITIES') return 'Sin oportunidades nuevas';
   if (run.errorCode === 'AI_AUDIT_REJECTED') return 'Rechazada por el auditor';
+  if (run.errorCode === 'RECOMMENDATION_ANALYSIS_WORKER_UNAVAILABLE') return 'Worker de análisis no disponible';
+  if (run.errorCode === 'CANCELLED_BY_USER') return 'Cancelada por el usuario';
+  if (run.errorCode === 'CANCELLED_STALE_RUN') return 'Cancelada por falta de respuesta del worker';
   if (run.errorCode === 'ANALYSIS_PROVIDER_ERROR') return 'Proveedor IA no disponible';
   return statusLabels[run.status];
 }

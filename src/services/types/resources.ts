@@ -56,6 +56,8 @@ export interface TechnicalResourceSummary {
     readonly totalCost: number;
     readonly currency: string;
     readonly metricCount: number;
+    readonly nativeTotals?: readonly { readonly currency: string; readonly amount: number }[];
+    readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   };
 }
 export interface TechnicalResourceSummaryResponse {
@@ -135,6 +137,8 @@ export interface TechnicalMetricResourceSummary {
     readonly currency: string;
     readonly metricCount: number;
     readonly matchLevel: TechnicalCostMatchLevel;
+    readonly nativeTotals?: readonly { readonly currency: string; readonly amount: number }[];
+    readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   };
 }
 export interface TechnicalMetricOpportunity {

@@ -16,6 +16,7 @@ export default function History() {
     estimated: 0,
     observed: 0,
     acceptanceRate: 0,
+    currency: 'USD',
   });
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function History() {
             estimated: savingsResponse.savings.estimatedMonthlySavings,
             observed: savingsResponse.savings.verifiedMonthlySavings,
             acceptanceRate: adoptionResponse.adoption.acceptanceRate,
+            currency: savingsResponse.savings.currency,
           });
         }
       })
@@ -112,7 +114,7 @@ export default function History() {
                       </span>
                     </td>
                     <td className="p-4 text-sm text-green-400 font-black text-right">
-                      +${(row.estimatedMonthlySavings ?? 0).toFixed(2)}
+                      +{formatCurrency(row.estimatedMonthlySavings ?? 0, row.currency)}
                     </td>
                   </tr>
                 ))}
@@ -120,8 +122,8 @@ export default function History() {
             </table>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 border-t border-zinc-800">
-            <SummaryCard label="Ahorro estimado" value={`$${summary.estimated.toFixed(2)}`} />
-            <SummaryCard label="Ahorro verificado" value={`$${summary.observed.toFixed(2)}`} />
+            <SummaryCard label="Ahorro estimado" value={formatCurrency(summary.estimated, summary.currency)} />
+            <SummaryCard label="Ahorro verificado" value={formatCurrency(summary.observed, summary.currency)} />
             <SummaryCard label="Aceptacion" value={`${(summary.acceptanceRate * 100).toFixed(0)}%`} />
           </div>
         </div>
@@ -187,4 +189,9 @@ function formatDate(value: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function formatCurrency(value: number, currency: string): string {
+  const normalized = /^[A-Z]{3}$/.test(currency.trim().toUpperCase()) ? currency.trim().toUpperCase() : 'USD';
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: normalized, maximumFractionDigits: 2 }).format(value);
 }

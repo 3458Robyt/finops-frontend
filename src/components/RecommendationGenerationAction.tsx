@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
 import {
+  cancelRecommendationAnalysis,
   fetchRecommendationAnalysisPreview,
   fetchRecommendationAnalysisRun,
   fetchRecommendationAnalysisRuns,
@@ -35,11 +36,13 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
   const [error, setError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [workerAvailable, setWorkerAvailable] = useState<boolean | null>(null);
   const notifiedRun = useRef<string | null>(null);
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
   const canManage = managerRoles.has(role);
   const isActive = run?.status === 'PENDING' || run?.status === 'RUNNING';
+  const isPublishing = run?.stage === 'PERSISTENCE';
   const activeRunId = isActive ? run?.id : undefined;
 
   useEffect(() => {
@@ -55,7 +58,10 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
     // POST que deja el análisis en cola.
     void fetchRecommendationAnalysisRuns(token, { signal: controller.signal })
       .then((runsResponse) => {
-        if (!controller.signal.aborted) setRun(runsResponse.runs[0] ?? null);
+        if (!controller.signal.aborted) {
+          setRun(runsResponse.runs[0] ?? null);
+          setWorkerAvailable(runsResponse.worker.available);
+        }
       })
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) setError(readError(requestError));
@@ -86,6 +92,7 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
         const response = await fetchRecommendationAnalysisRun(token, runId, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setRun(response.run);
+        setWorkerAvailable(response.worker.available);
         if (response.run.status !== 'PENDING' && response.run.status !== 'RUNNING') {
           if (notifiedRun.current !== response.run.id) {
             notifiedRun.current = response.run.id;
@@ -121,6 +128,26 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
     }
   };
 
+  const handleCancel = async (): Promise<void> => {
+    if (run === null || !isActive) return;
+    setWorking(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await cancelRecommendationAnalysis(token, run.id);
+      setRun(response.run);
+      setNotice(response.run.status === 'RUNNING' && response.run.cancelRequestedAt !== undefined
+        ? 'Se solicitó la cancelación. El worker finalizará la corrida sin publicar resultados.'
+        : response.run.status === 'RUNNING'
+          ? 'La corrida ya está publicando resultados; espera a que finalice.'
+        : 'La corrida fue cancelada.');
+    } catch (requestError: unknown) {
+      setError(readError(requestError));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   if (!canManage) return null;
 
   return (
@@ -142,12 +169,23 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
           <button
             type="button"
             onClick={() => void handleQueue()}
-            disabled={working || isActive}
+            disabled={working || isActive || workerAvailable === false}
             className="ui-button ui-button-primary min-h-11 px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-base">auto_awesome</span>
-            {isActive ? 'Análisis en curso' : 'Generar recomendaciones'}
+            {isActive ? 'Análisis en curso' : workerAvailable === false ? 'Worker no disponible' : 'Generar recomendaciones'}
           </button>
+          {isActive && !isPublishing && (
+            <button
+              type="button"
+              onClick={() => void handleCancel()}
+              disabled={working}
+              className="ui-button ui-button-secondary min-h-11 px-4 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {run?.status === 'RUNNING' && run.cancelRequestedAt !== undefined ? 'Cancelación solicitada' : 'Cancelar'}
+            </button>
+          )}
+          {isPublishing && <span className="self-center text-[11px] font-bold text-zinc-400">Publicando resultados…</span>}
           {onOpenAnalysis !== undefined && (
             <button type="button" onClick={onOpenAnalysis} className="ui-button ui-button-secondary min-h-11 px-4 text-xs">
               Ver auditoría
@@ -164,6 +202,11 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
           <span className="text-zinc-500">{outcomeLabel(run)}</span>
           {run.recommendationsPersisted > 0 && <span className="font-black text-tak-yellow">{run.recommendationsPersisted} publicadas</span>}
         </div>
+      )}
+      {workerAvailable === false && (
+        <p className="mt-3 text-xs font-bold text-amber-300">
+          El worker de análisis no está disponible. Inicia el proceso de análisis en segundo plano antes de generar recomendaciones.
+        </p>
       )}
       {notice !== null && <p className="mt-3 text-xs font-bold text-emerald-300">{notice}</p>}
       {previewError !== null && <p className="mt-3 text-xs font-bold text-amber-300">{previewError}</p>}

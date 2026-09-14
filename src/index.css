@@ -185,11 +185,11 @@
     display: grid;
     min-width: 0;
     place-items: center;
-    padding: var(--space-md);
+    padding: clamp(var(--space-md), 4vw, var(--space-2xl));
   }
 
   .auth-footer {
-    position: fixed;
+    position: absolute;
     bottom: var(--space-sm);
     left: 50%;
     z-index: 2;
@@ -433,7 +433,8 @@
 
 @media (min-width: 1024px) {
   .auth-footer {
-    left: calc(50% + 12.5rem);
+    left: 52.5%;
+    width: 47.5%;
   }
 }
 

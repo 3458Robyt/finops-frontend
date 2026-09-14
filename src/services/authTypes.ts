@@ -78,6 +78,13 @@ export interface MfaRecoveryCodesResponse {
   readonly message: string;
 }
 
+export interface MfaSetupResponse {
+  readonly success: true;
+  readonly secret: string;
+  readonly otpauthUri: string;
+  readonly message: string;
+}
+
 export interface AuthMfaChallenge {
   readonly mfaRequired: true;
   readonly mfaSetupRequired?: boolean;

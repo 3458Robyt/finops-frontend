@@ -49,6 +49,7 @@ export interface RecommendationAnalysisRun {
   readonly promptTokenEstimate: number;
   readonly responseTokenEstimate: number;
   readonly latencyMs?: number;
+  readonly cancelRequestedAt?: string;
   readonly errorCode?: string;
   readonly errorMessage?: string;
   readonly startedAt?: string;
@@ -62,6 +63,13 @@ export interface RecommendationAnalysisRun {
     readonly disposition: 'CREATED' | 'REUSED';
     readonly title: string;
   }[];
+}
+
+export interface RecommendationAnalysisWorkerStatus {
+  readonly available: boolean;
+  readonly processId?: string;
+  readonly processRole?: string;
+  readonly lastHeartbeatAt?: string;
 }
 export interface RecommendationAnalysisPreview {
   readonly scope: 'TENANT' | 'RESOURCE';

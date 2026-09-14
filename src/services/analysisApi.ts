@@ -1,5 +1,13 @@
 import { apiRequest } from './apiClient';
-import type { RecommendationAnalysisRun, RecommendationAnalysisPreview } from './apiTypes';
+import type {
+  RecommendationAnalysisRun,
+  RecommendationAnalysisPreview,
+  RecommendationAnalysisWorkerStatus,
+} from './apiTypes';
+
+interface AnalysisWorkerResponse {
+  readonly worker: RecommendationAnalysisWorkerStatus;
+}
 
 export async function fetchRecommendationAnalysisPreview(
   token: string,
@@ -31,7 +39,11 @@ export async function queueRecommendationAnalysis(
 export async function fetchRecommendationAnalysisRuns(
   token: string,
   options: { readonly signal?: AbortSignal } = {},
-): Promise<{ readonly success: true; readonly runs: readonly RecommendationAnalysisRun[] }> {
+): Promise<{
+  readonly success: true;
+  readonly runs: readonly RecommendationAnalysisRun[];
+  readonly worker: RecommendationAnalysisWorkerStatus;
+}> {
   return apiRequest('/ai/analysis-runs', {
     token,
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
@@ -42,7 +54,7 @@ export async function fetchRecommendationAnalysisRun(
   token: string,
   runId: string,
   options: { readonly signal?: AbortSignal } = {},
-): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun }> {
+): Promise<{ readonly success: true; readonly run: RecommendationAnalysisRun } & AnalysisWorkerResponse> {
   return apiRequest(`/ai/analysis-runs/${encodeURIComponent(runId)}`, {
     token,
     ...(options.signal !== undefined ? { signal: options.signal } : {}),

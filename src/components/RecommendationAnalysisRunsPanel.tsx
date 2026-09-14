@@ -48,6 +48,7 @@ export default function RecommendationAnalysisRunsPanel({
   const [error, setError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [workerAvailable, setWorkerAvailable] = useState<boolean | null>(null);
   const hasActiveRun = useMemo(
     () => runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING'),
     [runs],
@@ -68,6 +69,7 @@ export default function RecommendationAnalysisRunsPanel({
         if (controller.signal.aborted) return;
         setRuns(runsResponse.runs);
         setSelected(runsResponse.runs[0] ?? null);
+        setWorkerAvailable(runsResponse.worker.available);
       })
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) setError(readError(requestError));
@@ -89,20 +91,21 @@ export default function RecommendationAnalysisRunsPanel({
   }, [token]);
 
   useEffect(() => {
-    if (!hasActiveRun) return;
+    if (!hasActiveRun && workerAvailable !== false) return;
     const controller = new AbortController();
     const interval = window.setInterval(() => {
       void fetchRecommendationAnalysisRuns(token, { signal: controller.signal })
         .then(async (response) => {
           const selectedId = selected?.id;
           let selectedRun: RecommendationAnalysisRun | null = null;
-          if (selectedId !== undefined) {
+          if (hasActiveRun && selectedId !== undefined) {
             const detail = await fetchRecommendationAnalysisRun(token, selectedId, {
               signal: controller.signal,
             });
             selectedRun = detail.run;
           }
           setRuns(response.runs);
+          setWorkerAvailable(response.worker.available);
           if (selectedRun !== null) setSelected(selectedRun);
         })
         .catch((requestError: unknown) => {
@@ -113,7 +116,7 @@ export default function RecommendationAnalysisRunsPanel({
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [hasActiveRun, selected?.id, token]);
+  }, [hasActiveRun, selected?.id, token, workerAvailable]);
 
   const handleQueue = async () => {
     setWorking(true);
@@ -151,7 +154,11 @@ export default function RecommendationAnalysisRunsPanel({
     try {
       const response = await cancelRecommendationAnalysis(token, selected.id);
       replaceRun(response.run);
-      setMessage('La corrida pendiente fue cancelada.');
+      setMessage(response.run.status === 'RUNNING' && response.run.cancelRequestedAt !== undefined
+        ? 'Se solicitó la cancelación. El worker terminará la corrida sin publicar resultados.'
+        : response.run.status === 'RUNNING'
+          ? 'La corrida ya está publicando resultados; espera a que finalice.'
+        : 'La corrida fue cancelada.');
     } catch (requestError: unknown) {
       setError(readError(requestError));
     } finally {
@@ -203,10 +210,10 @@ export default function RecommendationAnalysisRunsPanel({
             <button
               type="button"
               onClick={() => void handleQueue()}
-              disabled={working || hasActiveRun}
+              disabled={working || hasActiveRun || workerAvailable === false}
               className="rounded-lg bg-tak-yellow px-5 py-3 text-sm font-black text-zinc-950 hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {hasActiveRun ? 'Análisis en curso' : 'Analizar datos disponibles'}
+              {hasActiveRun ? 'Análisis en curso' : workerAvailable === false ? 'Worker no disponible' : 'Analizar datos disponibles'}
             </button>
           )}
         </div>
@@ -231,6 +238,11 @@ export default function RecommendationAnalysisRunsPanel({
               </Notice>
             )}
           </>
+        )}
+        {workerAvailable === false && (
+          <Notice tone="warning">
+            El worker de análisis no está activo. Inícialo antes de crear una corrida; así no quedará un análisis pendiente indefinidamente.
+          </Notice>
         )}
       </div>
 

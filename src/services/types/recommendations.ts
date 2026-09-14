@@ -22,6 +22,9 @@ export interface Recommendation {
   readonly evidence: unknown;
   readonly estimatedMonthlySavings?: number;
   readonly currency: string;
+  readonly nativeEstimatedMonthlySavings?: number;
+  readonly nativeCurrency?: string;
+  readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -142,6 +145,7 @@ export interface SavingsKpisResponse {
     readonly currency: string;
     readonly executedRecommendations: number;
     readonly pendingSavingsRecommendations: number;
+    readonly conversionIssueCount?: number;
     readonly topMissedSavingsRecommendation?: {
       readonly id: string;
       readonly title: string;

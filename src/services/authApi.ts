@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaStatusResponse } from './authTypes';
+import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaSetupResponse, MfaStatusResponse } from './authTypes';
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role;
@@ -104,6 +104,18 @@ export async function revokeAuthSession(token: string, sessionId: string): Promi
 
 export function fetchMfaStatus(token: string): Promise<MfaStatusResponse> {
   return apiRequest('/auth/mfa/status', { token });
+}
+
+export function beginMfaSetup(token: string): Promise<MfaSetupResponse> {
+  return apiRequest('/auth/mfa/setup', { method: 'POST', token, body: JSON.stringify({}) });
+}
+
+export function confirmMfaSetup(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  return apiRequest('/auth/mfa/confirm', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ code }),
+  });
 }
 
 export function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {

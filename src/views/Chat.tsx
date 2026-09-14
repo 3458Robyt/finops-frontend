@@ -9,10 +9,17 @@ import {
   type ApiRole,
   type Recommendation,
 } from '../services/api';
+import { chatSessionKey, clearChatSession, loadChatSession, saveChatSession, type StoredChatMessage } from '../services/chatSessionStorage';
 
 interface UiMessage extends AiChatMessage {
   readonly id: string;
 }
+
+const welcomeMessage: UiMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content: 'Puedo ayudarte a interpretar los costos, el consumo y las oportunidades FinOps disponibles para este tenant. Pregúntame por un periodo, servicio o recurso concreto.',
+};
 
 const quickPrompts = [
   'Explica dónde está el mayor costo del periodo',
@@ -22,6 +29,8 @@ const quickPrompts = [
 
 interface ChatProps {
   readonly role: ApiRole;
+  readonly userId: string;
+  readonly tenantId: string;
 }
 
 const recommendationRoles: readonly ApiRole[] = [
@@ -32,16 +41,11 @@ const recommendationRoles: readonly ApiRole[] = [
   'FINOPS_TECHNICIAN',
 ];
 
-export default function Chat({ role }: ChatProps) {
+export default function Chat({ role, userId, tenantId }: ChatProps) {
   const token = useAccessToken();
   const canGenerateRecommendations = recommendationRoles.includes(role);
-  const [messages, setMessages] = useState<UiMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: 'Puedo ayudarte a interpretar los costos, el consumo y las oportunidades FinOps disponibles para este tenant. Pregúntame por un periodo, servicio o recurso concreto.',
-    },
-  ]);
+  const storageKey = chatSessionKey(userId, tenantId);
+  const [messages, setMessages] = useState<UiMessage[]>(() => loadChatSession(storageKey, welcomeMessage));
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -49,6 +53,25 @@ export default function Chat({ role }: ChatProps) {
   const historyRef = useRef<HTMLDivElement | null>(null);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  const activeStorageKeyRef = useRef(storageKey);
+  const skipPersistRef = useRef(false);
+
+  useEffect(() => {
+    if (activeStorageKeyRef.current === storageKey) return;
+    activeStorageKeyRef.current = storageKey;
+    skipPersistRef.current = true;
+    setMessages(loadChatSession(storageKey, welcomeMessage));
+    setInput('');
+    setError(null);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (skipPersistRef.current) {
+      skipPersistRef.current = false;
+      return;
+    }
+    saveChatSession(storageKey, messages as readonly StoredChatMessage[]);
+  }, [messages, storageKey]);
 
   const history = useMemo<AiChatMessage[]>(
     () => messages
@@ -126,6 +149,14 @@ export default function Chat({ role }: ChatProps) {
     }
   };
 
+  const startNewConversation = (): void => {
+    if (messages.length > 1 && !window.confirm('¿Quieres borrar la conversación de este tenant?')) return;
+    clearChatSession(storageKey);
+    saveChatSession(storageKey, [welcomeMessage]);
+    setMessages([welcomeMessage]);
+    setError(null);
+  };
+
   return (
     <div data-testid="chat-module" className="ui-page relative flex h-full min-h-0 flex-col overflow-hidden animate-in fade-in duration-500">
       <header className="ui-page-header shrink-0 pb-4">
@@ -134,7 +165,10 @@ export default function Chat({ role }: ChatProps) {
           <h1 className="ui-page-title mt-2 text-3xl">Conversa con tus datos FinOps</h1>
           <p className="ui-page-lead">Consulta costos, consumo y oportunidades del tenant activo. Las respuestas se generan con contexto gobernado.</p>
         </div>
-        <span className="ui-status ui-status-accent shrink-0">IA · español</span>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <button type="button" onClick={startNewConversation} className="ui-button ui-button-secondary min-h-9 text-xs">Nueva conversación</button>
+          <span className="ui-status ui-status-accent">IA · español</span>
+        </div>
       </header>
       <div
         data-testid="chat-history"

@@ -7,6 +7,7 @@ import MfaRecoveryCodesDialog from './components/profile/MfaRecoveryCodesDialog'
 import { AuthSessionProvider } from './auth/AuthSessionContext';
 import { beginSessionTransition, clearAccessToken, completeMfaEnrollment, completeMfaLogin, endSessionTransition, fetchAccessibleTenants, getEffectiveRole, login, logout, restoreSession, setAccessToken, subscribeToSessionExpired, subscribeToSessionRefresh, switchTenant, type ApiRole, type AuthLoginResponse, type AuthSession } from './services/api';
 import { canAccessView } from './components/navigation';
+import { clearChatSessionHistory } from './services/chatSessionStorage';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Console = lazy(() => import('./views/Console'));
@@ -66,6 +67,7 @@ function App() {
 
   useEffect(() => subscribeToSessionExpired(() => {
     clearAccessToken();
+    clearChatSessionHistory();
     setAuthSession(null);
     setCurrentView('login');
     setSelectedResourceType(null);
@@ -110,6 +112,7 @@ function App() {
         // Logout is best-effort: local in-memory credentials are still cleared.
       }
     }
+    clearChatSessionHistory();
     setAuthSession(null);
     clearAccessToken();
     setCurrentView('login');
@@ -193,7 +196,7 @@ availableTenants: response.availableTenants,
         setCurrentView('resource_detail');
       }} />;
       case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} apiRole={currentRole} onBack={() => setCurrentView('console')} />;
-      case 'chat': return <Chat role={currentRole} />;
+      case 'chat': return <Chat role={currentRole} userId={authSession.user.id} tenantId={authSession.activeTenant.id} />;
       case 'history': return <History />;
       case 'agent_settings': return technicalRole ? <AgentSettings
   role={currentRole}

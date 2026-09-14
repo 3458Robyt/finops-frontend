@@ -126,7 +126,7 @@ export default function Login({ onLogin }: {
   }
 
   return (
-    <div className="auth-shell lg:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
+    <div className="auth-shell lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
       <section className="auth-brand-panel hidden lg:flex">
         <div className="relative z-10 max-w-xl">
           <p className="ui-kicker">FinOps Demo · FinOps Inteligente</p>

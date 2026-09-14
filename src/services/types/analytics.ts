@@ -18,6 +18,12 @@ export interface CostOpportunity {
   readonly severity: RecommendationSeverity;
   readonly status: 'OPEN' | 'LINKED_TO_RECOMMENDATION' | 'RESOLVED';
   readonly explanation: string;
+  readonly currency?: string;
+  readonly nativeBaselineCost?: number;
+  readonly nativeObservedCost?: number;
+  readonly nativeDeltaAmount?: number;
+  readonly nativeCurrency?: string;
+  readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   readonly evidence?: unknown;
   readonly detectedAt: string;
 }
@@ -37,6 +43,11 @@ export interface CostForecast {
   readonly method: string;
   readonly confidence: number;
   readonly currency: string;
+  readonly nativePredictedCost?: number;
+  readonly nativeLowerBound?: number;
+  readonly nativeUpperBound?: number;
+  readonly nativeCurrency?: string;
+  readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   readonly evidence?: unknown;
   readonly generatedAt: string;
 }
@@ -52,6 +63,9 @@ export interface CostTrendPoint {
   readonly cost: number;
   readonly currency: string;
   readonly metricCount: number;
+  readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
+  readonly nativeCost?: number;
+  readonly nativeCurrency?: string;
 }
 export interface CostTrend {
   readonly groupBy: AnalyticsGroupBy | 'total';
@@ -80,6 +94,9 @@ export interface MonthlyUsagePoint {
   readonly unitCost?: number;
   readonly currency: string;
   readonly metricCount: number;
+  readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
+  readonly nativeCost?: number;
+  readonly nativeCurrency?: string;
 }
 export type UsageInsightKind =
   | 'CONSUMPTION_GROWTH'
