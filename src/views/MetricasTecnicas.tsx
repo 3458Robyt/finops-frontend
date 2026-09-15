@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatDateTime,
   formatNumber,
+  formatPercent,
   groupLabels,
   resourceLegendLabel,
   resourceOptionLabel,
@@ -103,7 +104,7 @@ export default function MetricasTecnicas() {
         </div>
         <div className="grid gap-3 md:grid-cols-4">
           <MiniMetric label="Muestras rango" value={formatNumber(coverage?.totalSamples ?? 0)} />
-          <MiniMetric label="Cobertura rango" value={`${formatNumber(coverage?.coveragePercent ?? 0)}%`} />
+          <MiniMetric label="Cobertura rango" value={formatPercent(coverage?.coveragePercent ?? 0)} />
           <MiniMetric label="Muestras metrica" value={formatNumber(selectedCoverageMetric?.sampleCount ?? 0)} />
           <MiniMetric label="Dias metrica" value={`${selectedCoverageMetric?.daysWithData ?? 0}/${selectedCoverageMetric?.expectedDays ?? coverage?.expectedDays ?? 0}`} />
         </div>

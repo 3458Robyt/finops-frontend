@@ -11,6 +11,8 @@ export interface InAppNotification {
   readonly recommendationId?: string;
   readonly type: InAppNotificationType;
   readonly status: InAppNotificationStatus;
+  readonly readAt?: string;
+  readonly dismissedAt?: string;
   readonly title: string;
   readonly message: string;
   readonly missedSavingsAmount?: number;
@@ -48,5 +50,29 @@ export interface AdoptionKpisResponse {
     readonly acceptanceRate: number;
     readonly rejectionRate: number;
     readonly executionRate: number;
+    readonly engagement?: {
+      readonly activeUsers: number;
+      readonly recurringUsers: number;
+      readonly chatInteractions: number;
+      readonly chatUsers: number;
+      readonly telegramInteractions: number;
+      readonly outboundSent: number;
+      readonly notificationCount: number;
+      readonly notificationsRead: number;
+      readonly notificationsDismissed: number;
+      readonly notificationReadRate: number;
+      readonly medianAlertToReadMinutes?: number;
+      readonly medianAlertToDecisionMinutes?: number;
+      readonly decisionsByRole: Readonly<Record<string, number>>;
+      readonly series: readonly {
+        readonly periodStart: string;
+        readonly activeUsers: number;
+        readonly chatInteractions: number;
+        readonly telegramInteractions: number;
+        readonly decisions: number;
+        readonly executions: number;
+      }[];
+    };
+    readonly period?: { readonly from?: string; readonly to?: string; readonly granularity: 'day' | 'week' | 'month' };
   };
 }

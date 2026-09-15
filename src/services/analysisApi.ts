@@ -6,7 +6,8 @@ import type {
 } from './apiTypes';
 
 interface AnalysisWorkerResponse {
-  readonly worker: RecommendationAnalysisWorkerStatus;
+  /** Optional for compatibility with older API deployments during rollout. */
+  readonly worker?: RecommendationAnalysisWorkerStatus;
 }
 
 export async function fetchRecommendationAnalysisPreview(

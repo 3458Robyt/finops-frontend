@@ -7,7 +7,6 @@ import { TimelinePanel } from './resource-detail/RecommendationTimelinePanel';
 import { Badge, DetailShell, EvidenceLine, MetricCard } from './resource-detail/ResourceDetailDisplay';
 import { useResourceDetailController } from './resource-detail/useResourceDetailController';
 import {
-  buildUsageChart,
   calculateMissedSavings,
   formatEvidenceLevel,
   formatUsageEvidence,
@@ -50,11 +49,6 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
     () => readCanonicalEvidenceSnapshot(evidence.raw['recommendationEvidenceSnapshot']),
     [evidence],
   );
-  const chart = useMemo(
-    () => buildUsageChart(recommendation, evidence),
-    [evidence, recommendation],
-  );
-
   if (loading) {
     return (
       <DetailShell onBack={onBack}>
@@ -81,11 +75,14 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
     : evidence.source === 'openai-compatible'
       ? 'IA compatible · GPT-5.6 Luna'
       : 'Seed / FOCUS';
-  const currentCost = evidence.serviceCost ?? evidence.accountCost ?? recommendation.estimatedMonthlySavings ?? 0;
-  const savings = recommendation.estimatedMonthlySavings ?? 0;
+  const currentCost = evidence.observedCost ?? evidence.serviceCost ?? evidence.accountCost;
+  const savings = recommendation.estimatedMonthlySavings;
+  const potentialSavings = evidence.potentialMonthlySavings;
   const currency = recommendation.currency;
   const missedSavings = calculateMissedSavings(recommendation);
-  const savingsRate = currentCost > 0 ? Math.min((savings / currentCost) * 100, 95) : 0;
+  const savingsRate = currentCost !== undefined && currentCost > 0 && savings !== undefined
+    ? Math.min((savings / currentCost) * 100, 100)
+    : undefined;
   const service = evidence.service ?? evidence.metric ?? shortenType(recommendation.type);
   const canGenerateExecutionPlan = isOperationalRole(apiRole);
   const canDecide = canApproveRecommendation(apiRole) &&
@@ -113,44 +110,13 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
             </div>
 
             <div className="ui-surface-raised p-6 md:p-8">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                  <h4 className="font-black text-zinc-200 text-base md:text-lg uppercase tracking-tight">Evidencia de consumo</h4>
-                  <p className="text-xs text-zinc-500 font-medium">{service}</p>
-                </div>
-                <div className="flex items-center gap-6 bg-zinc-950 px-4 py-2 rounded-full border border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm bg-tak-yellow shadow-[0_0_8px_rgba(250,204,21,0.5)]"></div>
-                    <span className="text-[10px] font-black text-zinc-300 uppercase">Costo</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm bg-zinc-600 border border-zinc-500/20"></div>
-                    <span className="text-[10px] font-black text-zinc-500 uppercase">Base</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative h-56 md:h-72 w-full">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 240" aria-label="Grafico de evidencia">
-                  <line className="stroke-zinc-800" strokeDasharray="4" x1="0" x2="800" y1="20" y2="20"></line>
-                  <line className="stroke-zinc-800" strokeDasharray="4" x1="0" x2="800" y1="90" y2="90"></line>
-                  <line className="stroke-zinc-800" strokeDasharray="4" x1="0" x2="800" y1="160" y2="160"></line>
-                  <line className="stroke-zinc-800" strokeDasharray="4" x1="0" x2="800" y1="230" y2="230"></line>
-                  <defs>
-                    <linearGradient id="detailCostGradient" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#FACC15" stopOpacity="0.3"></stop>
-                      <stop offset="100%" stopColor="#FACC15" stopOpacity="0"></stop>
-                    </linearGradient>
-                  </defs>
-                  <path d={chart.baselinePath} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2"></path>
-                  <path d={chart.costPath} fill="none" stroke="#FACC15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4"></path>
-                  <path d={`${chart.costPath} V240 H0 Z`} fill="url(#detailCostGradient)"></path>
-                </svg>
-                <div className="flex justify-between mt-6 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                  <span>Inicio periodo</span>
-                  <span className="hidden md:block">{evidence.environment ?? 'tenant'}</span>
-                  <span className="text-tak-yellow">Recomendacion actual</span>
-                </div>
+              <h4 className="font-black text-zinc-200 text-base md:text-lg uppercase tracking-tight">Evidencia factual</h4>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                Esta oportunidad usa datos agregados del período. No se muestra una serie temporal porque el detalle no contiene puntos crudos verificables.
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3"><span className="text-zinc-500">Servicio</span><p className="mt-1 font-bold text-zinc-200">{service}</p></div>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3"><span className="text-zinc-500">Período</span><p className="mt-1 font-bold text-zinc-200">{evidence.environment ?? 'Snapshot agregado'}</p></div>
               </div>
             </div>
 
@@ -171,17 +137,20 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
               <div className="ui-surface-raised p-6 md:p-7">
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Costo observado</p>
                 <p className="text-2xl md:text-3xl font-black text-white">
-                  {formatCurrency(currentCost, currency)}
-                  <span className="text-xs font-medium text-zinc-500 ml-1 tracking-tight">{currency}</span>
+                  {currentCost === undefined ? 'No disponible' : formatCurrency(currentCost, currency)}
+                  {currentCost !== undefined && <span className="text-xs font-medium text-zinc-500 ml-1 tracking-tight">{currency}</span>}
                 </p>
               </div>
               <div className="ui-callout ui-callout-accent relative overflow-hidden p-6 md:p-7">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-tak-yellow/10 blur-3xl rounded-full translate-x-12 -translate-y-12"></div>
-                <p className="text-[10px] font-black text-tak-yellow uppercase tracking-widest mb-2">Potencial de ahorro</p>
-                <p className="text-3xl md:text-4xl font-black text-tak-yellow tracking-tighter">
-                  -{formatCurrency(savings, currency)}
-                  <span className="text-sm font-medium opacity-60 ml-1">/mes</span>
-                </p>
+                 <p className="text-[10px] font-black text-tak-yellow uppercase tracking-widest mb-2">{savings === undefined ? 'Potencial por validar' : 'Ahorro estimado'}</p>
+                 <p className="text-3xl md:text-4xl font-black text-tak-yellow tracking-tighter">
+                   {savings === undefined
+                     ? potentialSavings === undefined ? 'No cuantificado' : `${formatCurrency(potentialSavings, currency)}*`
+                     : formatCurrency(savings, currency)}
+                   {savings !== undefined && <span className="text-sm font-medium opacity-60 ml-1">/mes</span>}
+                 </p>
+                 {savings === undefined && potentialSavings !== undefined && <p className="mt-2 text-[11px] text-zinc-400">* Potencial financiero sujeto a validación; no es ahorro realizado.</p>}
                 {missedSavings > 0 && (
                   <p className="mt-3 text-xs font-bold leading-relaxed text-zinc-300">
                     ¿Sabías que podrías haberte ahorrado {formatCurrency(missedSavings, currency)} desde que esta oportunidad fue creada?
@@ -202,7 +171,8 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
                 </p>
 
                 <div className="space-y-4">
-                  <EvidenceLine icon="payments" label="Ahorro estimado" value={`${savingsRate.toFixed(1)}% del costo observado`} />
+                  <EvidenceLine icon="payments" label="Ahorro estimado" value={savingsRate === undefined ? 'No cuantificado o pendiente de validación' : `${savingsRate.toFixed(1)}% del costo observado`} />
+                  {evidence.confidence !== undefined && <EvidenceLine icon="verified" label="Confianza del análisis" value={`${(evidence.confidence * 100).toFixed(0)}%`} />}
                   {missedSavings > 0 && (
                     <EvidenceLine icon="savings" label="Ahorro no capturado" value={`${formatCurrency(missedSavings, currency)} acumulado desde la generacion de la recomendacion`} />
                   )}
@@ -341,9 +311,9 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
       )}
 
       <div className="px-6 py-4 md:px-10 md:py-6 bg-zinc-950/80 border-t border-zinc-800 flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="flex items-center gap-3">
+         <div className="flex items-center gap-3">
           <div className="size-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-          <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Detalle conectado a Supabase</span>
+           <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Detalle conectado a la base de datos activa</span>
         </div>
         <p className="text-[9px] md:text-[10px] text-zinc-600 font-black tracking-widest uppercase">FinOps Demo © {new Date().getFullYear()} • Powered by FinOps AI</p>
       </div>

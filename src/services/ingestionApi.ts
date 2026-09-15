@@ -45,8 +45,14 @@ export async function fetchDataQualityChecks(
   return apiRequest<DataQualityResponse>(`/ingestion/data-quality${query}`, { token });
 }
 
-export async function fetchIngestionReadiness(token: string): Promise<IngestionReadinessResponse> {
-  return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', { token });
+export async function fetchIngestionReadiness(
+  token: string,
+  options: { readonly timeoutMs?: number } = {},
+): Promise<IngestionReadinessResponse> {
+  return apiRequest<IngestionReadinessResponse>('/ingestion/readiness', {
+    token,
+    ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+  });
 }
 
 export async function fetchMetricCoverage(
@@ -62,8 +68,14 @@ export async function fetchMetricCoverage(
   return apiRequest<IngestionMetricCoverageResponse>(`/ingestion/coverage?${params.toString()}`, { token });
 }
 
-export async function fetchResourceLinkageReadiness(token: string): Promise<ResourceLinkageReadinessResponse> {
-  return apiRequest<ResourceLinkageReadinessResponse>('/ingestion/resource-linkage?limit=50', { token });
+export async function fetchResourceLinkageReadiness(
+  token: string,
+  options: { readonly timeoutMs?: number } = {},
+): Promise<ResourceLinkageReadinessResponse> {
+  return apiRequest<ResourceLinkageReadinessResponse>('/ingestion/resource-linkage?limit=50', {
+    token,
+    ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
+  });
 }
 
 export async function queueIngestionJob(

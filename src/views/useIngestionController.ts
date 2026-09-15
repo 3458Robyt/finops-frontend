@@ -83,8 +83,8 @@ export function useIngestionController() {
         fetchCloudConnections(token),
         fetchIngestionHistory(token, undefined, includeArchived),
         fetchDataQualityChecks(token),
-        fetchIngestionReadiness(token),
-        fetchResourceLinkageReadiness(token),
+        fetchIngestionReadiness(token, { timeoutMs: 90_000 }),
+        fetchResourceLinkageReadiness(token, { timeoutMs: 90_000 }),
       ]);
       if (!active()) return;
 

@@ -11,6 +11,9 @@ export async function sendAiChatMessage(
   return apiRequest<AiChatResponse>('/ai/chat', {
     method: 'POST',
     token,
+    // Las respuestas con contexto gobernado pueden tardar más que una lectura
+    // normal; evita abortarlas a los 30 s mientras el backend sigue trabajando.
+    timeoutMs: 120_000,
     body: JSON.stringify(input),
   });
 }
@@ -24,6 +27,9 @@ export async function generateAiRecommendations(
   return apiRequest<AiRecommendationGenerationResponse>('/ai/recommendations/generate', {
     method: 'POST',
     token,
+    // Generación + auditoría (+ reparación) son deliberadamente síncronas en
+    // este endpoint de preview. El análisis persistente usa la cola separada.
+    timeoutMs: 180_000,
     body: JSON.stringify({
       persist,
       ...(externalResourceId !== undefined ? { externalResourceId } : {}),

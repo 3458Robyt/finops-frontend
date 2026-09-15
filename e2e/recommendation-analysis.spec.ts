@@ -315,15 +315,15 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
     }
     if (path.endsWith('/ai/analysis-runs') && request.method() === 'POST') {
       queued = true;
-      return json(route, { success: true, reused: false, run: pendingRun() }, 202);
+      return json(route, { success: true, reused: false, run: pendingRun(), worker: workerStatus() }, 202);
     }
     if (path.endsWith('/ai/analysis-runs')) {
-      if (tenantTwo) return json(route, { success: true, runs: [] });
+      if (tenantTwo) return json(route, { success: true, runs: [], worker: workerStatus() });
       if (queued) polls += 1;
-      return json(route, { success: true, runs: queued ? [polls >= 1 ? completedRun() : pendingRun()] : [] });
+      return json(route, { success: true, runs: queued ? [polls >= 1 ? completedRun() : pendingRun()] : [], worker: workerStatus() });
     }
     if (path.includes('/ai/analysis-runs/')) {
-      return json(route, { success: true, run: polls >= 1 ? completedRun() : pendingRun() });
+      return json(route, { success: true, run: polls >= 1 ? completedRun() : pendingRun(), worker: workerStatus() });
     }
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
       return json(route, { success: true, executionPlan: null });
@@ -435,6 +435,15 @@ function completedRun() {
       disposition: 'CREATED',
       title: 'Oportunidad auditada de prueba',
     }],
+  };
+}
+
+function workerStatus() {
+  return {
+    available: true,
+    processId: 'e2e-worker',
+    processRole: 'recommendation-analysis-worker',
+    lastHeartbeatAt: '2026-07-23T12:00:00.000Z',
   };
 }
 

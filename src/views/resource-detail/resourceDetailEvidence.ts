@@ -12,6 +12,11 @@ export interface EvidenceRecord {
   readonly action?: string;
   readonly accountCost?: number;
   readonly serviceCost?: number;
+  readonly observedCost?: number;
+  readonly potentialMonthlySavings?: number;
+  readonly savingsStatus?: string;
+  readonly financialReviewOnly?: boolean;
+  readonly confidence?: number;
   readonly metricCount?: number;
   readonly evidenceLevel?: string;
   readonly focusLimitation?: string;
@@ -102,6 +107,11 @@ export function readEvidence(value: unknown): EvidenceRecord {
     action: readString(raw, 'action'),
     accountCost: readNumber(raw, 'accountCost'),
     serviceCost: readNumber(raw, 'serviceCost'),
+    observedCost: readNumber(raw, 'observedCost'),
+    potentialMonthlySavings: readNumber(raw, 'potentialMonthlySavings'),
+    savingsStatus: readString(raw, 'savingsStatus'),
+    financialReviewOnly: readBoolean(raw, 'financialReviewOnly'),
+    confidence: readNumber(raw, 'confidence'),
     metricCount: readNumber(raw, 'metricCount'),
     evidenceLevel: readString(raw, 'evidenceLevel'),
     focusLimitation: readString(raw, 'focusLimitation'),
@@ -235,37 +245,6 @@ export function calculateMissedSavings(recommendation: Recommendation): number {
 
   const elapsedDays = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000)));
   return Math.round(((estimatedMonthlySavings / 30) * elapsedDays) * 100) / 100;
-}
-
-export function buildUsageChart(recommendation: Recommendation | null, evidence: EvidenceRecord): {
-  readonly baselinePath: string;
-  readonly costPath: string;
-} {
-  const cost = evidence.serviceCost ?? evidence.accountCost ?? recommendation?.estimatedMonthlySavings ?? 1;
-  const severityBoost = recommendation?.severity === 'CRITICAL'
-    ? 36
-    : recommendation?.severity === 'HIGH'
-      ? 28
-      : recommendation?.severity === 'MEDIUM'
-        ? 18
-        : 10;
-  const base = Math.max(35, Math.min(180, cost * 1.4 + severityBoost));
-  const points = Array.from({ length: 11 }, (_, index) => {
-    const x = index * 80;
-    const variance = Math.sin(index * 1.7 + base) * 16;
-    const y = Math.max(24, Math.min(224, 230 - base - variance));
-    return `${x},${Math.round(y)}`;
-  });
-  const baseline = Array.from({ length: 11 }, (_, index) => {
-    const x = index * 80;
-    const y = Math.max(40, Math.min(230, 205 - severityBoost / 2 + Math.cos(index) * 8));
-    return `${x},${Math.round(y)}`;
-  });
-
-  return {
-    costPath: `M${points.join(' L')}`,
-    baselinePath: `M${baseline.join(' L')}`,
-  };
 }
 
 function readString(record: Readonly<Record<string, unknown>>, key: string): string | undefined {

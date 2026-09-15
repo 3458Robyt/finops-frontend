@@ -69,7 +69,7 @@ export default function RecommendationAnalysisRunsPanel({
         if (controller.signal.aborted) return;
         setRuns(runsResponse.runs);
         setSelected(runsResponse.runs[0] ?? null);
-        setWorkerAvailable(runsResponse.worker.available);
+        setWorkerAvailable(runsResponse.worker?.available ?? null);
       })
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) setError(readError(requestError));
@@ -105,7 +105,7 @@ export default function RecommendationAnalysisRunsPanel({
             selectedRun = detail.run;
           }
           setRuns(response.runs);
-          setWorkerAvailable(response.worker.available);
+          setWorkerAvailable(response.worker?.available ?? null);
           if (selectedRun !== null) setSelected(selectedRun);
         })
         .catch((requestError: unknown) => {

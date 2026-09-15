@@ -236,7 +236,7 @@ case 'profile': return <Profile onLogout={handleLogout} onOpenMessaging={() => s
           onTenantChange={handleTenantChange}
           role={currentRole}
         />
-        <main className={`min-h-0 min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:p-6 lg:pb-10 xl:p-8 ${currentView === 'chat' ? 'overflow-hidden' : 'custom-scrollbar overflow-y-auto overflow-x-hidden'}`}>
+        <main key={authSession.activeTenant.id} className={`min-h-0 min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:p-6 lg:pb-10 xl:p-8 ${currentView === 'chat' ? 'overflow-hidden' : 'custom-scrollbar overflow-y-auto overflow-x-hidden'}`}>
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">Cargando módulo…</div>}>
             {renderView()}
           </Suspense>

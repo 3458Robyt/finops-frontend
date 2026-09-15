@@ -60,7 +60,7 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
       .then((runsResponse) => {
         if (!controller.signal.aborted) {
           setRun(runsResponse.runs[0] ?? null);
-          setWorkerAvailable(runsResponse.worker.available);
+          setWorkerAvailable(runsResponse.worker?.available ?? null);
         }
       })
       .catch((requestError: unknown) => {
@@ -92,7 +92,7 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
         const response = await fetchRecommendationAnalysisRun(token, runId, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setRun(response.run);
-        setWorkerAvailable(response.worker.available);
+        setWorkerAvailable(response.worker?.available ?? null);
         if (response.run.status !== 'PENDING' && response.run.status !== 'RUNNING') {
           if (notifiedRun.current !== response.run.id) {
             notifiedRun.current = response.run.id;

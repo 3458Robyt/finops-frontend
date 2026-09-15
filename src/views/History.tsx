@@ -18,6 +18,12 @@ export default function History() {
     acceptanceRate: 0,
     currency: 'USD',
   });
+  const [engagement, setEngagement] = useState<{
+    activeUsers: number;
+    recurringUsers: number;
+    chatInteractions: number;
+    notificationReadRate: number;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -35,6 +41,13 @@ export default function History() {
             observed: savingsResponse.savings.verifiedMonthlySavings,
             acceptanceRate: adoptionResponse.adoption.acceptanceRate,
             currency: savingsResponse.savings.currency,
+          });
+          const adoptionEngagement = adoptionResponse.adoption.engagement;
+          setEngagement(adoptionEngagement === undefined ? null : {
+            activeUsers: adoptionEngagement.activeUsers,
+            recurringUsers: adoptionEngagement.recurringUsers,
+            chatInteractions: adoptionEngagement.chatInteractions,
+            notificationReadRate: adoptionEngagement.notificationReadRate,
           });
         }
       })
@@ -121,15 +134,19 @@ export default function History() {
               </tbody>
             </table>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 border-t border-zinc-800">
+          <div className="grid grid-cols-1 gap-4 border-t border-zinc-800 p-6 sm:grid-cols-2 xl:grid-cols-7">
             <SummaryCard label="Ahorro estimado" value={formatCurrency(summary.estimated, summary.currency)} />
             <SummaryCard label="Ahorro verificado" value={formatCurrency(summary.observed, summary.currency)} />
             <SummaryCard label="Aceptacion" value={`${(summary.acceptanceRate * 100).toFixed(0)}%`} />
+            <SummaryCard label="Usuarios activos" value={engagement === null ? '—' : String(engagement.activeUsers)} />
+            <SummaryCard label="Usuarios recurrentes" value={engagement === null ? '—' : String(engagement.recurringUsers)} />
+            <SummaryCard label="Consultas IA" value={engagement === null ? '—' : String(engagement.chatInteractions)} />
+            <SummaryCard label="Alertas leídas" value={engagement === null ? '—' : `${(engagement.notificationReadRate * 100).toFixed(0)}%`} />
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-300">
-          <IntegrationCard title="AWS Cost Explorer API" icon="cloud" status={true} />
+          <IntegrationCard title="AWS Cost Explorer API" icon="cloud" status={false} />
           <IntegrationCard title="Supabase PostgreSQL" icon="database" status={true} />
           <IntegrationCard title="NVIDIA NIM IA" icon="smart_toy" status={true} />
           <IntegrationCard title="Telegram MVP" icon="send" status={false} />
@@ -149,7 +166,7 @@ function SummaryCard({ label, value }: { readonly label: string; readonly value:
 }
 
 function IntegrationCard({ title, icon, status }: IntegrationCardProps) {
-  const [isActive, setIsActive] = useState(status);
+  const isActive = status;
 
   return (
     <div className="ui-surface relative flex flex-col justify-between overflow-hidden p-6 transition-colors hover:border-zinc-700">
@@ -158,15 +175,9 @@ function IntegrationCard({ title, icon, status }: IntegrationCardProps) {
         <div className={`size-12 rounded-xl flex items-center justify-center transition-colors ${isActive ? 'bg-zinc-800 text-tak-yellow' : 'bg-zinc-800 text-zinc-500'}`}>
           <span className="material-symbols-outlined text-3xl">{icon}</span>
         </div>
-        <div className="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in mt-1">
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={() => setIsActive(!isActive)}
-            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-zinc-700 border-4 border-zinc-900 appearance-none cursor-pointer checked:right-0 checked:bg-tak-yellow checked:border-tak-yellow transition-colors"
-          />
-          <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors ${isActive ? 'bg-tak-yellow/20 border-tak-yellow/30' : 'bg-zinc-800 border-zinc-700 border'}`}></label>
-        </div>
+        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${isActive ? 'bg-tak-yellow/15 text-tak-yellow' : 'bg-zinc-800 text-zinc-500'}`}>
+          {isActive ? 'Disponible' : 'En standby'}
+        </span>
       </div>
       <div className="z-10 relative">
         <h4 className="text-base font-bold text-white">{title}</h4>

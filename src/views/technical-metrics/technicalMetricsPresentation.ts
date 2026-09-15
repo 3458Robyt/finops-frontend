@@ -40,6 +40,10 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat('es-CO').format(value);
 }
 
+export function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(value)}%`;
+}
+
 export function formatCurrency(value: number, currency: string): string {
   const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
     ? currency.trim().toUpperCase()
