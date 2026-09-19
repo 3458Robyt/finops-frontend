@@ -230,6 +230,11 @@ function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; r
   page.on('pageerror', (error) => {
     failures.push(`pageerror: ${error.message}`);
   });
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      failures.push(`console.error: ${message.text()}`);
+    }
+  });
 
   return { unsafeRequests, failures };
 }
