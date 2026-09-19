@@ -64,6 +64,16 @@ export default function RecommendationAnalysisRunDetail({
         <Metric label="Publicadas" value={String(run.recommendationsPersisted)} />
       </div>
       {run.errorMessage !== undefined && <Notice tone={run.status === 'FAILED' ? 'error' : 'warning'}>{run.errorMessage}</Notice>}
+      {(run.latencyMs !== undefined || run.stageTimings !== undefined) && (
+        <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-400">
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {run.latencyMs !== undefined && <span>Duración total: <strong className="text-zinc-200">{formatDuration(run.latencyMs)}</strong></span>}
+            {Object.entries(run.stageTimings ?? {}).map(([stage, duration]) => (
+              <span key={stage}>{stageLabels[stage as keyof typeof stageLabels] ?? stage}: <strong className="text-zinc-200">{formatDuration(duration)}</strong></span>
+            ))}
+          </div>
+        </div>
+      )}
       {run.candidateResults !== undefined && run.candidateResults.length > 0 && (
         <div className="mt-5">
           <h4 className="text-sm font-black text-white">Decisiones por candidato</h4>
@@ -103,4 +113,9 @@ export default function RecommendationAnalysisRunDetail({
       )}
     </div>
   );
+}
+
+function formatDuration(milliseconds: number): string {
+  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
+  return `${(milliseconds / 1000).toFixed(1)} s`;
 }

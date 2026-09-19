@@ -49,6 +49,7 @@ export interface RecommendationAnalysisRun {
   readonly promptTokenEstimate: number;
   readonly responseTokenEstimate: number;
   readonly latencyMs?: number;
+  readonly stageTimings?: Readonly<Record<string, number>>;
   readonly cancelRequestedAt?: string;
   readonly errorCode?: string;
   readonly errorMessage?: string;
