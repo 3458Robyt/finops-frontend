@@ -12,6 +12,9 @@ const moduleMatrix = [
   { label: 'Asistente IA', heading: /asistente finops|escribe tu consulta/i },
   { label: 'Historial', heading: /registro de auditoría|historial ops/i },
   { label: 'Agente IA', heading: /gobierno, evidencia y canales externos/i },
+  { label: 'Mensajería', heading: /mensajería finops|probar canales/i },
+  { label: 'Perfil y Seguridad', heading: /seguridad y acceso|sesiones activas/i },
+  { label: 'Administración MSP', heading: /tenants, usuarios y accesos|vista global/i },
 ] as const;
 
 const viewports = [
