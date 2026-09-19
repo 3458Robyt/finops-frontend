@@ -5,7 +5,6 @@ import {
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsOpportunities,
   fetchRecommendations,
-  recomputeAnalytics,
   type CostOpportunity,
   type Recommendation,
   type UsageInsight,
@@ -55,17 +54,6 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
           setUsageInsights(usageInsightResponse.insights);
         }
 
-        if (opportunityResponse.opportunities.length === 0) {
-          return recomputeAnalytics(token);
-        }
-
-        return null;
-      })
-      .then((analyticsResponse) => {
-        if (active && analyticsResponse !== null) {
-          setOpportunities(analyticsResponse.opportunities ?? analyticsResponse.anomalies ?? []);
-          setUsageInsights(analyticsResponse.usageInsights);
-        }
       })
       .catch((requestError) => {
         if (active) {

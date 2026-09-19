@@ -13,7 +13,6 @@ import {
   fetchCostHistory,
   fetchRecommendations,
   fetchSavingsKpis,
-  recomputeAnalytics,
   type AdoptionKpisResponse,
   type Budget,
   type BudgetPerformance,
@@ -119,7 +118,6 @@ export function useDashboardController(): DashboardControllerState {
       const costResponse = value<CostsResponse>(0);
       const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(1);
       const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(2);
-      const forecastResponse = value<{ forecasts: readonly unknown[] }>(3);
       const scenarioResponse = value<{ scenarios: readonly CostForecastScenario[] }>(4);
       const insightsResponse = value<{ insights: readonly UsageInsight[] }>(5);
       const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(6);
@@ -158,18 +156,6 @@ export function useDashboardController(): DashboardControllerState {
 
       const failures = results.filter((result) => result.status === 'rejected');
       setError(failures.length === 0 ? null : `${failures.length} bloque(s) no pudieron actualizarse. Los demás datos siguen disponibles.`);
-      if (opportunityResponse !== undefined && forecastResponse !== undefined
-        && opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
-        try {
-          const analyticsResponse = await recomputeAnalytics(token);
-          if (active) {
-            setOpportunities(analyticsResponse.opportunities ?? analyticsResponse.anomalies ?? []);
-            setUsageInsights(analyticsResponse.usageInsights);
-          }
-        } catch {
-          // Existing persisted data stays visible.
-        }
-      }
       if (active) setLoading(false);
     })();
 

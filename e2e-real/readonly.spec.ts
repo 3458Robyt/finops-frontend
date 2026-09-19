@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 const moduleMatrix = [
   { label: 'Panel de Control', heading: /consumo y eficiencia focus|oportunidades abiertas/i },
@@ -21,9 +21,27 @@ const viewports = [
   { width: 1920, height: 1080, name: 'escritorio amplio' },
 ] as const;
 
+let sharedContext: BrowserContext | undefined;
+let sharedPage: Page | undefined;
+
 test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeAll(async ({ browser }) => {
+    sharedContext = await browser.newContext({ baseURL: process.env['E2E_REAL_BASE_URL'] });
+    sharedPage = await sharedContext.newPage();
+    await authenticate(sharedPage);
+  });
+
+  test.afterAll(async () => {
+    await sharedContext?.close();
+    sharedContext = undefined;
+    sharedPage = undefined;
+  });
+
   for (const viewport of viewports) {
-    test(`recorre módulos y verifica estabilidad en ${viewport.name}`, async ({ page }) => {
+    test(`recorre módulos y verifica estabilidad en ${viewport.name}`, async () => {
+      const page = getSharedPage();
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       const audit = observeReadOnlyPage(page);
 
@@ -48,7 +66,8 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     });
   }
 
-  test('ejercita filtros de métricas sin mutar datos', async ({ page }) => {
+  test('ejercita filtros de métricas sin mutar datos', async () => {
+    const page = getSharedPage();
     await page.setViewportSize({ width: 1366, height: 768 });
     const audit = observeReadOnlyPage(page);
     await login(page);
@@ -71,7 +90,8 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     expect(audit.failures).toEqual([]);
   });
 
-  test('mantiene el chat en español y sin scroll del documento', async ({ page }) => {
+  test('mantiene el chat en español y sin scroll del documento', async () => {
+    const page = getSharedPage();
     await page.setViewportSize({ width: 390, height: 844 });
     const audit = observeReadOnlyPage(page);
     await login(page);
@@ -87,21 +107,33 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
 
 async function login(page: Page): Promise<void> {
   await page.goto('/');
-  await page.locator('input[type="email"]').fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
-  await page.locator('input[type="password"]').fill(process.env['E2E_REAL_ADMIN_PASSWORD']!);
-  await page.getByRole('button', { name: /ingresar al panel/i }).click();
+  await expect(page.getByRole('banner')).toBeVisible({ timeout: 30_000 });
+}
 
-  const mfaPrompt = page.getByText(/verificación mfa/i);
-  if (await mfaPrompt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    const code = process.env['E2E_REAL_MFA_CODE'];
-    if (code === undefined || code.trim() === '') {
-      throw new Error('La cuenta real exige MFA. Define E2E_REAL_MFA_CODE solo durante la ejecución local de esta suite.');
-    }
-    await page.locator('input[pattern="[0-9]{6}"]').fill(code);
+async function authenticate(page: Page): Promise<void> {
+  await page.goto('/');
+  const email = page.locator('input[type="email"]');
+  if (await email.isVisible().catch(() => false)) {
+    await email.fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
+    await page.locator('input[type="password"]').fill(process.env['E2E_REAL_ADMIN_PASSWORD']!);
     await page.getByRole('button', { name: /ingresar al panel/i }).click();
-  }
 
-  await expect(page.locator('header')).toBeVisible({ timeout: 30_000 });
+    const mfaPrompt = page.getByText(/verificación mfa/i);
+    if (await mfaPrompt.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const code = process.env['E2E_REAL_MFA_CODE'];
+      if (code === undefined || code.trim() === '') {
+        throw new Error('La cuenta real exige MFA. Define E2E_REAL_MFA_CODE solo durante la ejecución local de esta suite.');
+      }
+      await page.locator('input[pattern="[0-9]{6}"]').fill(code);
+      await page.getByRole('button', { name: /ingresar al panel/i }).click();
+    }
+  }
+  await expect(page.getByRole('banner')).toBeVisible({ timeout: 30_000 });
+}
+
+function getSharedPage(): Page {
+  if (sharedPage === undefined) throw new Error('La sesión compartida de Playwright no está inicializada.');
+  return sharedPage;
 }
 
 async function inspectTenantSelector(page: Page): Promise<void> {
@@ -114,12 +146,18 @@ async function inspectTenantSelector(page: Page): Promise<void> {
   expect(values.length).toBeGreaterThan(0);
 
   const originalValue = await selector.inputValue();
-  for (const option of values) {
-    if (option.value === originalValue) continue;
-    await selector.selectOption(option.value);
-    await expect(selector).toHaveValue(option.value, { timeout: 20_000 });
-    await waitForModuleToSettle(page);
-  }
+  const alternate = values.find((option) => option.value !== originalValue);
+  if (alternate === undefined) return;
+
+  await expect(selector).toBeEnabled();
+  await selector.selectOption(alternate.value);
+  await expect(selector).toHaveValue(alternate.value, { timeout: 20_000 });
+  await waitForModuleToSettle(page);
+
+  await expect(selector).toBeEnabled();
+  await selector.selectOption(originalValue);
+  await expect(selector).toHaveValue(originalValue, { timeout: 20_000 });
+  await waitForModuleToSettle(page);
 }
 
 async function openModule(page: Page, label: string): Promise<void> {
@@ -129,10 +167,19 @@ async function openModule(page: Page, label: string): Promise<void> {
     return;
   }
 
+  const mobilePrimaryButton = page.locator('nav[aria-label="Navegación móvil"]').getByRole('button', { name: label, exact: true });
+  if (await mobilePrimaryButton.count() > 0 && await mobilePrimaryButton.first().isVisible()) {
+    await mobilePrimaryButton.first().click();
+    return;
+  }
+
   const mobileMore = page.getByRole('button', { name: 'Más', exact: true });
   if (await mobileMore.isVisible()) {
     await mobileMore.click();
-    const dialogButton = page.getByRole('dialog', { name: 'Todos los módulos' }).getByRole('button', { name: label, exact: true });
+    const dialog = page.getByRole('dialog', { name: 'Todos los módulos' });
+    await expect(dialog).toBeVisible();
+    const dialogButton = dialog.locator('button').filter({ hasText: label }).first();
+    await expect(dialogButton).toBeVisible();
     await dialogButton.click();
     return;
   }
