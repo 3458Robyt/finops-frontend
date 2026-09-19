@@ -1,8 +1,6 @@
 import type { AuthSession } from './authTypes';
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
-).replace(/\/$/, '');
+const API_BASE_URL = resolveApiBaseUrl();
 const API_REQUEST_TIMEOUT_MS = 30_000;
 
 interface ApiErrorBody {
@@ -23,6 +21,18 @@ let sessionTransitionDepth = 0;
 const sessionRefreshListeners = new Set<SessionRefreshListener>();
 const sessionExpiredListeners = new Set<SessionExpiredListener>();
 let lastSessionExpiredNotificationAt = 0;
+
+function resolveApiBaseUrl(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL;
+  if (configured !== undefined && configured.trim() !== '') return configured.replace(/\/$/, '');
+
+  if (typeof window !== 'undefined'
+    && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return `${window.location.protocol}//${window.location.hostname}:3000/api/v1`;
+  }
+
+  return 'http://localhost:3000/api/v1';
+}
 
 export class ApiRequestError extends Error {
   public readonly code?: string;
