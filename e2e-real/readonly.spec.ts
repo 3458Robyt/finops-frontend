@@ -110,13 +110,13 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
 });
 
 async function login(page: Page): Promise<void> {
-  await page.goto('/');
-  await expect(page.getByRole('banner')).toBeVisible({ timeout: 30_000 });
+  if (await page.getByLabel('Tenant activo').isVisible().catch(() => false)) return;
+  await authenticate(page);
 }
 
 async function authenticate(page: Page): Promise<void> {
   await page.goto('/');
-  await expect(page.locator('input[type="email"], [role="banner"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('input[type="email"], [aria-label="Tenant activo"]').first()).toBeVisible({ timeout: 30_000 });
   const email = page.locator('input[type="email"]');
   if (await email.isVisible().catch(() => false)) {
     await email.fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
@@ -133,7 +133,7 @@ async function authenticate(page: Page): Promise<void> {
       await page.getByRole('button', { name: /ingresar al panel/i }).click();
     }
   }
-  await expect(page.getByRole('banner')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Tenant activo')).toBeVisible({ timeout: 30_000 });
 }
 
 function getSharedPage(): Page {
@@ -226,13 +226,17 @@ function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; r
     if (response.status() >= 500) {
       failures.push(`${response.status()} ${response.request().method()} ${response.url()}`);
     }
+    if (response.status() === 401 && !response.url().endsWith('/auth/refresh')) {
+      failures.push(`401 ${response.request().method()} ${response.url()}`);
+    }
   });
   page.on('pageerror', (error) => {
     failures.push(`pageerror: ${error.message}`);
   });
   page.on('console', (message) => {
-    if (message.type() === 'error') {
-      failures.push(`console.error: ${message.text()}`);
+    if (message.type() === 'error' && !/status of 401 \(Unauthorized\)/i.test(message.text())) {
+      const location = message.location().url;
+      failures.push(`console.error: ${message.text()}${location === '' ? '' : ` (${location})`}`);
     }
   });
 
