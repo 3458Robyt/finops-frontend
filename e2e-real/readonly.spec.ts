@@ -19,6 +19,7 @@ const moduleMatrix = [
 
 const viewports = [
   { width: 390, height: 844, name: 'móvil' },
+  { width: 768, height: 1024, name: 'tableta' },
   { width: 1024, height: 768, name: 'portátil' },
   { width: 1366, height: 768, name: 'escritorio' },
   { width: 1920, height: 1080, name: 'escritorio amplio' },
@@ -115,6 +116,7 @@ async function login(page: Page): Promise<void> {
 
 async function authenticate(page: Page): Promise<void> {
   await page.goto('/');
+  await expect(page.locator('input[type="email"], [role="banner"]').first()).toBeVisible({ timeout: 30_000 });
   const email = page.locator('input[type="email"]');
   if (await email.isVisible().catch(() => false)) {
     await email.fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
