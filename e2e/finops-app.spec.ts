@@ -27,7 +27,7 @@ test.describe('FinOps app E2E', () => {
     await loginInputs.nth(1).fill(manifest.password);
     await page.getByRole('button', { name: /ingresar al panel/i }).click();
 
-    await expect(page.getByText(/consola técnica finops/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /decisiones cloud con evidencia/i })).toBeVisible();
     await expect(page.getByText(/tenant activo/i)).toBeVisible();
 
     await page.getByRole('button', { name: /presupuestos/i }).click();
