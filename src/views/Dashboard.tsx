@@ -89,6 +89,9 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
             <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-red-500/20">
               {formatCurrency(identifiedWaste, savingsKpis?.currency ?? reportingCurrency)} ahorro estimado
             </span>
+            <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-300">
+              {formatCurrency(savingsKpis?.approvedMonthlySavings ?? 0, savingsKpis?.currency ?? reportingCurrency)} aprobado
+            </span>
           </div>
         </div>
 
