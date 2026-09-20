@@ -126,7 +126,11 @@ async function assertMetricLegendLayout(page: Page): Promise<void> {
   if (!(await legend.isVisible().catch(() => false)) || !(await opportunities.isVisible().catch(() => false))) return;
   const [legendBox, opportunitiesBox] = await Promise.all([legend.boundingBox(), opportunities.boundingBox()]);
   if (legendBox === null || opportunitiesBox === null) return;
-  expect(legendBox.bottom, 'La leyenda de métricas se sobrepone a oportunidades técnicas').toBeLessThanOrEqual(opportunitiesBox.top + 2);
+  const overlapsHorizontally = legendBox.x < opportunitiesBox.x + opportunitiesBox.width
+    && legendBox.x + legendBox.width > opportunitiesBox.x;
+  const overlapsVertically = legendBox.y < opportunitiesBox.y + opportunitiesBox.height
+    && legendBox.y + legendBox.height > opportunitiesBox.y;
+  expect(overlapsHorizontally && overlapsVertically, 'La leyenda de métricas se sobrepone a oportunidades técnicas').toBe(false);
 }
 
 async function assertKeyboardNavigation(page: Page): Promise<void> {
