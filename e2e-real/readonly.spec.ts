@@ -59,6 +59,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
         await expect(page.locator('main')).toContainText(module.heading, { timeout: 20_000 });
         await assertNoKnownRuntimeError(page, module.label);
         await assertNoHorizontalOverflow(page, module.label);
+        if (module.label === 'Métricas Técnicas') await assertMetricLegendLayout(page);
       }
 
       if (viewport.width < 640) {
@@ -90,6 +91,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
         await assertNoKnownRuntimeError(page, `métrica select ${index}`);
       }
     }
+    await assertMetricLegendLayout(page);
 
     expect(audit.unsafeRequests).toEqual([]);
     const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
@@ -106,6 +108,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     await expect(page.getByTestId('chat-composer')).toBeVisible();
     await expect(page.getByTestId('chat-module')).toContainText(/asistente finops/i);
     await expect(page.locator('main')).toHaveCSS('overflow-y', 'hidden');
+    await assertKeyboardNavigation(page);
     expect(audit.unsafeRequests).toEqual([]);
     const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
     expect(failures).toEqual([]);
@@ -115,6 +118,30 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
 async function login(page: Page): Promise<void> {
   if (await page.getByLabel('Tenant activo').isVisible().catch(() => false)) return;
   await authenticate(page);
+}
+
+async function assertMetricLegendLayout(page: Page): Promise<void> {
+  const legend = page.getByTestId('technical-metric-legend');
+  const opportunities = page.getByTestId('technical-metric-opportunities');
+  if (!(await legend.isVisible().catch(() => false)) || !(await opportunities.isVisible().catch(() => false))) return;
+  const [legendBox, opportunitiesBox] = await Promise.all([legend.boundingBox(), opportunities.boundingBox()]);
+  if (legendBox === null || opportunitiesBox === null) return;
+  expect(legendBox.bottom, 'La leyenda de métricas se sobrepone a oportunidades técnicas').toBeLessThanOrEqual(opportunitiesBox.top + 2);
+}
+
+async function assertKeyboardNavigation(page: Page): Promise<void> {
+  await page.getByLabel('Tenant activo').focus();
+  for (let index = 0; index < 8; index += 1) {
+    await page.keyboard.press('Tab');
+    const focus = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement)) return null;
+      const rect = element.getBoundingClientRect();
+      return { tag: element.tagName, width: rect.width, height: rect.height };
+    });
+    expect(focus, 'El foco de teclado salió del documento').not.toBeNull();
+    expect((focus?.width ?? 0) + (focus?.height ?? 0), 'El foco cayó en un control no visible').toBeGreaterThan(0);
+  }
 }
 
 async function authenticate(page: Page): Promise<void> {
