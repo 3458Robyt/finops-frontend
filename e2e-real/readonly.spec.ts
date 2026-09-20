@@ -113,6 +113,31 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
     expect(failures).toEqual([]);
   });
+
+  test('responde una consulta real del chat sin persistir recomendaciones', async () => {
+    const page = getSharedPage();
+    await page.setViewportSize({ width: 1366, height: 768 });
+    const audit = observeReadOnlyPage(page);
+    await login(page);
+    await openModule(page, 'Asistente IA');
+    await expect(page.getByTestId('chat-module')).toBeVisible();
+
+    const assistantLabels = page.getByText('Asistente FinOps', { exact: true });
+    const initialAssistantMessages = await assistantLabels.count();
+    const input = page.getByPlaceholder(/Escribe tu consulta a la IA/i);
+    await input.fill('¿Cuál es el mayor costo del periodo y qué evidencia respalda la respuesta?');
+    await page.locator('form button[type="submit"]').click();
+
+    await expect.poll(() => assistantLabels.count(), { timeout: 105_000, intervals: [500, 1_000, 2_000] })
+      .toBeGreaterThan(initialAssistantMessages);
+    await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden({ timeout: 10_000 });
+
+    const historyText = await page.getByTestId('chat-history').innerText();
+    expect(historyText).not.toMatch(/failed to fetch|no fue posible contactar al backend|500 internal server error/i);
+    expect(audit.unsafeRequests).toEqual([]);
+    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+    expect(failures).toEqual([]);
+  });
 });
 
 async function login(page: Page): Promise<void> {
@@ -252,7 +277,7 @@ function observeReadOnlyPage(page: Page): {
   const pendingAuthRecovery = new Map<string, number>();
 
   page.on('request', (request) => {
-    if (request.method() === 'GET' || isAllowedAuthMutation(request.url())) return;
+    if (request.method() === 'GET' || isAllowedReadOnlyMutation(request.url())) return;
     unsafeRequests.push(`${request.method()} ${request.url()}`);
   });
   page.on('requestfailed', (request) => {
@@ -295,9 +320,10 @@ function observeReadOnlyPage(page: Page): {
   };
 }
 
-function isAllowedAuthMutation(url: string): boolean {
+function isAllowedReadOnlyMutation(url: string): boolean {
   const path = new URL(url).pathname;
   return path.endsWith('/auth/login')
     || path.endsWith('/auth/refresh')
-    || path.endsWith('/auth/switch-tenant');
+    || path.endsWith('/auth/switch-tenant')
+    || path.endsWith('/ai/chat');
 }
