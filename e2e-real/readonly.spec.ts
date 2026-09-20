@@ -66,7 +66,8 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
       }
 
       expect(audit.unsafeRequests, `Se detectaron mutaciones durante la prueba: ${audit.unsafeRequests.join('\n')}`).toEqual([]);
-      expect(audit.failures, `Fallos de red o errores de página: ${audit.failures.join('\n')}`).toEqual([]);
+      const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+      expect(failures, `Fallos de red o errores de página: ${failures.join('\n')}`).toEqual([]);
     });
   }
 
@@ -91,7 +92,8 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     }
 
     expect(audit.unsafeRequests).toEqual([]);
-    expect(audit.failures).toEqual([]);
+    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+    expect(failures).toEqual([]);
   });
 
   test('mantiene el chat en español y sin scroll del documento', async () => {
@@ -105,7 +107,8 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     await expect(page.getByTestId('chat-module')).toContainText(/asistente finops/i);
     await expect(page.locator('main')).toHaveCSS('overflow-y', 'hidden');
     expect(audit.unsafeRequests).toEqual([]);
-    expect(audit.failures).toEqual([]);
+    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+    expect(failures).toEqual([]);
   });
 });
 
@@ -208,9 +211,14 @@ async function assertNoHorizontalOverflow(page: Page, module: string): Promise<v
   expect(overflow, `Desbordamiento horizontal en ${module}`).toBeLessThanOrEqual(2);
 }
 
-function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; readonly failures: string[] } {
+function observeReadOnlyPage(page: Page): {
+  readonly unsafeRequests: string[];
+  readonly failures: string[];
+  readonly unrecoveredAuthFailures: () => string[];
+} {
   const unsafeRequests: string[] = [];
   const failures: string[] = [];
+  const pendingAuthRecovery = new Map<string, number>();
 
   page.on('request', (request) => {
     if (request.method() === 'GET' || isAllowedAuthMutation(request.url())) return;
@@ -223,11 +231,19 @@ function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; r
     }
   });
   page.on('response', (response) => {
-    if (response.status() >= 500) {
-      failures.push(`${response.status()} ${response.request().method()} ${response.url()}`);
-    }
+    const request = response.request();
+    const requestKey = `${request.method()} ${response.url()}`;
     if (response.status() === 401 && !response.url().endsWith('/auth/refresh')) {
-      failures.push(`401 ${response.request().method()} ${response.url()}`);
+      pendingAuthRecovery.set(requestKey, (pendingAuthRecovery.get(requestKey) ?? 0) + 1);
+      return;
+    }
+    if ((response.status() >= 200 && response.status() < 300) || response.status() === 304) {
+      const pending = pendingAuthRecovery.get(requestKey) ?? 0;
+      if (pending <= 1) pendingAuthRecovery.delete(requestKey);
+      else pendingAuthRecovery.set(requestKey, pending - 1);
+    }
+    if (response.status() >= 500) {
+      failures.push(`${response.status()} ${request.method()} ${response.url()}`);
     }
   });
   page.on('pageerror', (error) => {
@@ -240,7 +256,12 @@ function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; r
     }
   });
 
-  return { unsafeRequests, failures };
+  return {
+    unsafeRequests,
+    failures,
+    unrecoveredAuthFailures: () => Array.from(pendingAuthRecovery.entries()).flatMap(([requestKey, count]) =>
+      Array.from({ length: count }, () => `401 no recuperado ${requestKey}`)),
+  };
 }
 
 function isAllowedAuthMutation(url: string): boolean {

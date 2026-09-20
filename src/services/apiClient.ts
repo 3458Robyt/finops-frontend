@@ -18,6 +18,8 @@ let inMemoryAccessToken: string | null = null;
 let refreshPromise: Promise<AuthSession | null> | null = null;
 let sessionGeneration = 0;
 let sessionTransitionDepth = 0;
+const activeReadRequestControllers = new Set<AbortController>();
+const sessionTransitionAbortedControllers = new WeakSet<AbortController>();
 const sessionRefreshListeners = new Set<SessionRefreshListener>();
 const sessionExpiredListeners = new Set<SessionExpiredListener>();
 let lastSessionExpiredNotificationAt = 0;
@@ -165,6 +167,10 @@ export function clearAccessToken(): void {
 /** Evita que una respuesta 401 de peticiones iniciadas antes de cambiar de tenant cierre la sesión actual. */
 export function beginSessionTransition(): void {
   sessionTransitionDepth += 1;
+  activeReadRequestControllers.forEach((controller) => {
+    sessionTransitionAbortedControllers.add(controller);
+    controller.abort();
+  });
 }
 
 /** Finaliza una transición de sesión iniciada por un cambio de tenant. */
@@ -194,6 +200,7 @@ export function apiUrl(path: string): string {
 }
 
 function createRequestSignal(signal: AbortSignal | null | undefined, timeoutMs?: number): {
+  readonly controller: AbortController;
   readonly signal: AbortSignal;
   readonly didTimeout: () => boolean;
   readonly cleanup: () => void;
@@ -211,6 +218,7 @@ function createRequestSignal(signal: AbortSignal | null | undefined, timeoutMs?:
   if (signal?.aborted === true) controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
   return {
+    controller,
     signal: controller.signal,
     didTimeout: () => timedOut,
     cleanup: () => {
@@ -227,6 +235,8 @@ async function executeRequest(
   timeoutMs?: number,
 ): Promise<Response> {
   const requestSignal = createRequestSignal(requestOptions.signal, timeoutMs);
+  const isReadRequest = isRetryableMethod(requestOptions.method);
+  if (isReadRequest) activeReadRequestControllers.add(requestSignal.controller);
   const maxAttempts = isRetryableMethod(requestOptions.method) ? 2 : 1;
   try {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -246,6 +256,13 @@ async function executeRequest(
     }
     throw new Error('No se pudo ejecutar la solicitud.');
   } catch (error: unknown) {
+    if (sessionTransitionAbortedControllers.has(requestSignal.controller)) {
+      throw new ApiRequestError('La sesión cambió mientras se cargaba esta información.', {
+        status: 401,
+        code: 'STALE_SESSION_REQUEST',
+      });
+    }
+
     if (error instanceof DOMException && error.name === 'AbortError' && !requestSignal.didTimeout()) {
       throw error;
     }
@@ -262,6 +279,7 @@ async function executeRequest(
       code: 'NETWORK_ERROR',
     });
   } finally {
+    if (isReadRequest) activeReadRequestControllers.delete(requestSignal.controller);
     requestSignal.cleanup();
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAccessToken } from '../../auth/authSession';
 import { disableMfa, fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
 import MfaRecoveryCodesDialog from './MfaRecoveryCodesDialog';
@@ -18,8 +18,11 @@ export default function MfaSecurityPanel() {
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const statusRequestStarted = useRef(false);
 
   useEffect(() => {
+    if (statusRequestStarted.current) return;
+    statusRequestStarted.current = true;
     let cancelled = false;
     void fetchMfaStatus(token)
       .then((status) => {

@@ -1,6 +1,13 @@
 import { apiRequest } from './apiClient';
 import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaSetupResponse, MfaStatusResponse } from './authTypes';
 
+const MFA_STATUS_CACHE_MS = 60_000;
+let mfaStatusCache: {
+  readonly token: string;
+  readonly expiresAt: number;
+  readonly promise: Promise<MfaStatusResponse>;
+} | null = null;
+
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role;
 }
@@ -103,33 +110,48 @@ export async function revokeAuthSession(token: string, sessionId: string): Promi
 }
 
 export function fetchMfaStatus(token: string): Promise<MfaStatusResponse> {
-  return apiRequest('/auth/mfa/status', { token });
+  const now = Date.now();
+  if (mfaStatusCache !== null && mfaStatusCache.token === token && mfaStatusCache.expiresAt > now) {
+    return mfaStatusCache.promise;
+  }
+  const promise = apiRequest<MfaStatusResponse>('/auth/mfa/status', { token });
+  mfaStatusCache = { token, expiresAt: now + MFA_STATUS_CACHE_MS, promise };
+  void promise.catch(() => {
+    if (mfaStatusCache?.promise === promise) mfaStatusCache = null;
+  });
+  return promise;
 }
 
 export function beginMfaSetup(token: string): Promise<MfaSetupResponse> {
   return apiRequest('/auth/mfa/setup', { method: 'POST', token, body: JSON.stringify({}) });
 }
 
-export function confirmMfaSetup(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
-  return apiRequest('/auth/mfa/confirm', {
+export async function confirmMfaSetup(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  const response = await apiRequest<MfaRecoveryCodesResponse>('/auth/mfa/confirm', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  mfaStatusCache = null;
+  return response;
 }
 
-export function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
-  return apiRequest('/auth/mfa/recovery-codes/regenerate', {
+export async function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  const response = await apiRequest<MfaRecoveryCodesResponse>('/auth/mfa/recovery-codes/regenerate', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  mfaStatusCache = null;
+  return response;
 }
 
-export function disableMfa(token: string, code: string): Promise<{ readonly success: true; readonly enabled: false; readonly message: string }> {
-  return apiRequest('/auth/mfa/disable', {
+export async function disableMfa(token: string, code: string): Promise<{ readonly success: true; readonly enabled: false; readonly message: string }> {
+  const response = await apiRequest<{ readonly success: true; readonly enabled: false; readonly message: string }>('/auth/mfa/disable', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  mfaStatusCache = null;
+  return response;
 }
