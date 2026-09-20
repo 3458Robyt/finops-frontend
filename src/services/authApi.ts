@@ -1,12 +1,18 @@
 import { apiRequest } from './apiClient';
 import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaSetupResponse, MfaStatusResponse } from './authTypes';
 
-const MFA_STATUS_CACHE_MS = 60_000;
+// MFA changes invalidate this cache immediately; keep navigation below the
+// sensitive endpoint limit without making the security status stale for long.
+const MFA_STATUS_CACHE_MS = 5 * 60_000;
 let mfaStatusCache: {
-  readonly token: string;
+  readonly key: string;
   readonly expiresAt: number;
   readonly promise: Promise<MfaStatusResponse>;
 } | null = null;
+
+function invalidateMfaStatusCache(): void {
+  mfaStatusCache = null;
+}
 
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role;
@@ -23,6 +29,7 @@ export function getEffectiveRole(session: Pick<AuthSession, 'user' | 'activeTena
 }
 
 export async function login(email: string, password: string): Promise<AuthLoginResponse> {
+  invalidateMfaStatusCache();
   return apiRequest<AuthLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
@@ -38,6 +45,7 @@ export async function acceptClientInvitation(code: string, name: string, passwor
 }
 
 export async function completeMfaLogin(challengeToken: string, code: string): Promise<AuthSession> {
+  invalidateMfaStatusCache();
   return apiRequest<AuthSession>('/auth/mfa/complete', {
     method: 'POST',
     body: JSON.stringify({ challengeToken, code }),
@@ -86,6 +94,7 @@ export async function logout(token: string): Promise<void> {
     method: 'POST',
     token,
   });
+  invalidateMfaStatusCache();
 }
 
 export async function logoutAll(token: string): Promise<void> {
@@ -93,6 +102,7 @@ export async function logoutAll(token: string): Promise<void> {
     method: 'POST',
     token,
   });
+  invalidateMfaStatusCache();
 }
 
 export async function fetchAuthSessions(token: string): Promise<{
@@ -109,13 +119,13 @@ export async function revokeAuthSession(token: string, sessionId: string): Promi
   });
 }
 
-export function fetchMfaStatus(token: string): Promise<MfaStatusResponse> {
+export function fetchMfaStatus(token: string, cacheKey = token): Promise<MfaStatusResponse> {
   const now = Date.now();
-  if (mfaStatusCache !== null && mfaStatusCache.token === token && mfaStatusCache.expiresAt > now) {
+  if (mfaStatusCache !== null && mfaStatusCache.key === cacheKey && mfaStatusCache.expiresAt > now) {
     return mfaStatusCache.promise;
   }
   const promise = apiRequest<MfaStatusResponse>('/auth/mfa/status', { token });
-  mfaStatusCache = { token, expiresAt: now + MFA_STATUS_CACHE_MS, promise };
+  mfaStatusCache = { key: cacheKey, expiresAt: now + MFA_STATUS_CACHE_MS, promise };
   void promise.catch(() => {
     if (mfaStatusCache?.promise === promise) mfaStatusCache = null;
   });
@@ -132,7 +142,7 @@ export async function confirmMfaSetup(token: string, code: string): Promise<MfaR
     token,
     body: JSON.stringify({ code }),
   });
-  mfaStatusCache = null;
+  invalidateMfaStatusCache();
   return response;
 }
 
@@ -142,7 +152,7 @@ export async function regenerateMfaRecoveryCodes(token: string, code: string): P
     token,
     body: JSON.stringify({ code }),
   });
-  mfaStatusCache = null;
+  invalidateMfaStatusCache();
   return response;
 }
 
@@ -152,6 +162,6 @@ export async function disableMfa(token: string, code: string): Promise<{ readonl
     token,
     body: JSON.stringify({ code }),
   });
-  mfaStatusCache = null;
+  invalidateMfaStatusCache();
   return response;
 }
