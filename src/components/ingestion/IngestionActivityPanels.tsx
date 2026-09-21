@@ -51,7 +51,20 @@ function progressMessage(progress: Readonly<Record<string, unknown>>): string {
   return `${message || phase}${completed}`;
 }
 function summaryMessage(summary: Readonly<Record<string, unknown>>): string {
-  const pieces = ['metricSamples', 'metricSamplesInserted', 'focusRowsInserted', 'resources', 'apiCallCount'].flatMap((key) => typeof summary[key] === 'number' ? [`${key}: ${summary[key]}`] : []);
+  const labels: Readonly<Record<string, string>> = {
+    metricSamples: 'Muestras consultadas',
+    metricSamplesInserted: 'Muestras nuevas',
+    focusRows: 'Filas FOCUS leídas',
+    focusRowsInserted: 'Filas FOCUS nuevas',
+    resources: 'Recursos',
+    apiCallCount: 'Llamadas al proveedor',
+  };
+  const pieces = Object.keys(labels).flatMap((key) => typeof summary[key] === 'number' ? [`${labels[key]}: ${summary[key]}`] : []);
+  const received = summary['metricSamples'];
+  const inserted = summary['metricSamplesInserted'];
+  if (typeof received === 'number' && typeof inserted === 'number' && received >= inserted) {
+    pieces.push(`Muestras repetidas: ${received - inserted}`);
+  }
   return pieces.join(' · ');
 }
 
