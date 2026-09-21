@@ -158,6 +158,7 @@ export default function Login({ onLogin }: {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">person</span>
               <input
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="ui-control auth-input pl-10 pr-4 focus:ring-1 focus:ring-tak-yellow"
@@ -171,7 +172,8 @@ export default function Login({ onLogin }: {
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">lock</span>
               <input 
-                type="password" 
+                type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="ui-control auth-input pl-10 pr-4 focus:ring-1 focus:ring-tak-yellow"
