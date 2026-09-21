@@ -5,6 +5,7 @@ import {
   cancelMasterAdminIngestionJob,
   deleteMasterAdminPendingJobs,
   fetchMasterAdminIngestionJobs,
+  reprocessMasterAdminIngestionJob,
 } from '../../services/masterAdminApi';
 import type { MasterAdminIngestionJob, MasterAdminIngestionJobSummary } from '../../services/types/admin';
 import type { IngestionJobStatus, IngestionSourceType } from '../../services/types/ingestion';
@@ -29,6 +30,7 @@ export interface MasterAdminIngestionJobsController {
   readonly purgePending: () => Promise<void>;
   readonly cancel: (jobId: string) => Promise<void>;
   readonly archive: (jobId: string) => Promise<void>;
+  readonly reprocess: (jobId: string) => Promise<void>;
 }
 
 const emptySummary: MasterAdminIngestionJobSummary = {
@@ -104,5 +106,13 @@ export function useMasterAdminIngestionJobsController(): MasterAdminIngestionJob
     await runAction(() => archiveMasterAdminIngestionJob(token, jobId).then(() => undefined), 'Job archivado.', 'No fue posible archivar el job');
   }, [runAction, token]);
 
-  return { jobs, summary, loading, saving, message, error, includeArchived, tenantId, status, sourceType, hasMore, setIncludeArchived, setTenantId, setStatus, setSourceType, reload, purgePending, cancel, archive };
+  const reprocess = useCallback(async (jobId: string) => {
+    await runAction(
+      () => reprocessMasterAdminIngestionJob(token, jobId, 'Reprocesamiento administrativo solicitado para validar una ventana con datos tardíos o incompletos.').then((response) => response.reusedActiveJob ? 'Ya existe un job activo para esta ventana.' : 'Reprocesamiento encolado.'),
+      'Reprocesamiento encolado.',
+      'No fue posible reprocesar el job',
+    );
+  }, [runAction, token]);
+
+  return { jobs, summary, loading, saving, message, error, includeArchived, tenantId, status, sourceType, hasMore, setIncludeArchived, setTenantId, setStatus, setSourceType, reload, purgePending, cancel, archive, reprocess };
 }
