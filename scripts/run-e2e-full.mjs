@@ -14,8 +14,26 @@ if (testDatabaseUrl === undefined || testDatabaseUrl.trim() === '') {
   throw new Error('TEST_DATABASE_URL is required. Use an isolated *_test database or finops_e2e_* schema.');
 }
 
+assertIsolatedTestDatabase(testDatabaseUrl);
+
 if (process.env.ALLOW_DESTRUCTIVE_TEST_DATABASE !== 'true') {
   throw new Error('ALLOW_DESTRUCTIVE_TEST_DATABASE=true is required for the full E2E fixture setup.');
+}
+
+function assertIsolatedTestDatabase(connectionString) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(connectionString);
+  } catch {
+    throw new Error('TEST_DATABASE_URL must be a valid PostgreSQL URL for an isolated test database.');
+  }
+
+  const databaseName = parsedUrl.pathname.replace(/^\/+/, '');
+  const schema = parsedUrl.searchParams.get('schema');
+  const isolatedSchema = schema !== null && /^finops_e2e_[a-z0-9_]+$/.test(schema);
+  if (!databaseName.endsWith('_test') && !isolatedSchema) {
+    throw new Error('TEST_DATABASE_URL must point to a database ending in _test or an isolated finops_e2e_* schema before migrations run.');
+  }
 }
 
 async function isReachable(url) {
