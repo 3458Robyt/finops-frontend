@@ -65,7 +65,28 @@ function summaryMessage(summary: Readonly<Record<string, unknown>>): string {
   if (typeof received === 'number' && typeof inserted === 'number' && received >= inserted) {
     pieces.push(`Muestras repetidas: ${received - inserted}`);
   }
+  const retryTelemetry = isRecord(summary['retryTelemetry'])
+    ? summary['retryTelemetry']
+    : isRecord(summary['coverage']) ? summary['coverage'] : undefined;
+  const retryLabels: Readonly<Record<string, string>> = {
+    providerRetries: 'Reintentos proveedor',
+    providerRateLimitRetries: 'Reintentos por cuota',
+    providerTimeoutRetries: 'Reintentos por timeout',
+    providerTransientRetries: 'Reintentos transitorios',
+  };
+  if (retryTelemetry !== undefined) {
+    Object.keys(retryLabels).forEach((key) => {
+      if (typeof retryTelemetry[key] === 'number') pieces.push(`${retryLabels[key]}: ${retryTelemetry[key]}`);
+    });
+  }
+  if (Array.isArray(summary['warnings']) && summary['warnings'].length > 0) {
+    pieces.push(`Advertencias: ${summary['warnings'].length}`);
+  }
   return pieces.join(' · ');
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function ProjectionStatus({ status, errorMessage }: { readonly status: NonNullable<IngestionJobHistoryItem['projectionStatus']>; readonly errorMessage?: string }): React.ReactNode {
