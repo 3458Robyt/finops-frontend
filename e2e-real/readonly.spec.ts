@@ -125,11 +125,24 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     const assistantLabels = page.getByText('Asistente FinOps', { exact: true });
     const initialAssistantMessages = await assistantLabels.count();
     const input = page.getByPlaceholder(/Escribe tu consulta a la IA/i);
-    await input.fill('¿Cuál es el mayor costo del periodo y qué evidencia respalda la respuesta?');
+    const query = '¿Cuál es el mayor costo del periodo y qué evidencia respalda la respuesta?';
+    await input.fill(query);
     await page.locator('form button[type="submit"]').click();
 
-    await expect.poll(() => assistantLabels.count(), { timeout: 105_000, intervals: [500, 1_000, 2_000] })
-      .toBeGreaterThan(initialAssistantMessages);
+    const requestError = page.getByRole('alert');
+    await expect.poll(async () =>
+      (await assistantLabels.count()) > initialAssistantMessages || await requestError.isVisible(),
+      { timeout: 105_000, intervals: [500, 1_000, 2_000] },
+    ).toBe(true);
+
+    if (await requestError.isVisible()) {
+      const errorMessage = await requestError.innerText();
+      await expect(page.getByText(query, { exact: true })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: 'Reintentar consulta' })).toBeVisible();
+      await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden({ timeout: 10_000 });
+      throw new Error(`La consulta real del chat falló: ${errorMessage}`);
+    }
+
     await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden({ timeout: 10_000 });
 
     const historyText = await page.getByTestId('chat-history').innerText();
