@@ -6,6 +6,7 @@ import {
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsOpportunities,
   fetchRecommendations,
+  recomputeAnalytics,
   type CostOpportunity,
   type Recommendation,
   type UsageInsight,
@@ -31,6 +32,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
 
@@ -77,7 +79,8 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
       .sort((left, right) => severityWeight[right.severity] - severityWeight[left.severity]),
     [recommendations],
   );
-  const criticalOpportunityCount = opportunities.filter((row) => row.severity === 'HIGH' || row.severity === 'CRITICAL').length;
+  const criticalOpportunityCount = opportunities.filter((row) => row.isStale !== true && (row.severity === 'HIGH' || row.severity === 'CRITICAL')).length;
+  const staleOpportunityCount = opportunities.filter((row) => row.isStale === true).length;
   const totalSavingsLabel = formatCurrencySummary(tableData);
   const computeCount = tableData.filter((row) => row.type.includes('COMPUTE')).length;
 
@@ -94,6 +97,26 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
       {error !== null && (
         <div className="ui-alert-danger px-4 py-3 text-sm font-bold">
           {error}
+        </div>
+      )}
+      {staleOpportunityCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+          <span>{staleOpportunityCount} oportunidades se calcularon antes de los datos de costos más recientes. Actualiza el análisis antes de usarlas.</span>
+          <button
+            type="button"
+            disabled={recomputing}
+            onClick={() => {
+              setRecomputing(true);
+              setError(null);
+              void recomputeAnalytics(token)
+                .then(() => setRefreshVersion((version) => version + 1))
+                .catch((requestError: unknown) => setError(requestError instanceof Error ? requestError.message : 'No fue posible actualizar el análisis'))
+                .finally(() => setRecomputing(false));
+            }}
+            className="rounded-lg border border-amber-300/40 px-3 py-2 text-xs font-bold text-amber-100 hover:bg-amber-400/10 disabled:opacity-50"
+          >
+            {recomputing ? 'Actualizando…' : 'Actualizar análisis'}
+          </button>
         </div>
       )}
 
@@ -196,15 +219,15 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
                   <td colSpan={4} className="p-6 text-center text-sm font-bold text-zinc-500">Sin oportunidades persistidas para este tenant</td>
                 </tr>
               ) : opportunities.slice(0, 6).map((opportunity) => (
-                <tr key={opportunity.id} className="hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50 last:border-0">
-                  <td className="p-4 text-sm font-medium text-white">{opportunity.serviceName ?? opportunity.resourceId ?? 'Total'}</td>
+                <tr key={opportunity.id} className={`transition-colors border-b border-zinc-800/50 last:border-0 ${opportunity.isStale ? 'bg-amber-950/20' : 'hover:bg-zinc-800/50'}`}>
+                  <td className="p-4 text-sm font-medium text-white">{opportunity.serviceName ?? opportunity.resourceId ?? 'Total'}{opportunity.isStale && <span className="ml-2 text-[10px] font-bold text-amber-300">DESACTUALIZADA</span>}</td>
                   <td className="p-4">
-                    <span className="bg-red-500/10 text-red-300 text-[10px] font-bold px-2 py-1 rounded uppercase">{opportunity.severity}</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${opportunity.isStale ? 'bg-amber-500/10 text-amber-300' : 'bg-red-500/10 text-red-300'}`}>{opportunity.isStale ? 'Análisis desactualizado' : opportunity.severity}</span>
                   </td>
                   <td className="p-4 text-sm text-white font-black">
-                    {formatOpportunityAmount(opportunity)} / {opportunity.deltaPercent.toFixed(1)}%
+                    {opportunity.isStale ? 'Requiere recalcular' : `${formatOpportunityAmount(opportunity)} / ${opportunity.deltaPercent.toFixed(1)}%`}
                   </td>
-                  <td className="p-4 text-sm text-zinc-400 font-medium">{opportunity.explanation}</td>
+                  <td className="p-4 text-sm text-zinc-400 font-medium">{opportunity.isStale ? 'Los costos cambiaron después de este análisis; recalcula para validar si sigue vigente.' : opportunity.explanation}</td>
                 </tr>
               ))}
             </tbody>

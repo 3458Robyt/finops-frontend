@@ -59,6 +59,7 @@ export interface DashboardControllerState {
   readonly verifiedSavings: number;
   readonly roi: number;
   readonly openOpportunities: number;
+  readonly staleOpportunities: number;
   readonly acceptanceRate: number;
   readonly topUnitEconomics: readonly MonthlyUsagePoint[];
   readonly missedSavingsAmount: number;
@@ -204,7 +205,8 @@ export function useDashboardController(): DashboardControllerState {
     identifiedWaste,
     verifiedSavings,
     roi,
-    openOpportunities: opportunities.filter((opportunity) => opportunity.status === 'OPEN').length,
+    openOpportunities: opportunities.filter((opportunity) => opportunity.status === 'OPEN' && opportunity.isStale !== true).length,
+    staleOpportunities: opportunities.filter((opportunity) => opportunity.isStale === true).length,
     acceptanceRate: adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0,
     topUnitEconomics: unitEconomics.slice(0, 3),
     missedSavingsAmount: savingsKpis?.missedSavingsAmount ?? 0,

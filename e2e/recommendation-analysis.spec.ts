@@ -49,6 +49,25 @@ test('el chat responde en español y la generación directa conserva la auditor�
   await expect(page.getByText(/oportunidad validada por auditor/i)).toBeVisible();
 });
 
+test('marca oportunidades obsoletas y actualiza el análisis desde la consola', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { staleOpportunities: true });
+  await login(page);
+  await page.getByRole('button', { name: 'Consola Técnica', exact: true }).click();
+
+  const staleRow = page.getByRole('row').filter({ hasText: 'Compute desactualizado' });
+  await expect(page.getByText(/oportunidades se calcularon antes de los datos de costos más recientes/i)).toBeVisible();
+  await expect(staleRow).toContainText('Requiere recalcular');
+  await expect(staleRow).not.toContainText('14.0%');
+
+  const recomputeRequest = page.waitForRequest((request) =>
+    request.method() === 'POST' && request.url().includes('/analytics/recompute'));
+  await page.getByRole('button', { name: 'Actualizar análisis', exact: true }).click();
+  await recomputeRequest;
+
+  await expect(page.getByText(/oportunidades se calcularon antes de los datos de costos más recientes/i)).toBeHidden();
+  await expect(page.getByRole('row').filter({ hasText: 'Compute actualizado' })).toContainText('14.0%');
+});
+
 test('conserva y permite reintentar una consulta tras una indisponibilidad temporal de IA', async ({ page }) => {
   await mockApi(page, 'ADMIN', { chatFailures: 1 });
   await login(page);
@@ -170,11 +189,12 @@ async function login(page: Page) {
 async function mockApi(
   page: Page,
   role: 'ADMIN' | 'CLIENT_VIEWER',
-  options: { readonly chatFailures?: number } = {},
+  options: { readonly chatFailures?: number; readonly staleOpportunities?: boolean } = {},
 ) {
   let queued = false;
   let polls = 0;
   let chatRequests = 0;
+  let analyticsRecomputed = false;
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -265,12 +285,19 @@ async function mockApi(
       return json(route, { success: true, recommendations: [], meta: { count: 0, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
     }
     if (path.endsWith('/analytics/opportunities')) {
+      if (options.staleOpportunities && !analyticsRecomputed) {
+        return json(route, { success: true, opportunities: [costOpportunity(true)] });
+      }
+      if (options.staleOpportunities) {
+        return json(route, { success: true, opportunities: [costOpportunity(false)] });
+      }
       return json(route, { success: true, opportunities: [] });
     }
     if (path.endsWith('/analytics/efficiency-insights')) {
       return json(route, { success: true, insights: [] });
     }
     if (path.endsWith('/analytics/recompute')) {
+      analyticsRecomputed = true;
       return json(route, { success: true, anomalies: [], usageInsights: [] });
     }
     if (path.endsWith('/costs')) {
@@ -414,6 +441,24 @@ async function mockApi(
 
     return json(route, { success: true, recommendations: [], meta: { count: 0, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
   });
+}
+
+function costOpportunity(isStale: boolean) {
+  return {
+    id: isStale ? 'stale-opportunity' : 'fresh-opportunity',
+    serviceName: isStale ? 'Compute desactualizado' : 'Compute actualizado',
+    periodStart: '2026-08-01T00:00:00.000Z',
+    periodEnd: '2026-09-01T00:00:00.000Z',
+    baselineCost: 1000,
+    observedCost: 1140,
+    deltaAmount: 140,
+    deltaPercent: 14,
+    severity: 'MEDIUM',
+    status: 'OPEN',
+    explanation: 'Variación del costo mensual.',
+    detectedAt: '2026-09-01T00:00:00.000Z',
+    isStale,
+  };
 }
 
 function session(role: 'ADMIN' | 'CLIENT_VIEWER', tenantId: string, accessToken: string) {

@@ -6,6 +6,8 @@ const isWindows = process.platform === 'win32';
 const command = (name) => name;
 const frontendUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5173';
 const backendUrl = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:3100';
+const frontendPort = localServicePort(frontendUrl, 'frontend');
+const backendPort = localServicePort(backendUrl, 'backend');
 const backendDir = resolve(process.env.FINOPS_BACKEND_DIR ?? '../finops-backend');
 const fixtureFile = process.env.E2E_FIXTURE_FILE ?? resolve(backendDir, '.test-artifacts/e2e-fixtures.json');
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -34,6 +36,18 @@ function assertIsolatedTestDatabase(connectionString) {
   if (!databaseName.endsWith('_test') && !isolatedSchema) {
     throw new Error('TEST_DATABASE_URL must point to a database ending in _test or an isolated finops_e2e_* schema before migrations run.');
   }
+}
+
+function localServicePort(value, label) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
+    throw new Error(`${label} E2E URL must use local HTTP loopback.`);
+  }
+  const port = Number(url.port || (label === 'frontend' ? 5173 : 3100));
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+    throw new Error(`${label} E2E URL must use a valid local development port.`);
+  }
+  return port;
 }
 
 async function isReachable(url) {
@@ -137,7 +151,7 @@ const migrationEnv = {
 const backendEnv = {
   ...process.env,
   DATABASE_URL: testDatabaseUrl,
-  PORT: '3100',
+  PORT: String(backendPort),
   CORS_ORIGIN: frontendUrl,
   INGESTION_WORKER_ENABLED: 'false',
   INGESTION_SCHEDULER_ENABLED: 'false',
@@ -149,6 +163,7 @@ const backendEnv = {
 const frontendEnv = {
   ...process.env,
   E2E_BASE_URL: frontendUrl,
+  E2E_ORIGIN: frontendUrl,
   VITE_API_BASE_URL: `${backendUrl}/api/v1`,
 };
 
@@ -167,7 +182,7 @@ try {
   await run(command('npm'), ['run', 'test:fixtures:create'], { cwd: backendDir, env: fixtureEnv });
   backend = start(command('npx'), ['tsx', 'src/index.ts'], backendEnv, backendDir);
   await waitFor(`${backendUrl}/health`);
-  frontend = start(command('npx'), ['vite', '--host', '127.0.0.1', '--port', '5173'], frontendEnv, resolve('.'));
+  frontend = start(command('npx'), ['vite', '--host', '127.0.0.1', '--port', String(frontendPort)], frontendEnv, resolve('.'));
   await waitFor(`${frontendUrl}/`);
   // The database-backed specs intentionally share one isolated fixture tenant.
   // Run them serially so concurrent analysis commands cannot race on the same durable job.

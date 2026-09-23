@@ -26,6 +26,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
     identifiedWaste,
     roi,
     openOpportunities,
+    staleOpportunities,
     acceptanceRate,
     topUnitEconomics,
     missedSavingsAmount,
@@ -83,6 +84,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
           </div>
           <div>
             <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Oportunidades abiertas</h3>
+            {staleOpportunities > 0 && <span className="text-[10px] font-semibold text-amber-300">{staleOpportunities} requieren actualizar el análisis</span>}
             <p className="text-2xl lg:text-3xl font-bold text-white">
               {loading ? '...' : openOpportunities}
             </p>
