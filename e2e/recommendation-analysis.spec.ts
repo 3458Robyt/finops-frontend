@@ -126,6 +126,18 @@ test('mantiene la leyenda de métricas dentro del flujo y permite identificar re
   await expect(page.getByTestId('technical-metric-legend').getByText('web-prod-08', { exact: false })).toBeVisible();
 });
 
+test('mantiene separados los streams de dimensiones de un recurso seleccionado', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.getByRole('button', { name: 'Métricas Técnicas', exact: true }).click();
+  await page.getByLabel('Recurso').selectOption('resource-external-01');
+
+  const legend = page.getByTestId('technical-metric-legend');
+  await expect(legend).toContainText('2 series');
+  await expect(legend).toContainText('dim aaaaaaaa');
+  await expect(legend).toContainText('dim bbbbbbbb');
+});
+
 async function login(page: Page) {
   await page.goto('/');
   await page.locator('input[type="email"]').fill('user@example.com');
@@ -519,34 +531,42 @@ function technicalCoverage() {
 
 function technicalSeries(url: URL) {
   const statistic = url.searchParams.get('statistic') ?? 'MEAN';
-  return {
-    success: true,
-    series: technicalResources().map((resource, index) => ({
+  const requestedResource = url.searchParams.get('externalResourceId');
+  const resources = technicalResources().filter((resource) => requestedResource === null || resource.externalResourceId === requestedResource);
+  const points = resources.flatMap((resource, index) => {
+    const dimensionHashes = requestedResource === null
+      ? [`dimension-${index + 1}`]
+      : ['aaaaaaaa11111111', 'bbbbbbbb22222222'];
+    return dimensionHashes.map((dimensionsHash, streamIndex) => ({
       bucketStart: '2026-07-23T12:00:00.000Z',
       externalResourceId: resource.externalResourceId,
       cloudResourceId: resource.cloudResourceId,
       providerNamespace: 'oci_computeagent',
       regionId: resource.regionId,
-      dimensionsHash: `dimension-${index + 1}`,
+      dimensionsHash,
       metricName: 'cpu_utilization',
       metricUnit: 'Percent',
       statistic,
-      value: 10 + index,
+      value: 10 + index + (streamIndex * 5),
       aggregationSemantics: 'MEAN_OF_NATIVE',
       sourceGranularitiesSeconds: [1800],
-      avg: 10 + index,
-      min: 8 + index,
-      max: 12 + index,
-      latest: 10 + index,
+      avg: 10 + index + (streamIndex * 5),
+      min: 8 + index + (streamIndex * 5),
+      max: 12 + index + (streamIndex * 5),
+      latest: 10 + index + (streamIndex * 5),
       sampleCount: 2,
       minSampledAt: '2026-07-23T11:30:00.000Z',
       maxSampledAt: '2026-07-23T12:00:00.000Z',
       latestSampledAt: '2026-07-23T12:00:00.000Z',
-    })),
+    }));
+  });
+  return {
+    success: true,
+    series: points,
     meta: {
       hasMore: false,
-      returnedPoints: 8,
-      totalSamples: 16,
+      returnedPoints: points.length,
+      totalSamples: points.length * 2,
       queryMs: 4,
       bucket: '30m',
       pageSize: 1000,

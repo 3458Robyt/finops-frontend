@@ -16,7 +16,7 @@ export function toUPlotChart(
   statistic: string | undefined,
   resourceLabels: ReadonlyMap<string, string> | undefined,
 ): TechnicalMetricChartModel {
-  if (!separateResources) {
+  if (!separateResources && !hasMultipleStreams(points)) {
     const showEnvelope = shouldShowEnvelope(points, statistic);
     const valueColor = '#FACC15';
     const envelopeItems = showEnvelope ? [
@@ -141,6 +141,19 @@ function streamIdentity(point: TechnicalMetricSeriesPoint): string {
     point.dimensionsHash ?? '',
     point.sourceGranularitiesSeconds.join(','),
   ].join('\u0000');
+}
+
+function hasMultipleStreams(points: readonly TechnicalMetricSeriesPoint[]): boolean {
+  const first = points[0];
+  if (first === undefined) return false;
+
+  return points.some((point) => point.externalResourceId !== first.externalResourceId
+    || point.cloudResourceId !== first.cloudResourceId
+    || point.providerNamespace !== first.providerNamespace
+    || point.regionId !== first.regionId
+    || point.dimensionsHash !== first.dimensionsHash
+    || point.sourceGranularitiesSeconds.length !== first.sourceGranularitiesSeconds.length
+    || point.sourceGranularitiesSeconds.some((seconds, index) => seconds !== first.sourceGranularitiesSeconds[index]));
 }
 
 function streamLabel(
