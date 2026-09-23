@@ -151,6 +151,42 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
     expect(failures).toEqual([]);
   });
+
+  test('distingue candidatos elegibles de candidatos bloqueados en readiness', async () => {
+    const page = getSharedPage();
+    await page.setViewportSize({ width: 1366, height: 768 });
+    const audit = observeReadOnlyPage(page);
+    await login(page);
+    const readinessResponse = page.waitForResponse((response) =>
+      response.url().includes('/ai/analysis-runs/readiness') && response.request().method() === 'GET',
+    );
+    await openModule(page, 'Agente IA');
+    const response = await readinessResponse;
+    expect(response.status()).toBe(200);
+    const envelope = await response.json() as {
+      readonly preview?: {
+        readonly candidatesSkipped: number;
+        readonly readinessReport: { readonly candidates: readonly unknown[] };
+      };
+    };
+    const preview = envelope.preview;
+    if (preview === undefined) throw new Error('La vista previa de readiness no devolvió datos.');
+
+    const eligibleCount = preview.readinessReport.candidates.length;
+    const readinessPanel = page.locator('.ui-surface').filter({
+      has: page.getByRole('heading', { name: 'Análisis gobernado del tenant activo' }),
+    });
+    await expect(readinessPanel.getByText('Candidatos elegibles para IA', { exact: true }).locator('..'))
+      .toContainText(String(eligibleCount));
+    await expect(readinessPanel.getByText('Descartados o aplazados', { exact: true }).locator('..'))
+      .toContainText(String(preview.candidatesSkipped));
+    if (eligibleCount === 0) {
+      await expect(readinessPanel.getByText(/No hay candidatos elegibles con evidencia suficiente/i)).toBeVisible();
+    }
+
+    expect(audit.unsafeRequests).toEqual([]);
+    expect([...audit.failures, ...audit.unrecoveredAuthFailures()]).toEqual([]);
+  });
 });
 
 async function login(page: Page): Promise<void> {

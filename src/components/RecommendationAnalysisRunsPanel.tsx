@@ -228,13 +228,13 @@ export default function RecommendationAnalysisRunsPanel({
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Metric label="Período disponible" value={`${formatDate(preview.periodStart)} – ${formatDate(preview.periodEnd)}`} />
               <Metric label="Recursos evaluables" value={String(preview.resourcesEvaluated)} />
-              <Metric label="Candidatos con evidencia" value={String(preview.candidatesFound)} />
+              <Metric label="Candidatos elegibles para IA" value={String(preview.readinessReport.candidates.length)} />
               <Metric label="Descartados o aplazados" value={String(preview.candidatesSkipped)} />
             </div>
             <p className="mt-4 text-sm font-bold text-zinc-300">{preview.readinessReport.summary}</p>
-            {preview.candidatesFound === 0 && (
+            {preview.readinessReport.candidates.length === 0 && (
               <Notice tone="warning">
-                No hay datos suficientes para llamar a la IA. La corrida registrará los motivos sin generar recomendaciones.
+                No hay candidatos elegibles con evidencia suficiente para llamar a la IA. La corrida registrará los bloqueos sin generar recomendaciones.
               </Notice>
             )}
           </>
