@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { formatCurrencyAmount } from '../utils/formatCurrency';
 import {
   fetchTechnicalResourceSummary,
   fetchTechnicalResources,
@@ -173,7 +174,7 @@ export function CloudResourceDetail({ externalResourceId, cloudResourceId, onBac
 
 function MetricCard({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail: string }) { return <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{label}</p><p className="mt-2 text-xl font-black text-white">{value}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div>; }
 function formatDate(value: string): string { return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
-function formatCurrency(value: number, currency: string): string { return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value); }
+function formatCurrency(value: number, currency: string): string { return formatCurrencyAmount(value, currency); }
 function formatEvidenceBlocker(blocker: string): string {
   const labels: Record<string, string> = {
     NO_TECHNICAL_EVIDENCE: 'sin muestras técnicas',

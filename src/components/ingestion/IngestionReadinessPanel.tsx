@@ -92,8 +92,8 @@ function OperationalStatus({ operational }: { readonly operational: IngestionOpe
       <StatusBadge label={operational.worker.available ? 'Worker activo' : 'Worker no detectado'} className={operational.worker.available ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'} />
     </div>
     <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-zinc-400 sm:grid-cols-4">
-      <ReadinessLine label="Pendientes" value={String(operational.queue.pending)} />
-      <ReadinessLine label="Ejecutando" value={String(operational.queue.running)} />
+      <ReadinessLine label="Pendientes (ingesta y proyección)" value={String(operational.queue.pending)} />
+      <ReadinessLine label="En curso (ingesta y proyección)" value={String(operational.queue.running)} />
       <ReadinessLine label="Cancelando" value={String(operational.queue.cancelRequested)} />
       <ReadinessLine label="Stale" value={String(operational.queue.staleRunning)} />
     </div>

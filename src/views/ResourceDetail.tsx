@@ -150,6 +150,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
                      : formatCurrency(savings, currency)}
                    {savings !== undefined && <span className="text-sm font-medium opacity-60 ml-1">/mes</span>}
                  </p>
+                 {evidence.savingsStatus === 'UNVERIFIED_LEGACY' && <p className="mt-2 text-[11px] text-amber-200">El importe histórico no tiene un cálculo verificable; se excluye de los ahorros y no debe interpretarse como impacto económico.</p>}
                  {savings === undefined && potentialSavings !== undefined && <p className="mt-2 text-[11px] text-zinc-400">* Potencial financiero sujeto a validación; no es ahorro realizado.</p>}
                 {missedSavings > 0 && (
                   <p className="mt-3 text-xs font-bold leading-relaxed text-zinc-300">

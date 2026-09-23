@@ -14,7 +14,7 @@ export default function ValueRealizationTrendUPlot({ points, currency: selectedC
     return {
       labels: periods,
       data: [periods.map((_period, index) => index), periods.map((period) => byPeriod.get(period)?.observedSavings ?? 0), periods.map((period) => byPeriod.get(period)?.verifiedMonthlySavings ?? 0), periods.map((period) => byPeriod.get(period)?.costIncreaseMonthlyAmount ?? 0)] as AlignedData,
-      currency: currency ?? 'USD',
+      currency: currency ?? 'Moneda no disponible',
     };
   }, [points, selectedCurrency]);
 

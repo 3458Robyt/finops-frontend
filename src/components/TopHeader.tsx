@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
 import { roleLabel, type CurrentView } from './navigation';
+import { formatCurrencyAmount } from '../utils/formatCurrency';
+import { shareInFlightRequest } from '../services/shareInFlightRequest';
 import {
   dismissNotification,
   fetchNotifications,
@@ -59,7 +61,7 @@ export default function TopHeader({
     let active = true;
     setLoading(true);
 
-    fetchNotifications(token)
+    shareInFlightRequest(`notifications:${token}`, () => fetchNotifications(token))
       .then((response) => {
         if (active) {
           setNotifications(response.notifications);
@@ -242,12 +244,5 @@ export default function TopHeader({
 }
 
 function formatCurrency(value: number, currency: string): string {
-  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
-    ? currency.trim().toUpperCase()
-    : 'USD';
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: normalizedCurrency,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrencyAmount(value, currency);
 }

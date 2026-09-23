@@ -34,7 +34,7 @@ function formatStatisticLabel(statistic: string): string {
 
 export default function MetricasTecnicas() {
   const {
-    overview, coverage, samples, selectedResource, selectedGroup, range, bucket, selectedStatistic, statisticOptions, drilldownWindow,
+    overview, metricCatalog, coverage, samples, selectedResource, selectedGroup, range, bucket, selectedStatistic, statisticOptions, drilldownWindow,
     loadingOverview, loadingMoreSeries, error, metricOptions, activeMetric, selectedMetricMeta, filteredKpis,
     visibleSeries, visibleSeriesMeta, visibleLoadingSeries, topResourceCost, selectedCoverageMetric,
     setSelectedResource, setSelectedGroup, setSelectedMetric, setRange, setBucket, setSelectedStatistic, setDrilldownWindow,
@@ -52,7 +52,7 @@ export default function MetricasTecnicas() {
     return labels;
   }, [overview?.resources]);
   const visibleGroupOptions = Object.entries(groupLabels).filter(([value]) => (
-    value === 'ALL' || (overview?.metrics ?? []).some((metric) => metric.group === value)
+    value === 'ALL' || metricCatalog.some((metric) => metric.group === value)
   ));
 
   return (

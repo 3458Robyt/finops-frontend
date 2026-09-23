@@ -149,7 +149,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
             </h3>
             <p className="text-zinc-500 text-sm">Datos reales hasta el ultimo reporte descargado</p>
           </div>
-          <span className="text-xs font-bold text-zinc-400">Moneda de reporte: <strong className="text-white">{reportingCurrency}</strong></span>
+          <span className="text-xs font-bold text-zinc-400">Moneda de reporte: <strong className="text-white">{reportingCurrency || 'No disponible'}</strong></span>
         </div>
 
         <div className="h-[300px] w-full">

@@ -148,7 +148,8 @@ export function useIngestionController() {
       if (document.visibilityState !== 'visible' || !navigator.onLine) return;
       void refreshJobs();
     };
-    const timer = window.setInterval(pollIfActive, 4_000);
+    const intervalMs = operationalReadiness?.worker.available === true ? 4_000 : 15_000;
+    const timer = window.setInterval(pollIfActive, intervalMs);
     window.addEventListener('online', pollIfActive);
     document.addEventListener('visibilitychange', pollIfActive);
     return () => {
@@ -156,7 +157,7 @@ export function useIngestionController() {
       window.removeEventListener('online', pollIfActive);
       document.removeEventListener('visibilitychange', pollIfActive);
     };
-  }, [jobs, refreshJobs]);
+  }, [jobs, operationalReadiness?.worker.available, refreshJobs]);
 
   const handleCancelJob = useCallback(async (jobId: string): Promise<void> => {
     setError(null);

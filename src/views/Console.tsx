@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
 import RecommendationGenerationAction from '../components/RecommendationGenerationAction';
+import { formatCurrencyAmount } from '../utils/formatCurrency';
 import {
   fetchAnalyticsEfficiencyInsights,
   fetchAnalyticsOpportunities,
@@ -251,7 +252,7 @@ export default function Console({ onResourceSelect, apiRole, onOpenAgentSettings
                     <td className="p-4 text-sm text-zinc-400 font-medium">{evidence.metric ?? row.severity}</td>
                     <td className="p-4 text-sm text-tak-yellow font-bold uppercase tracking-tight">{evidence.action ?? row.title}</td>
                     <td className="p-4 text-sm text-white font-black text-right">
-                      {formatCurrency(row.estimatedMonthlySavings ?? 0, row.currency)}
+                      {row.estimatedMonthlySavings === undefined ? 'Por validar' : formatCurrency(row.estimatedMonthlySavings, row.currency)}
                     </td>
                     <td className="p-4 flex justify-center">
                       <button
@@ -306,13 +307,7 @@ function formatNumber(value: number): string {
 }
 
 function formatCurrency(value: number, currency: string): string {
-  const normalizedCurrency = normalizeCurrency(currency);
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: normalizedCurrency,
-    currencyDisplay: 'code',
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrencyAmount(value, currency);
 }
 
 /**
@@ -321,26 +316,16 @@ function formatCurrency(value: number, currency: string): string {
  * no se convierten silenciosamente ni se confunden con USD por el símbolo `$`.
  */
 function formatUnitCost(value: number, currency: string): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: normalizeCurrency(currency),
-    currencyDisplay: 'code',
-    maximumFractionDigits: 8,
-  }).format(value);
-}
-
-function normalizeCurrency(currency: string): string {
-  const normalizedCurrency = currency.trim().toUpperCase();
-  return /^[A-Z]{3}$/.test(normalizedCurrency) ? normalizedCurrency : 'USD';
+  return formatCurrencyAmount(value, currency, 8);
 }
 
 function formatCurrencySummary(recommendations: readonly Recommendation[]): string {
   const totals = new Map<string, number>();
   for (const recommendation of recommendations) {
-    const currency = recommendation.currency.trim().toUpperCase() || 'USD';
+    const currency = recommendation.currency.trim().toUpperCase();
     totals.set(currency, (totals.get(currency) ?? 0) + (recommendation.estimatedMonthlySavings ?? 0));
   }
-  if (totals.size === 0) return formatCurrency(0, 'USD');
+  if (totals.size === 0) return 'Sin ahorro cuantificado';
   return [...totals.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([currency, amount]) => formatCurrency(amount, currency))

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import uPlot, { type AlignedData, type Options } from 'uplot';
 import 'uplot/dist/uPlot.min.css';
+import { formatCurrencyAmount } from '../utils/formatCurrency';
 
 export interface CostHistoryPoint {
   readonly timestamp: string;
@@ -92,5 +93,5 @@ function toChart(points: readonly CostHistoryPoint[]): { readonly data: AlignedD
 }
 
 function formatMoney(value: number | null, currency: string): string {
-  return value === null || !Number.isFinite(value) ? '-' : new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+  return value === null ? '-' : formatCurrencyAmount(value, currency);
 }
