@@ -50,6 +50,10 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
   const [isSending, setIsSending] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [failedChatRequest, setFailedChatRequest] = useState<{
+    readonly message: string;
+    readonly history: readonly AiChatMessage[];
+  } | null>(null);
   const historyRef = useRef<HTMLDivElement | null>(null);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
@@ -63,6 +67,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
     setMessages(loadChatSession(storageKey, welcomeMessage));
     setInput('');
     setError(null);
+    setFailedChatRequest(null);
   }, [storageKey]);
 
   useEffect(() => {
@@ -85,43 +90,45 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
     historyEndRef.current?.scrollIntoView({ block: 'end' });
   }, [messages, isSending, isGenerating, error]);
 
-  const submitMessage = async (message: string) => {
-    const trimmed = message.trim();
-
-    if (trimmed === '' || isSending) {
-      return;
-    }
-
-    const userMessage: UiMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: trimmed,
-    };
-
-    setMessages((current) => [...current, userMessage]);
-    setInput('');
-    setError(null);
+  const runChatRequest = async (message: string, requestHistory: readonly AiChatMessage[]) => {
     setIsSending(true);
-
     try {
-      const response = await sendAiChatMessage(token, {
-        message: trimmed,
-        history,
-      });
-
+      const response = await sendAiChatMessage(token, { message, history: requestHistory });
       setMessages((current) => [
         ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: response.answer,
-        },
+        { id: crypto.randomUUID(), role: 'assistant', content: response.answer },
       ]);
+      setFailedChatRequest(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudo consultar la IA');
+      setFailedChatRequest({ message, history: requestHistory });
     } finally {
       setIsSending(false);
     }
+  };
+
+  const submitMessage = async (message: string) => {
+    const trimmed = message.trim();
+    if (trimmed === '' || isSending) return;
+
+    const requestHistory = history;
+    setMessages((current) => [...current, {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: trimmed,
+    }]);
+    setInput('');
+    setError(null);
+    setFailedChatRequest(null);
+    await runChatRequest(trimmed, requestHistory);
+  };
+
+  const retryFailedChatRequest = async (): Promise<void> => {
+    const failedRequest = failedChatRequest;
+    if (failedRequest === null || isSending) return;
+    setError(null);
+    setFailedChatRequest(null);
+    await runChatRequest(failedRequest.message, failedRequest.history);
   };
 
   const handleGenerateRecommendations = async (persist: boolean) => {
@@ -130,6 +137,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
     }
 
     setError(null);
+    setFailedChatRequest(null);
     setIsGenerating(true);
 
     try {
@@ -155,6 +163,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
     saveChatSession(storageKey, [welcomeMessage]);
     setMessages([welcomeMessage]);
     setError(null);
+    setFailedChatRequest(null);
   };
 
   return (
@@ -166,7 +175,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
           <p className="ui-page-lead">Consulta costos, consumo y oportunidades del tenant activo. Las respuestas se generan con contexto gobernado.</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <button type="button" onClick={startNewConversation} className="ui-button ui-button-secondary min-h-9 text-xs">Nueva conversación</button>
+          <button type="button" onClick={startNewConversation} disabled={isSending || isGenerating} className="ui-button ui-button-secondary min-h-9 text-xs disabled:opacity-50">Nueva conversación</button>
           <span className="ui-status ui-status-accent">IA · español</span>
         </div>
       </header>
@@ -214,8 +223,18 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
           </div>
         )}
         {error !== null && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl px-4 py-3 text-sm">
-            {error}
+          <div role="alert" className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl px-4 py-3 text-sm">
+            <p>{error}</p>
+            {failedChatRequest !== null && (
+              <button
+                type="button"
+                onClick={() => void retryFailedChatRequest()}
+                disabled={isSending}
+                className="mt-2 underline underline-offset-2 disabled:opacity-50"
+              >
+                Reintentar consulta
+              </button>
+            )}
           </div>
         )}
         <div ref={historyEndRef} aria-hidden="true" />
@@ -258,7 +277,13 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
           <input 
             type="text" 
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              setInput(event.target.value);
+              if (failedChatRequest !== null) {
+                setFailedChatRequest(null);
+                setError(null);
+              }
+            }}
             placeholder="Escribe tu consulta a la IA (ej: Muéstrame el ROI actual)..." 
             className="ui-control w-full rounded-xl py-4 pl-4 pr-12 text-sm"
           />
@@ -305,13 +330,13 @@ function formatAiGenerationError(error: unknown): string {
     const blockingIssues = readStringList(audit['blockingIssues']);
     const requiredChanges = readStringList(audit['requiredChanges']);
     const score = typeof audit['score'] === 'number' ? ` Puntaje auditor: ${audit['score']}/100.` : '';
-    const diagnostic = error.diagnosticId !== undefined ? ` Diagnostico: ${error.diagnosticId}.` : '';
+    const diagnostic = error.diagnosticId !== undefined ? ` Diagnóstico: ${error.diagnosticId}.` : '';
 
     return [
-      `El auditor IA rechazo las recomendaciones generadas.${score}${diagnostic}`,
+      `El auditor de IA rechazó las recomendaciones generadas.${score}${diagnostic}`,
       blockingIssues.length > 0 ? `Motivos: ${blockingIssues.join(' ')}` : '',
       requiredChanges.length > 0 ? `Correcciones requeridas: ${requiredChanges.join(' ')}` : '',
-      'No se guardo ninguna recomendacion rechazada. Intenta de nuevo o revisa si falta evidencia tecnica suficiente.',
+      'No se guardó ninguna recomendación rechazada. Intenta de nuevo o revisa si falta evidencia técnica suficiente.',
     ]
       .filter((item) => item !== '')
       .join('\n');

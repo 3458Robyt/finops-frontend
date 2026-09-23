@@ -49,6 +49,28 @@ test('el chat responde en español y la generación directa conserva la auditor�
   await expect(page.getByText(/oportunidad validada por auditor/i)).toBeVisible();
 });
 
+test('conserva y permite reintentar una consulta tras una indisponibilidad temporal de IA', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { chatFailures: 1 });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const query = '¿Cuál es el mayor costo del periodo?';
+  const input = page.getByPlaceholder(/escribe tu consulta/i);
+  await input.fill(query);
+  await page.getByRole('button', { name: 'send' }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El servicio de IA no está disponible temporalmente');
+  await expect(error.getByRole('button', { name: 'Reintentar consulta' })).toBeEnabled();
+  await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden();
+  await expect(page.getByText(query, { exact: true })).toHaveCount(1);
+
+  await error.getByRole('button', { name: 'Reintentar consulta' }).click();
+  await expect(page.getByTestId('assistant-markdown').last()).toContainText('La mayor oportunidad');
+  await expect(page.getByText(query, { exact: true })).toHaveCount(1);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 for (const viewport of [
   { width: 320, height: 720, label: 'móvil compacto' },
   { width: 375, height: 812, label: 'móvil estándar' },
@@ -145,9 +167,14 @@ async function login(page: Page) {
   await page.getByRole('button', { name: /ingresar al panel/i }).click();
 }
 
-async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
+async function mockApi(
+  page: Page,
+  role: 'ADMIN' | 'CLIENT_VIEWER',
+  options: { readonly chatFailures?: number } = {},
+) {
   let queued = false;
   let polls = 0;
+  let chatRequests = 0;
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -169,6 +196,14 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
       });
     }
     if (path.endsWith('/ai/chat')) {
+      chatRequests += 1;
+      if (chatRequests <= (options.chatFailures ?? 0)) {
+        return json(route, {
+          success: false,
+          error: 'El servicio de IA no está disponible temporalmente (HTTP 503). Intenta nuevamente en unos minutos.',
+          code: 'PROVIDER_UNAVAILABLE',
+        }, 503);
+      }
       return json(route, {
         success: true,
         answer: '## Resumen de costos\n\n**La mayor oportunidad** es reducir el costo de la instancia con baja utilización.\n\n- La evidencia técnica está disponible para revisión.\n\n<script>alert("no ejecutar")</script>\n\n![imagen no permitida](https://example.invalid/evidence.png)',
