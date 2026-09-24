@@ -160,12 +160,17 @@ const backendEnv = {
   AGENT_LEARNING_WORKER_ENABLED: 'false',
   MESSAGE_SCHEDULER_ENABLED: 'false',
 };
+const sensitiveTestEnvName = /(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY|DATABASE_URL|CONNECTION_STRING|CREDENTIAL|SESSION[_-]?ID|SUPABASE|OCI_|AWS_|SMTP_|TELEGRAM_)/i;
 const frontendEnv = {
-  ...process.env,
+  // Playwright failures can serialize process.env; browser-side tests must not inherit credentials.
+  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !sensitiveTestEnvName.test(name))),
   E2E_BASE_URL: frontendUrl,
   E2E_ORIGIN: frontendUrl,
   VITE_API_BASE_URL: `${backendUrl}/api/v1`,
 };
+if (Object.keys(frontendEnv).some((name) => sensitiveTestEnvName.test(name))) {
+  throw new Error('Sensitive environment variables must not be passed to the frontend or Playwright process.');
+}
 
 let backend;
 let frontend;
