@@ -174,6 +174,7 @@ test.describe('FinOps app E2E', () => {
 
     await page.getByRole('button', { name: /ingesta y datos/i }).click();
     await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos', exact: true })).toBeVisible();
+    await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /agregar y activar una cuenta cloud/i })).toBeVisible();
     const cloudConnectionSelector = page.getByLabel('Cuenta configurada');
     await cloudConnectionSelector.selectOption({ index: 1 });
@@ -218,6 +219,10 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/ejecuci[oó]n registrada\. el ahorro se calculara/i)).toBeVisible();
     await expect(page.getByText(/recomendaci[oó]n aprobada/i)).toBeVisible();
     await expect(page.getByText('Ejecucion manual registrada', { exact: true })).toBeVisible();
+
+    await page.locator('aside').getByRole('button', { name: 'Administración MSP', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Consola central de jobs' })).toBeVisible();
+    await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
 
   });
 });
