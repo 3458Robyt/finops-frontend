@@ -153,10 +153,11 @@ export default function Login({ onLogin }: {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">
-            <label className="auth-label ml-1">Usuario / email</label>
+            <label htmlFor="login-email" className="auth-label ml-1">Usuario / email</label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">person</span>
               <input
+                id="login-email"
                 type="email"
                 autoComplete="username"
                 value={email}
@@ -168,10 +169,11 @@ export default function Login({ onLogin }: {
           </div>
 
           <div className="space-y-1.5">
-            <label className="auth-label ml-1">Contraseña</label>
+            <label htmlFor="login-password" className="auth-label ml-1">Contraseña</label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">lock</span>
               <input 
+                id="login-password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
