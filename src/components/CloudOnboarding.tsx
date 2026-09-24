@@ -272,6 +272,7 @@ export default function CloudOnboarding({ connections, canManage, onChanged, onN
       </div>
 
       {(error !== null || message !== null) && <div aria-live="polite" className={`m-6 p-4 text-sm ${error !== null ? 'ui-alert-danger' : 'ui-alert-positive'}`}>{error ?? message}</div>}
+      {readinessStatus === 'REQUIRES_VALIDATION' && detail?.connection.lastValidatedAt !== undefined && <div role="alert" className="m-6 rounded-xl border border-amber-800 bg-amber-950/30 p-4 text-sm text-amber-200">La validación de acceso ya no está vigente. Usa «Validar acceso» antes de activar o programar nuevas ingestas.</div>}
 
       <div className="grid gap-6 p-6 xl:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)]">
         <div className="space-y-5">
@@ -364,6 +365,7 @@ function hasUsableValidation(detail: CloudOnboardingDetail): boolean {
   const authenticated = detail.readiness?.authentication?.status === 'VERIFIED'
     || (detail.readiness?.authentication === undefined && available.some((item) => item.capability === 'IDENTITY'));
   return detail.connection.lastValidatedAt !== undefined
+    && detail.readiness?.onboardingStatus !== 'REQUIRES_VALIDATION'
     && authenticated
     && available.some((item) => ['INVENTORY', 'COSTS', 'METRICS', 'STORAGE'].includes(item.capability));
 }

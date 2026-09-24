@@ -172,15 +172,52 @@ test.describe('FinOps app E2E', () => {
     await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
     await expect(page.getByTestId('canonical-evidence-panel')).toBeVisible();
 
+    await page.route('**/api/v1/cloud-connections/*/onboarding', async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json() as {
+        success: boolean;
+        onboarding: {
+          connection: Record<string, unknown>;
+          credentials: readonly Record<string, unknown>[];
+          readiness: Record<string, unknown> | null;
+        };
+      };
+      if (payload.onboarding.readiness === null) {
+        await route.fulfill({ response });
+        return;
+      }
+      await route.fulfill({
+        response,
+        body: JSON.stringify({
+          ...payload,
+          onboarding: {
+            ...payload.onboarding,
+            connection: { ...payload.onboarding.connection, lastValidatedAt: '2026-09-19T15:18:50.000Z' },
+            credentials: [{
+              id: 'e2e-active-credential',
+              purpose: 'OPERATIONAL',
+              status: 'ACTIVE',
+              label: 'Credencial operativa de prueba',
+              createdAt: '2026-09-19T15:18:50.000Z',
+            }],
+            readiness: { ...payload.onboarding.readiness, onboardingStatus: 'REQUIRES_VALIDATION' },
+          },
+        }),
+      });
+    });
+
     await page.getByRole('button', { name: /ingesta y datos/i }).click();
     await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos', exact: true })).toBeVisible();
     await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /agregar y activar una cuenta cloud/i })).toBeVisible();
     const cloudConnectionSelector = page.getByLabel('Cuenta configurada');
     await cloudConnectionSelector.selectOption({ index: 1 });
+    await expect(page.getByRole('alert').filter({ hasText: /validación de acceso ya no está vigente/i })).toBeVisible();
+    await page.getByText(/configuración técnica avanzada/i).click();
+    await expect(page.getByRole('button', { name: 'Activar cuenta' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Validar acceso' })).toBeEnabled();
     await expect(page.getByText(/acceso seguro de solo lectura/i)).toBeVisible();
     await expect(page.getByText(/validar capacidades/i)).toBeVisible();
-    await page.getByText(/configuración técnica avanzada/i).click();
     await expect(page.getByText(/sincronización inicial/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /abrir inventario/i })).toBeVisible();
 
