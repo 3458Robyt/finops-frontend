@@ -33,6 +33,11 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
 
   test.beforeAll(async ({ browser }) => {
     sharedContext = await browser.newContext({ baseURL: process.env['E2E_REAL_BASE_URL'] });
+    // Real tenant cost context must never reach the external model from this suite.
+    await sharedContext.route('**/api/v1/ai/chat', async (route) => {
+      if (route.request().method() === 'GET') await route.continue();
+      else await route.abort('blockedbyclient');
+    });
     sharedPage = await sharedContext.newPage();
     await authenticate(sharedPage);
   });
@@ -98,7 +103,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     expect(failures).toEqual([]);
   });
 
-  test('mantiene el chat en español y sin scroll del documento', async () => {
+  test('mantiene el chat accesible sin enviar datos del tenant al modelo', async () => {
     const page = getSharedPage();
     await page.setViewportSize({ width: 390, height: 844 });
     const audit = observeReadOnlyPage(page);
@@ -109,44 +114,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     await expect(page.getByTestId('chat-module')).toContainText(/asistente finops/i);
     await expect(page.locator('main')).toHaveCSS('overflow-y', 'hidden');
     await assertKeyboardNavigation(page);
-    expect(audit.unsafeRequests).toEqual([]);
-    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
-    expect(failures).toEqual([]);
-  });
-
-  test('responde una consulta real del chat sin persistir recomendaciones', async () => {
-    const page = getSharedPage();
-    await page.setViewportSize({ width: 1366, height: 768 });
-    const audit = observeReadOnlyPage(page);
-    await login(page);
-    await openModule(page, 'Asistente IA');
-    await expect(page.getByTestId('chat-module')).toBeVisible();
-
-    const assistantLabels = page.getByText('Asistente FinOps', { exact: true });
-    const initialAssistantMessages = await assistantLabels.count();
-    const input = page.getByPlaceholder(/Escribe tu consulta a la IA/i);
-    const query = '¿Cuál es el mayor costo del periodo y qué evidencia respalda la respuesta?';
-    await input.fill(query);
-    await page.locator('form button[type="submit"]').click();
-
-    const requestError = page.getByRole('alert');
-    await expect.poll(async () =>
-      (await assistantLabels.count()) > initialAssistantMessages || await requestError.isVisible(),
-      { timeout: 105_000, intervals: [500, 1_000, 2_000] },
-    ).toBe(true);
-
-    if (await requestError.isVisible()) {
-      const errorMessage = await requestError.innerText();
-      await expect(page.getByText(query, { exact: true })).toHaveCount(1);
-      await expect(page.getByRole('button', { name: 'Reintentar consulta' })).toBeVisible();
-      await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden({ timeout: 10_000 });
-      throw new Error(`La consulta real del chat falló: ${errorMessage}`);
-    }
-
-    await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden({ timeout: 10_000 });
-
-    const historyText = await page.getByTestId('chat-history').innerText();
-    expect(historyText).not.toMatch(/failed to fetch|no fue posible contactar al backend|500 internal server error/i);
+    expect(audit.unsafeRequests.filter((request) => request.includes('/ai/chat'))).toEqual([]);
     expect(audit.unsafeRequests).toEqual([]);
     const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
     expect(failures).toEqual([]);
@@ -373,6 +341,5 @@ function isAllowedReadOnlyMutation(url: string): boolean {
   const path = new URL(url).pathname;
   return path.endsWith('/auth/login')
     || path.endsWith('/auth/refresh')
-    || path.endsWith('/auth/switch-tenant')
-    || path.endsWith('/ai/chat');
+    || path.endsWith('/auth/switch-tenant');
 }
