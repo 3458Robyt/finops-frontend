@@ -54,6 +54,39 @@ test('discovers OCI metrics in a bounded scope and saves only explicitly selecte
   await expect(panel.getByText(/la ingesta no se inicia automáticamente/i)).toBeVisible();
 });
 
+test('explains an empty OCI discovery result and keeps saving unavailable', async ({ page }) => {
+  let savedDefinitions = false;
+  let ingestionStarted = false;
+  await installApiMocks(page, (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/metric-definitions/discover')) {
+      return {
+        success: true,
+        discovery: { definitions: [], regions: ['us-ashburn-1'], compartments: ['ocid1.compartment.test'], apiCallCount: 1, truncated: false, warnings: [] },
+      };
+    }
+    if (url.pathname.endsWith('/metric-definitions') && request.method() === 'PUT') savedDefinitions = true;
+    if (url.pathname.includes('/ingestion-jobs')) ingestionStarted = true;
+    return null;
+  });
+
+  await page.goto('/');
+  await page.locator('input[type="email"]').fill('tech@example.com');
+  await page.locator('input[type="password"]').fill('local-test-password');
+  await page.getByRole('button', { name: /ingresar al panel/i }).click();
+  await page.getByRole('button', { name: /ingesta y datos/i }).click();
+  await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos' })).toBeVisible();
+  await page.getByText(/configuración técnica avanzada/i).click();
+
+  const panel = page.getByRole('region', { name: 'Descubrimiento de métricas OCI' });
+  await panel.getByPlaceholder('ocid1.compartment...').fill('ocid1.compartment.test');
+  await panel.getByRole('button', { name: /previsualizar/i }).click();
+  await expect(panel.getByText(/no se encontraron series en este scope/i)).toBeVisible();
+  await expect(panel.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  expect(savedDefinitions).toBe(false);
+  expect(ingestionStarted).toBe(false);
+});
+
 async function installApiMocks(page: Page, onRequest: (request: import('@playwright/test').Request) => Record<string, unknown> | null) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
