@@ -13,6 +13,7 @@ import {
   type RecommendationAnalysisRun,
 } from '../services/api';
 import RecommendationAnalysisRunDetail from './RecommendationAnalysisRunDetail';
+import RecommendationReadinessBlockers from './RecommendationReadinessBlockers';
 import {
   formatDate,
   formatDateTime,
@@ -237,6 +238,7 @@ export default function RecommendationAnalysisRunsPanel({
                 No hay candidatos elegibles con evidencia suficiente para llamar a la IA. La corrida registrará los bloqueos sin generar recomendaciones.
               </Notice>
             )}
+            <RecommendationReadinessBlockers blocked={preview.readinessReport.blocked} />
           </>
         )}
         {workerAvailable === false && (

@@ -6,6 +6,10 @@ test('opera una corrida, muestra descartes, abre la recomendación y aísla el t
 
   await page.getByRole('button', { name: /agente ia/i }).click();
   await expect(page.getByText(/hay evidencia auditable/i)).toBeVisible();
+  const blockers = page.getByTestId('readiness-blocker-summary');
+  await expect(blockers).toContainText('3 candidatos requieren evidencia');
+  await expect(blockers.getByRole('listitem').filter({ hasText: 'Cobertura insuficiente.' })).toContainText('2 candidatos');
+  await expect(blockers).toContainText('falta una métrica de memoria');
   await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
   await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
   await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible();
@@ -377,12 +381,16 @@ async function mockApi(
           periodEnd: '2026-06-01T00:00:00.000Z',
           evidenceHash: tenantTwo ? 'tenant-2-hash' : 'tenant-1-hash',
           resourcesEvaluated: 1,
-          candidatesFound: 1,
-          candidatesSkipped: 1,
+          candidatesFound: 3,
+          candidatesSkipped: 3,
           readinessReport: {
             summary: 'Hay evidencia auditable.',
             candidates: [],
-            blocked: [{ id: 'blocked-1', reasons: ['Cobertura insuficiente.'] }],
+            blocked: [
+              { id: 'blocked-1', reasons: ['Cobertura insuficiente.'] },
+              { id: 'blocked-2', reasons: ['Cobertura insuficiente.'] },
+              { id: 'blocked-3', reasons: ['Reglas deterministicas detectaron bloqueos: MISSING_MEMORY_METRIC.'] },
+            ],
           },
         },
       });

@@ -161,9 +161,9 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
             Primero se calculan costos, consumo y métricas. La IA genera y un auditor independiente revisa cada resultado antes de publicarlo.
           </p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold text-zinc-400">
-            <span>{previewLoading ? 'Consultando evidencia…' : `${preview?.candidatesFound ?? 0} oportunidades candidatas`}</span>
+            <span>{previewLoading ? 'Consultando evidencia…' : `Candidatos elegibles para IA: ${preview?.readinessReport.candidates.length ?? 0}`}</span>
             {preview !== null && <span>{preview.resourcesEvaluated} recursos evaluados</span>}
-            {preview !== null && preview.candidatesSkipped > 0 && <span>{preview.candidatesSkipped} sin evidencia suficiente</span>}
+            {preview !== null && preview.candidatesSkipped > 0 && <span>{preview.candidatesSkipped} descartados o aplazados</span>}
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
