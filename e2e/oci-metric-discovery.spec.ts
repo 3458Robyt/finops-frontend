@@ -13,8 +13,9 @@ test('discovers OCI metrics in a bounded scope and saves only explicitly selecte
         success: true,
         discovery: {
           definitions: [
-            { compartmentId: 'ocid1.compartment.test', namespace: 'oci_computeagent', metricName: 'CpuUtilization', resourceId: 'ocid1.instance.test', regionId: 'us-ashburn-1', dimensions: { resourceId: 'ocid1.instance.test', availabilityDomain: 'AD-1' }, statistics: ['MEAN', 'MIN', 'MAX', 'P95'], unit: 'Percent' },
+            { compartmentId: 'ocid1.compartment.test', namespace: 'oci_computeagent', metricName: 'CpuUtilization', resourceId: 'ocid1.instance.test', regionId: 'us-ashburn-1', dimensions: { resourceId: 'ocid1.instance.test', availabilityDomain: 'AD-1' }, statistics: ['MEAN', 'MIN', 'MAX', 'P95'], unit: 'Percent', inventoryLinkage: { status: 'MATCHED', resourceName: 'Producción API' } },
             { compartmentId: 'ocid1.compartment.test', namespace: 'oci_computeagent', metricName: 'MemoryUtilization', resourceId: '', regionId: 'us-ashburn-1', statistics: ['MEAN'], unit: 'Percent' },
+            { compartmentId: 'ocid1.compartment.test', namespace: 'oci_computeagent', metricName: 'DiskBytesRead', resourceId: 'ocid1.instance.not-in-inventory', regionId: 'us-ashburn-1', statistics: ['MEAN'], unit: 'Bytes', inventoryLinkage: { status: 'NOT_FOUND' } },
           ],
           regions: ['us-ashburn-1'], compartments: ['ocid1.compartment.test'], apiCallCount: 2, truncated: true, warnings: [],
         },
@@ -40,6 +41,8 @@ test('discovers OCI metrics in a bounded scope and saves only explicitly selecte
   await panel.getByPlaceholder('ocid1.compartment...').fill('ocid1.compartment.test');
   await panel.getByRole('button', { name: /previsualizar/i }).click();
   await expect(panel.getByText('CpuUtilization', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Coincidencia exacta en inventario: Producción API/i)).toBeVisible();
+  await expect(panel.getByText(/Sin coincidencia exacta en el inventario de esta conexión/i)).toBeVisible();
   await expect(panel.getByText(/resultado parcial por límite de seguridad/i)).toBeVisible();
   await expect(panel.getByRole('checkbox').nth(1)).toBeDisabled();
   await panel.getByRole('checkbox').nth(0).check();
@@ -52,6 +55,38 @@ test('discovers OCI metrics in a bounded scope and saves only explicitly selecte
   });
   expect(mutations.filter(({ path }) => path.includes('/ingestion-jobs'))).toEqual([]);
   await expect(panel.getByText(/la ingesta no se inicia automáticamente/i)).toBeVisible();
+});
+
+test('invalidates an OCI preview when its region, compartment or namespace changes', async ({ page }) => {
+  let saved = false;
+  await installApiMocks(page, (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/metric-definitions/discover')) return {
+      success: true,
+      discovery: {
+        definitions: [{ compartmentId: 'ocid1.compartment.test', namespace: 'oci_computeagent', metricName: 'CpuUtilization', resourceId: 'ocid1.instance.test' }],
+        regions: ['us-ashburn-1'], compartments: ['ocid1.compartment.test'], apiCallCount: 1, truncated: false, warnings: [],
+      },
+    };
+    if (url.pathname.endsWith('/metric-definitions') && request.method() === 'PUT') saved = true;
+    return null;
+  });
+
+  await page.goto('/');
+  await page.locator('input[type="email"]').fill('tech@example.com');
+  await page.locator('input[type="password"]').fill('local-test-password');
+  await page.getByRole('button', { name: /ingresar al panel/i }).click();
+  await page.getByRole('button', { name: /ingesta y datos/i }).click();
+  await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos' })).toBeVisible();
+  await page.getByText(/configuración técnica avanzada/i).click();
+
+  const panel = page.getByRole('region', { name: 'Descubrimiento de métricas OCI' });
+  await panel.getByPlaceholder('ocid1.compartment...').fill('ocid1.compartment.test');
+  await panel.getByRole('button', { name: /previsualizar/i }).click();
+  await panel.getByRole('checkbox').check();
+  await panel.getByPlaceholder('oci_computeagent').fill('oci_blockstore');
+  await expect(panel.getByRole('button', { name: /guardar/i })).toHaveCount(0);
+  expect(saved).toBe(false);
 });
 
 test('explains an empty OCI discovery result and keeps saving unavailable', async ({ page }) => {

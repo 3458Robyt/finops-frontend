@@ -176,6 +176,10 @@ export interface CloudMetricDefinitionCandidate {
   readonly dimensions?: Readonly<Record<string, string>>;
   readonly statistics?: readonly string[];
   readonly unit?: string;
+  readonly inventoryLinkage?: {
+    readonly status: 'MATCHED' | 'NOT_FOUND' | 'NOT_VERIFIED' | 'MISSING_RESOURCE_ID';
+    readonly resourceName?: string;
+  };
 }
 export interface CloudMetricDiscovery {
   readonly definitions: readonly CloudMetricDefinitionCandidate[];
