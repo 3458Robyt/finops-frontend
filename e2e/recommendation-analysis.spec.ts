@@ -53,6 +53,39 @@ test('el chat responde en español y la generación directa conserva la auditor�
   await expect(page.getByText(/oportunidad validada por auditor/i)).toBeVisible();
 });
 
+test('explica un rechazo de recomendaciones sin exponer el identificador diagnóstico', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { recommendationsRejected: true });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+  await page.getByRole('button', { name: /previsualizar recomendaciones ia/i }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El auditor de IA rechazó las recomendaciones generadas.');
+  await expect(error).toContainText('Puntaje auditor: 35/100.');
+  await expect(error).toContainText('Motivos: No se puede comprobar el ahorro propuesto.');
+  await expect(error).not.toContainText('audit-tenant-confidential-2026-09-25');
+});
+
+test('explica el rechazo del auditor al plan sin filtrar el identificador diagnóstico', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { planRejected: true });
+  await login(page);
+
+  await page.getByRole('button', { name: /agente ia/i }).click();
+  await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
+  await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
+  await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
+  await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
+  await page.getByRole('button', { name: /revisar plan de ejecucion/i }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El auditor de IA rechazó el plan de ejecución');
+  await expect(error).toContainText('Puntaje del auditor: 62/100');
+  await expect(error).toContainText('Motivos: La acción propuesta no coincide con la evidencia técnica.');
+  await expect(error).toContainText('Comprobaciones fallidas: reversibilidad: Falta un paso de reversión.');
+  await expect(error).toContainText('No se guardó.');
+  await expect(error).not.toContainText('private-diagnostic-id');
+});
+
 test('marca oportunidades obsoletas y actualiza el análisis desde la consola', async ({ page }) => {
   await mockApi(page, 'ADMIN', { staleOpportunities: true });
   await login(page);
@@ -193,7 +226,12 @@ async function login(page: Page) {
 async function mockApi(
   page: Page,
   role: 'ADMIN' | 'CLIENT_VIEWER',
-  options: { readonly chatFailures?: number; readonly staleOpportunities?: boolean } = {},
+  options: {
+    readonly chatFailures?: number;
+    readonly staleOpportunities?: boolean;
+    readonly planRejected?: boolean;
+    readonly recommendationsRejected?: boolean;
+  } = {},
 ) {
   let queued = false;
   let polls = 0;
@@ -242,6 +280,20 @@ async function mockApi(
     }
     if (path.endsWith('/ai/recommendations/generate')) {
       const body = request.postDataJSON() as { readonly persist?: boolean };
+      if (options.recommendationsRejected) {
+        return json(route, {
+          success: false,
+          error: 'Las recomendaciones generadas no superaron la auditoría.',
+          code: 'AI_AUDIT_REJECTED',
+          diagnosticId: 'audit-tenant-confidential-2026-09-25',
+          audit: {
+            verdict: 'REJECTED',
+            score: 35,
+            blockingIssues: ['No se puede comprobar el ahorro propuesto.'],
+            requiredChanges: ['Aportar evidencia verificable de costos.'],
+          },
+        }, 409);
+      }
       return json(route, {
         success: true,
         persisted: body.persist === true,
@@ -406,6 +458,21 @@ async function mockApi(
     }
     if (path.includes('/ai/analysis-runs/')) {
       return json(route, { success: true, run: polls >= 1 ? completedRun() : pendingRun(), worker: workerStatus() });
+    }
+    if (path.endsWith('/recommendations/rec-1/execution-plan') && request.method() === 'POST' && options.planRejected) {
+      return json(route, {
+        success: false,
+        error: 'Execution plan generation rejected',
+        code: 'AI_AUDIT_REJECTED',
+        diagnosticId: 'private-diagnostic-id',
+        audit: {
+          verdict: 'REJECTED',
+          score: 62,
+          blockingIssues: ['La acción propuesta no coincide con la evidencia técnica.'],
+          requiredChanges: ['Incluir un paso de reversión antes de ejecutar.'],
+          failedChecks: [{ name: 'reversibilidad', notes: 'Falta un paso de reversión.' }],
+        },
+      }, 409);
     }
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
       return json(route, { success: true, executionPlan: null });

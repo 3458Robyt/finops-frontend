@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAccessToken } from '../../auth/authSession';
 import {
+  ApiRequestError,
   createSavingsMeasurement,
   fetchLatestRecommendationExecutionPlan,
   fetchRecommendationById,
@@ -102,7 +103,7 @@ export function useResourceDetailController(recommendationId: string) {
       const response = await generateRecommendationExecutionPlan(token, recommendation.id);
       setExecutionPlan(response.executionPlan);
     } catch (requestError) {
-      setPlanError(requestError instanceof Error ? requestError.message : 'No fue posible generar el plan auditado');
+      setPlanError(formatExecutionPlanError(requestError));
     } finally {
       setPlanLoading(false);
     }
@@ -258,4 +259,51 @@ export function useResourceDetailController(recommendationId: string) {
     handleReviewPlan, openDecisionModal, handleDecision, handleManualExecution,
     handleVerifyMeasurement, handleCalculateMeasurement, handleRejectMeasurement,
   };
+}
+
+function formatExecutionPlanError(error: unknown): string {
+  if (!(error instanceof ApiRequestError) || error.code !== 'AI_AUDIT_REJECTED') {
+    return error instanceof Error ? error.message : 'No fue posible generar el plan auditado';
+  }
+
+  const audit = isRecord(error.audit) ? error.audit : {};
+  const score = typeof audit['score'] === 'number' && Number.isFinite(audit['score'])
+    ? `Puntaje del auditor: ${audit['score']}/100.`
+    : '';
+  const blockingIssues = readAuditMessages(audit['blockingIssues']);
+  const requiredChanges = readAuditMessages(audit['requiredChanges']);
+  const failedChecks = readFailedChecks(audit['failedChecks']);
+
+  return [
+    'El auditor de IA rechazó el plan de ejecución. No se guardó.',
+    score,
+    blockingIssues.length > 0 ? `Motivos: ${blockingIssues.join(' ')}` : '',
+    requiredChanges.length > 0 ? `Cambios requeridos: ${requiredChanges.join(' ')}` : '',
+    failedChecks.length > 0 ? `Comprobaciones fallidas: ${failedChecks.join(' ')}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function readAuditMessages(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+      .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+      .slice(0, 5)
+      .map((item) => item.trim().slice(0, 240))
+    : [];
+}
+
+function readFailedChecks(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const name = typeof item['name'] === 'string' ? item['name'].trim() : '';
+    const notes = typeof item['notes'] === 'string' ? item['notes'].trim() : '';
+    if (name === '' && notes === '') return [];
+    return [`${name === '' ? 'Control' : name}: ${notes}`.slice(0, 300)];
+  }).slice(0, 5);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

@@ -330,10 +330,8 @@ function formatAiGenerationError(error: unknown): string {
     const blockingIssues = readStringList(audit['blockingIssues']);
     const requiredChanges = readStringList(audit['requiredChanges']);
     const score = typeof audit['score'] === 'number' ? ` Puntaje auditor: ${audit['score']}/100.` : '';
-    const diagnostic = error.diagnosticId !== undefined ? ` Diagnóstico: ${error.diagnosticId}.` : '';
-
     return [
-      `El auditor de IA rechazó las recomendaciones generadas.${score}${diagnostic}`,
+      `El auditor de IA rechazó las recomendaciones generadas.${score}`,
       blockingIssues.length > 0 ? `Motivos: ${blockingIssues.join(' ')}` : '',
       requiredChanges.length > 0 ? `Correcciones requeridas: ${requiredChanges.join(' ')}` : '',
       'No se guardó ninguna recomendación rechazada. Intenta de nuevo o revisa si falta evidencia técnica suficiente.',

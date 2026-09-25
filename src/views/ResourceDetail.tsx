@@ -236,7 +236,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
         {(planError !== null || executionPlan !== null) && (
           <div className="mt-8">
             {planError !== null ? (
-              <div className="ui-alert-danger p-6 text-sm font-bold">
+              <div role="alert" aria-live="assertive" className="ui-alert-danger whitespace-pre-line p-6 text-sm font-bold">
                 {planError}
               </div>
             ) : executionPlan !== null ? (
