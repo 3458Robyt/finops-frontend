@@ -86,6 +86,23 @@ test('explica el rechazo del auditor al plan sin filtrar el identificador diagn�
   await expect(error).not.toContainText('private-diagnostic-id');
 });
 
+test('explica el timeout del plan y deja disponible el reintento', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { planTimeout: true });
+  await login(page);
+
+  await page.getByRole('button', { name: /agente ia/i }).click();
+  await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
+  await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
+  await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
+  await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
+  const reviewButton = page.getByRole('button', { name: /revisar plan de ejecucion/i });
+  await reviewButton.click();
+
+  await expect(page.getByRole('alert')).toContainText('El plan tardó más de lo permitido. No se guardó; puedes volver a intentarlo.');
+  await expect(reviewButton).toBeEnabled();
+  await expect(page.getByText('Generando plan auditado...', { exact: true })).toBeHidden();
+});
+
 test('marca oportunidades obsoletas y actualiza el análisis desde la consola', async ({ page }) => {
   await mockApi(page, 'ADMIN', { staleOpportunities: true });
   await login(page);
@@ -230,6 +247,7 @@ async function mockApi(
     readonly chatFailures?: number;
     readonly staleOpportunities?: boolean;
     readonly planRejected?: boolean;
+    readonly planTimeout?: boolean;
     readonly recommendationsRejected?: boolean;
   } = {},
 ) {
@@ -473,6 +491,13 @@ async function mockApi(
           failedChecks: [{ name: 'reversibilidad', notes: 'Falta un paso de reversión.' }],
         },
       }, 409);
+    }
+    if (path.endsWith('/recommendations/rec-1/execution-plan') && request.method() === 'POST' && options.planTimeout) {
+      return json(route, {
+        success: false,
+        error: 'La generación del plan excedió el límite total de 120 segundos.',
+        code: 'PROVIDER_TIMEOUT',
+      }, 504);
     }
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
       return json(route, { success: true, executionPlan: null });

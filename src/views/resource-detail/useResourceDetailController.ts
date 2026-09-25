@@ -262,6 +262,9 @@ export function useResourceDetailController(recommendationId: string) {
 }
 
 function formatExecutionPlanError(error: unknown): string {
+  if (error instanceof ApiRequestError && error.code === 'PROVIDER_TIMEOUT') {
+    return 'El plan tardó más de lo permitido. No se guardó; puedes volver a intentarlo.';
+  }
   if (!(error instanceof ApiRequestError) || error.code !== 'AI_AUDIT_REJECTED') {
     return error instanceof Error ? error.message : 'No fue posible generar el plan auditado';
   }
