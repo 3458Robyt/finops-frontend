@@ -151,6 +151,9 @@ const migrationEnv = {
 const backendEnv = {
   ...process.env,
   DATABASE_URL: testDatabaseUrl,
+  // Browser E2E mocks AI routes; keep backend startup independent of provider secrets and network.
+  AI_API_KEY: 'e2e-disabled-provider-key',
+  AI_BASE_URL: 'http://127.0.0.1:1/v1',
   PORT: String(backendPort),
   CORS_ORIGIN: frontendUrl,
   INGESTION_WORKER_ENABLED: 'false',
