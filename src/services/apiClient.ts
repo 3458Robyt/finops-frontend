@@ -345,7 +345,7 @@ async function refreshAccessToken(): Promise<AuthSession | null> {
   refreshPromise = (async () => {
     try {
       const response = await executeRequest('/auth/refresh', { method: 'POST' }, new Headers({ 'Content-Type': 'application/json' }));
-      if (response.status === 401 || response.status === 403) return null;
+      if (response.status === 204 || response.status === 401 || response.status === 403) return null;
       if (!response.ok) {
         throw new ApiRequestError('No fue posible restaurar la sesión.', { status: response.status, code: 'SESSION_REFRESH_FAILED' });
       }
