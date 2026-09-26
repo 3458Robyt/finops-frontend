@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { configureCloudMetricDefinitions, previewCloudMetricDefinitions } from '../../services/api';
 import type { CloudMetricDefinitionCandidate, CloudMetricDiscovery } from '../../services/api';
 import { Field, inputClass, secondaryButton } from './CloudOnboardingUi';
@@ -20,13 +20,25 @@ export function OciMetricDiscoveryPanel({ token, cloudConnectionId, defaultRegio
   const [busy, setBusy] = useState<'preview' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const previewControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    previewControllerRef.current?.abort();
+    previewControllerRef.current = null;
     setRegionId(defaultRegion);
     setDiscovery(null);
     setSelected(new Set());
+    setError(null);
+    setNotice(null);
+    setBusy(null);
+    return () => {
+      previewControllerRef.current?.abort();
+      previewControllerRef.current = null;
+    };
   }, [cloudConnectionId, defaultRegion, token]);
   const invalidatePreview = () => {
+    previewControllerRef.current?.abort();
+    previewControllerRef.current = null;
     setDiscovery(null); setSelected(new Set()); setError(null); setNotice(null);
   };
   const selectedDefinitions = useMemo(
@@ -36,18 +48,27 @@ export function OciMetricDiscoveryPanel({ token, cloudConnectionId, defaultRegio
 
   const preview = async () => {
     if (busy !== null) return;
+    const controller = new AbortController();
+    previewControllerRef.current = controller;
     setBusy('preview'); setError(null); setNotice(null); setSelected(new Set());
     try {
       const response = await previewCloudMetricDefinitions(token, cloudConnectionId, {
         regionId: regionId.trim(), compartmentId: compartmentId.trim(),
         ...(namespace.trim() === '' ? {} : { namespace: namespace.trim() }),
-      });
+      }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setDiscovery(response.discovery);
       setNotice(`${response.discovery.definitions.length} serie(s) encontradas; ${response.discovery.apiCallCount} llamadas OCI.`);
     } catch (cause: unknown) {
+      if (controller.signal.aborted) return;
       setDiscovery(null);
       setError(readCloudOnboardingError(cause, 'No se pudieron descubrir las métricas OCI.'));
-    } finally { setBusy(null); }
+    } finally {
+      if (previewControllerRef.current === controller) {
+        previewControllerRef.current = null;
+        setBusy(null);
+      }
+    }
   };
 
   const save = async () => {

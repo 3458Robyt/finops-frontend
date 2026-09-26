@@ -96,9 +96,10 @@ export async function previewCloudMetricDefinitions(token: string, cloudConnecti
   readonly regionId: string;
   readonly compartmentId: string;
   readonly namespace?: string;
-}): Promise<{ readonly success: true; readonly discovery: CloudMetricDiscovery }> {
+}, options: { readonly signal?: AbortSignal } = {}): Promise<{ readonly success: true; readonly discovery: CloudMetricDiscovery }> {
   return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/metric-definitions/discover`, {
     method: 'POST', token, body: JSON.stringify({ scope }),
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
   });
 }
 

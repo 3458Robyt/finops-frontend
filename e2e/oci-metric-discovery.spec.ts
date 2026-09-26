@@ -122,6 +122,77 @@ test('explains an empty OCI discovery result and keeps saving unavailable', asyn
   expect(ingestionStarted).toBe(false);
 });
 
+test('aborts an in-flight OCI preview when the active tenant changes', async ({ page }) => {
+  let activeTenantId = 'tenant-1';
+  let markDiscoveryStarted!: () => void;
+  let releaseDiscovery!: () => void;
+  const discoveryStarted = new Promise<void>((resolve) => { markDiscoveryStarted = resolve; });
+  const holdDiscovery = new Promise<void>((resolve) => { releaseDiscovery = resolve; });
+
+  await installApiMocks(page, (request) => {
+    const url = new URL(request.url());
+    const path = url.pathname;
+    if (path.endsWith('/auth/login')) return sessionWithTenants('tenant-1');
+    if (path.endsWith('/auth/switch-tenant')) {
+      const body = request.postDataJSON() as { readonly tenantId?: string } | null;
+      if (body?.tenantId === 'tenant-2') activeTenantId = 'tenant-2';
+      else activeTenantId = 'tenant-1';
+      return sessionWithTenants(activeTenantId);
+    }
+    if (path === '/api/v1/cloud-connections' && request.method() === 'GET') {
+      return { success: true, connections: [connectionForTenant(activeTenantId)] };
+    }
+    if (path.endsWith('/onboarding')) {
+      return { success: true, onboarding: { connection: connectionForTenant(activeTenantId), credentials: [], readiness: null, issues: [] } };
+    }
+    return null;
+  });
+
+  await page.route('**/api/v1/cloud-connections/oci-test/metric-definitions/discover', async (route) => {
+    markDiscoveryStarted();
+    await holdDiscovery;
+    try {
+      await json(route, {
+        success: true,
+        discovery: {
+          definitions: [{ compartmentId: 'old-tenant-compartment', namespace: 'oci_computeagent', metricName: 'OldTenantSecretMetric', resourceId: 'old-tenant-resource' }],
+          regions: ['us-ashburn-1'], compartments: ['old-tenant-compartment'], apiCallCount: 1, truncated: false, warnings: [],
+        },
+      });
+    } catch {
+      // A canceled fetch closes the intercepted request before this response is released.
+    }
+  });
+
+  await page.goto('/');
+  await page.locator('input[type="email"]').fill('tech@example.com');
+  await page.locator('input[type="password"]').fill('local-test-password');
+  await page.getByRole('button', { name: /ingresar al panel/i }).click();
+  await page.getByRole('button', { name: /ingesta y datos/i }).click();
+  await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos' })).toBeVisible();
+  await page.getByText(/configuración técnica avanzada/i).click();
+
+  const panel = page.getByRole('region', { name: 'Descubrimiento de métricas OCI' });
+  await panel.getByPlaceholder('ocid1.compartment...').fill('old-tenant-compartment');
+  await panel.getByRole('button', { name: /previsualizar/i }).click();
+  await discoveryStarted;
+
+  const canceledRequest = page.waitForEvent('requestfailed', {
+    predicate: (request) => request.url().includes('/oci-test/metric-definitions/discover'),
+    timeout: 5_000,
+  });
+  const tenantSelector = page.locator('select').first();
+  await tenantSelector.selectOption('tenant-2');
+  await expect(tenantSelector).toHaveValue('tenant-2');
+  expect((await canceledRequest).failure()?.errorText).toBeTruthy();
+  releaseDiscovery();
+
+  await page.getByText(/configuración técnica avanzada/i).click();
+  await expect(page.getByRole('region', { name: 'Descubrimiento de métricas OCI' })).toBeVisible();
+  await expect(page.getByText('OldTenantSecretMetric', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Descubrimiento de métricas OCI' }).getByRole('alert')).toHaveCount(0);
+});
+
 async function installApiMocks(page: Page, onRequest: (request: import('@playwright/test').Request) => Record<string, unknown> | null) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -151,11 +222,28 @@ function connection() {
   return { id: 'oci-test', tenantId: 'tenant-1', providerCode: 'oci', rootExternalId: 'ocid1.tenancy.test', name: 'OCI Prueba', status: 'ACTIVE', defaultRegion: 'us-ashburn-1', createdAt: '2026-09-23T00:00:00.000Z', updatedAt: '2026-09-23T00:00:00.000Z' };
 }
 
+function connectionForTenant(tenantId: string) {
+  return { ...connection(), id: tenantId === 'tenant-1' ? 'oci-test' : 'oci-test-2', tenantId, name: tenantId === 'tenant-1' ? 'OCI Origen' : 'OCI Destino' };
+}
+
 function session() {
   return {
     accessToken: 'e2e-access-token', expiresAt: '2026-09-24T00:00:00.000Z',
     user: { id: 'user-1', tenantId: 'tenant-1', homeTenantId: 'tenant-1', email: 'tech@example.com', name: 'Técnico E2E', role: 'ADMIN' },
     activeTenant: { id: 'tenant-1', name: 'Tenant de prueba', slug: 'tenant-prueba', accessRole: 'HOME', isCurrent: true },
     availableTenants: [{ id: 'tenant-1', name: 'Tenant de prueba', slug: 'tenant-prueba', accessRole: 'HOME', isCurrent: true }],
+  };
+}
+
+function sessionWithTenants(activeTenantId: string) {
+  const availableTenants = [
+    { id: 'tenant-1', name: 'Tenant origen', slug: 'tenant-origen', accessRole: 'HOME', isCurrent: activeTenantId === 'tenant-1' },
+    { id: 'tenant-2', name: 'Tenant destino', slug: 'tenant-destino', accessRole: 'MANAGED', isCurrent: activeTenantId === 'tenant-2' },
+  ];
+  const activeTenant = availableTenants.find((tenant) => tenant.id === activeTenantId) ?? availableTenants[0]!;
+  return {
+    accessToken: `e2e-access-${activeTenantId}`, expiresAt: '2026-09-24T00:00:00.000Z',
+    user: { id: 'user-1', tenantId: activeTenantId, homeTenantId: 'tenant-1', email: 'tech@example.com', name: 'Técnico E2E', role: 'MASTER_ADMIN' },
+    activeTenant, availableTenants,
   };
 }
