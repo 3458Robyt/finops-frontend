@@ -44,8 +44,8 @@ test('el técnico FinOps obtiene los módulos operativos, pero no Administració
 });
 
 for (const role of [
-  { key: 'clientApprover', label: 'Cliente aprobador' },
   { key: 'clientViewer', label: 'Cliente lector' },
+  { key: 'clientApprover', label: 'Cliente aprobador' },
 ] as const) {
   test(`${role.label} recibe navegación de cliente y no ve módulos operativos ni MSP`, async ({ page }) => {
     const manifest = await readManifest();
@@ -57,6 +57,18 @@ for (const role of [
     await expect(page.getByLabel('Perfil y Seguridad')).toBeVisible();
     await page.locator('aside').getByRole('button', { name: 'Presupuestos', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
+    await openFirstValueRealizationRecommendation(page);
+    await expect(page.getByText(/Este plan es una guia de ejecucion manual/i)).toBeVisible();
+    if (role.key === 'clientViewer') {
+      await expect(page.getByRole('button', { name: 'Aprobar plan', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Rechazar', exact: true })).toHaveCount(0);
+    } else {
+      await page.getByRole('button', { name: 'Aprobar plan', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Aprobar recomendacion', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Aprobar', exact: true }).click();
+      await expect(page.getByText('Decision guardada. Aprendizaje en cola.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Esta recomendacion ya fue marcada como APPROVED.')).toBeVisible();
+    }
     expect(failures).toEqual([]);
   });
 }
@@ -79,6 +91,15 @@ async function expectNavVisible(page: Page, label: string): Promise<void> {
 
 async function expectNavHidden(page: Page, label: string): Promise<void> {
   await expect(page.locator('aside').getByRole('button', { name: label, exact: true })).toHaveCount(0);
+}
+
+async function openFirstValueRealizationRecommendation(page: Page): Promise<void> {
+  await page.locator('aside').getByRole('button', { name: 'Valor realizado', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Valor realizado', exact: true })).toBeVisible();
+  const detailButton = page.getByRole('button', { name: 'Ver detalle', exact: true }).first();
+  await expect(detailButton).toBeVisible();
+  await detailButton.click();
+  await expect(page.getByText('Recomendacion seleccionada', { exact: true })).toBeVisible();
 }
 
 function observeFailures(page: Page): string[] {
