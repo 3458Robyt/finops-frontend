@@ -257,9 +257,44 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/recomendaci[oó]n aprobada/i)).toBeVisible();
     await expect(page.getByText('Ejecucion manual registrada', { exact: true })).toBeVisible();
 
+    await page.route('**/api/v1/master-admin/ingestion-jobs**', async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          jobs: [{
+            id: 'lease-recovery-ui-fixture', tenantId: 'tenant-fixture', tenantName: 'TAK QA', tenantSlug: 'tak-qa',
+            cloudConnectionId: 'connection-fixture', connectionName: 'OCI QA', providerCode: 'oci',
+            sourceType: 'TECHNICAL_METRIC', status: 'FAILED', attempts: 3, maxAttempts: 3,
+            targetStart: '2026-09-20T00:00:00.000Z', targetEnd: '2026-09-20T01:00:00.000Z',
+            errorMessage: 'El bloqueo del trabajo venció tras agotar los intentos; la causa inicial no quedó registrada.',
+            progress: { phase: 'FAILED', message: 'Revisa la evidencia de recuperación del lease.' },
+            resultSummary: {
+              coverage: { focusSchemaValidation: { status: 'NONCONFORMANT', filesChecked: 2, missingMandatoryColumns: ['ChargeClass', 'ContractedCost'] } },
+              leaseRecoveryHistory: [{
+              action: 'FAILED', reason: 'retry_attempts_exhausted', attempt: 3, maxAttempts: 3,
+              leaseDurationMs: 300000, recoveredAt: '2026-09-26T10:17:00.000Z',
+              attemptStartedAt: '2026-09-26T09:45:00.000Z', lastHeartbeatAt: '2026-09-26T10:10:00.000Z',
+              leaseExpiredAt: '2026-09-26T10:15:00.000Z',
+              lastProgress: { phase: 'FETCHING', message: 'Consultando proveedor: 4 llamadas, 18 muestras.' },
+              }],
+            },
+            priority: 100, availableAt: '2026-09-26T09:00:00.000Z', createdAt: '2026-09-26T09:00:00.000Z',
+            updatedAt: '2026-09-26T10:17:00.000Z',
+          }],
+          summary: { total: 1, pending: 0, running: 0, success: 0, failed: 1, cancelled: 0, skipped: 0 },
+          hasMore: false,
+        }),
+      });
+    });
     await page.locator('aside').getByRole('button', { name: 'Administración MSP', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Consola central de jobs' })).toBeVisible();
     await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
+    await expect(page.getByText(/Lease vencido tras agotar reintentos · intento 3\/3/i)).toBeVisible();
+    await expect(page.getByText(/la causa inicial no quedó registrada/i)).toBeVisible();
+    await expect(page.getByText(/último avance: Consultando proveedor: 4 llamadas, 18 muestras/i)).toBeVisible();
 
   });
 });
