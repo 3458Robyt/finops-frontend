@@ -8,7 +8,11 @@ test.skip(!existsSync(fixtureFile), 'Requiere fixtures PostgreSQL aislados; usa 
 
 interface RoleFixtureManifest {
   readonly password: string;
+  readonly admin: { readonly email: string };
+  readonly tenants: readonly { readonly id: string; readonly name: string; readonly slug: string }[];
   readonly technician: { readonly email: string };
+  readonly operatorAdmin: { readonly email: string };
+  readonly leadTechnician: { readonly email: string };
   readonly clientApprover: { readonly email: string };
   readonly clientViewer: { readonly email: string };
 }
@@ -30,7 +34,7 @@ const clientModules = [
   'Mensajería',
 ] as const;
 
-test('el técnico FinOps obtiene los módulos operativos, pero no Administración MSP', async ({ page }) => {
+test('el técnico FinOps obtiene los módulos operativos, pero no Administración MSP @role-matrix', async ({ page }) => {
   const manifest = await readManifest();
   const failures = observeFailures(page);
   await login(page, manifest.technician.email, manifest.password, 'Técnico FinOps');
@@ -40,6 +44,56 @@ test('el técnico FinOps obtiene los módulos operativos, pero no Administració
   await expect(page.getByLabel('Perfil y Seguridad')).toBeVisible();
   await page.locator('aside').getByRole('button', { name: 'Métricas Técnicas', exact: true }).click();
   await expect(page.getByRole('heading', { name: /métricas técnicas/i })).toBeVisible();
+  await openAgentSettings(page, false);
+  expect(failures).toEqual([]);
+});
+
+test('el administrador maestro puede cambiar de tenant y abrir la consola MSP @role-matrix', async ({ page }) => {
+  const manifest = await readManifest();
+  const failures = observeFailures(page);
+  await login(page, manifest.admin.email, manifest.password, 'Administrador maestro');
+
+  for (const module of [...clientModules, ...technicalModules, 'Administración MSP']) {
+    await expectNavVisible(page, module);
+  }
+  const tenantSelector = page.getByLabel('Tenant activo');
+  const tenantOptions = tenantSelector.locator('option');
+  await expect(tenantOptions).toHaveCount(2);
+  const originalTenant = await tenantSelector.inputValue();
+  const alternateTenant = await tenantOptions.nth(1).getAttribute('value');
+  if (alternateTenant === null) throw new Error('El selector no expone el segundo tenant de fixture.');
+  await tenantSelector.selectOption(alternateTenant);
+  await expect(tenantSelector).toHaveValue(alternateTenant);
+  await tenantSelector.selectOption(originalTenant);
+  await expect(tenantSelector).toHaveValue(originalTenant);
+
+  await page.locator('aside').getByRole('button', { name: 'Administración MSP', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tenants, usuarios y accesos', exact: true })).toBeVisible();
+  for (const tenant of manifest.tenants) await expect(page.locator('main')).toContainText(tenant.name);
+  expect(failures).toEqual([]);
+});
+
+test('el administrador operador puede configurar el agente sin privilegios MSP @role-matrix', async ({ page }) => {
+  const manifest = await readManifest();
+  const failures = observeFailures(page);
+
+  await login(page, manifest.operatorAdmin.email, manifest.password, 'Administrador operador');
+  for (const module of [...clientModules, ...technicalModules]) await expectNavVisible(page, module);
+  await expectNavHidden(page, 'Administración MSP');
+  await openAgentSettings(page, true);
+  await expect(page.getByLabel('Objetivo principal')).not.toHaveAttribute('readonly', '');
+  expect(failures).toEqual([]);
+});
+
+test('el técnico líder puede configurar el agente sin privilegios MSP @role-matrix', async ({ page }) => {
+  const manifest = await readManifest();
+  const failures = observeFailures(page);
+
+  await login(page, manifest.leadTechnician.email, manifest.password, 'Técnico líder');
+  for (const module of [...clientModules, ...technicalModules]) await expectNavVisible(page, module);
+  await expectNavHidden(page, 'Administración MSP');
+  await openAgentSettings(page, true);
+  await expect(page.getByLabel('Objetivo principal')).not.toHaveAttribute('readonly', '');
   expect(failures).toEqual([]);
 });
 
@@ -47,7 +101,7 @@ for (const role of [
   { key: 'clientViewer', label: 'Cliente lector' },
   { key: 'clientApprover', label: 'Cliente aprobador' },
 ] as const) {
-  test(`${role.label} recibe navegación de cliente y no ve módulos operativos ni MSP`, async ({ page }) => {
+  test(`${role.label} recibe navegación de cliente y no ve módulos operativos ni MSP @role-matrix`, async ({ page }) => {
     const manifest = await readManifest();
     const failures = observeFailures(page);
     await login(page, manifest[role.key].email, manifest.password, role.label);
@@ -100,6 +154,22 @@ async function openFirstValueRealizationRecommendation(page: Page): Promise<void
   await expect(detailButton).toBeVisible();
   await detailButton.click();
   await expect(page.getByText('Recomendacion seleccionada', { exact: true })).toBeVisible();
+}
+
+async function openAgentSettings(page: Page, canConfigure: boolean): Promise<void> {
+  await page.locator('aside').getByRole('button', { name: 'Agente IA', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /gobierno, evidencia y canales externos/i })).toBeVisible();
+  const governanceTab = page.getByRole('button', { name: /Gobierno/ });
+  if (!canConfigure) {
+    await expect(governanceTab).toBeVisible();
+    await governanceTab.click();
+    await expect(page.getByLabel('Objetivo principal')).toHaveAttribute('readonly', '');
+    await expect(page.getByRole('button', { name: 'Activar perfil validado', exact: true })).toHaveCount(0);
+    return;
+  }
+  await expect(governanceTab).toBeVisible();
+  await governanceTab.click();
+  await expect(page.getByRole('button', { name: 'Activar perfil validado', exact: true })).toBeVisible();
 }
 
 function observeFailures(page: Page): string[] {

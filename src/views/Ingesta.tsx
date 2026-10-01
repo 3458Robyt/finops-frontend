@@ -62,10 +62,20 @@ export default function Ingesta({ canManage, onNavigate }: {
         connectionId={controller.backfillConnectionId}
         lookbackDays={controller.backfillLookbackDays}
         windowHours={controller.backfillWindowHours}
+        targeted={controller.backfillTargeted}
+        resourceId={controller.backfillResourceId}
+        regionId={controller.backfillRegionId}
+        namespace={controller.backfillNamespace}
+        metricName={controller.backfillMetricName}
         submitting={controller.backfilling}
         onConnectionChange={controller.setBackfillConnectionId}
         onLookbackDaysChange={controller.setBackfillLookbackDays}
         onWindowHoursChange={controller.setBackfillWindowHours}
+        onTargetedChange={controller.setBackfillTargeted}
+        onResourceIdChange={controller.setBackfillResourceId}
+        onRegionIdChange={controller.setBackfillRegionId}
+        onNamespaceChange={controller.setBackfillNamespace}
+        onMetricNameChange={controller.setBackfillMetricName}
         onSubmit={controller.handleBackfill}
       />
 

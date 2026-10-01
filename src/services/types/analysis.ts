@@ -21,7 +21,7 @@ export interface RecommendationAnalysisCandidate {
   readonly candidateId: string;
   readonly resourceId?: string;
   readonly readiness: string;
-  readonly outcome: 'ELIGIBLE' | 'SKIPPED' | 'PUBLISHED' | 'REJECTED';
+  readonly outcome: 'ELIGIBLE' | 'SKIPPED' | 'PUBLISHED' | 'REVIEW_DRAFT' | 'REJECTED';
   readonly reasons: readonly string[];
   readonly recommendationId?: string;
 }
@@ -58,6 +58,18 @@ export interface RecommendationAnalysisRun {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly candidateResults?: readonly RecommendationAnalysisCandidate[];
+  readonly candidateAudits?: readonly {
+    readonly candidateId: string;
+    readonly draftIndex: number;
+    readonly auditVerdict: 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION';
+    readonly auditScore: number;
+    readonly auditChecks: readonly { readonly name: string; readonly passed: boolean; readonly notes: string }[];
+    readonly blockingIssues: readonly string[];
+    readonly requiredChanges: readonly string[];
+    readonly finalDisposition: 'PUBLISHED' | 'REVIEW_DRAFT' | 'REJECTED' | 'SKIPPED';
+    readonly draft?: unknown;
+    readonly deterministicEvidence?: unknown;
+  }[];
   readonly recommendations: readonly {
     readonly recommendationId: string;
     readonly candidateId?: string;
@@ -84,7 +96,16 @@ export interface RecommendationAnalysisPreview {
   readonly readinessReport: {
     readonly summary: string;
     readonly candidates: readonly { readonly id: string; readonly reasons: readonly string[] }[];
-    readonly blocked: readonly { readonly id: string; readonly reasons: readonly string[] }[];
+    readonly reviewCandidates?: readonly { readonly id: string; readonly resourceId?: string; readonly reasons: readonly string[] }[];
+    readonly blocked: readonly {
+      readonly id: string;
+      readonly resourceId?: string;
+      readonly resourceName?: string;
+      readonly provider?: string;
+      readonly reasons: readonly string[];
+      readonly evidenceIssues?: readonly { readonly code: string; readonly action: string }[];
+      readonly evidencePeriod?: { readonly costStart: string; readonly costEnd: string; readonly lastMetricAt?: string };
+    }[];
     readonly deferred: readonly { readonly id: string; readonly reasons: readonly string[] }[];
   };
 }

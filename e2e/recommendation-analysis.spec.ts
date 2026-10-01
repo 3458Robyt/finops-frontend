@@ -7,14 +7,23 @@ test('opera una corrida, muestra descartes, abre la recomendación y aísla el t
   await page.getByRole('button', { name: /agente ia/i }).click();
   await expect(page.getByText(/hay evidencia auditable/i)).toBeVisible();
   const blockers = page.getByTestId('readiness-blocker-summary');
-  await expect(blockers).toContainText('3 candidatos requieren evidencia');
+  await expect(blockers).toContainText('3 candidatos no superan la compuerta');
+  await expect(blockers).toContainText('Se priorizarán hasta 1 borrador informativo');
   await expect(blockers.getByRole('listitem').filter({ hasText: 'Cobertura insuficiente.' })).toContainText('2 candidatos');
   await expect(blockers).toContainText('falta una métrica de memoria');
+  await blockers.getByText('web-prod-01', { exact: false }).click();
+  await expect(blockers).toContainText('Última métrica:');
+  await expect(blockers).toContainText('Siguiente paso:');
+  await expect(blockers).toContainText('plugin OCI');
   await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
   await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
   await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText(/evidencia técnica suficiente/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Borradores de revisión técnica' })).toBeVisible();
+  await expect(page.getByText('Validar telemetría de memoria en web-prod-02')).toBeVisible();
+  await expect(page.getByText('Ahorro: No cuantificado')).toBeVisible();
+  await expect(page.getByText(/no son recomendaciones publicadas/i)).toBeVisible();
   await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
   await expect(page.getByRole('heading', { name: /oportunidad auditada de prueba/i })).toBeVisible();
 
@@ -31,6 +40,16 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
   await page.getByRole('button', { name: /asistente ia/i }).click();
   await expect(page.getByText(/puedo ayudarte a interpretar los costos/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
+});
+
+test('no anuncia borradores técnicos en una corrida que sí tiene candidatos publicables', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { readinessHasPublicCandidate: true });
+  await login(page);
+  await page.getByRole('button', { name: /agente ia/i }).click();
+
+  const draftMetric = page.getByText('Borradores técnicos posibles en esta corrida').locator('xpath=..');
+  await expect(draftMetric).toContainText('0');
+  await expect(page.getByTestId('readiness-blocker-summary')).not.toContainText('Se priorizarán hasta');
 });
 
 test('el chat responde en español y la generación directa conserva la auditoría', async ({ page }) => {
@@ -249,6 +268,7 @@ async function mockApi(
     readonly planRejected?: boolean;
     readonly planTimeout?: boolean;
     readonly recommendationsRejected?: boolean;
+    readonly readinessHasPublicCandidate?: boolean;
   } = {},
 ) {
   let queued = false;
@@ -455,11 +475,17 @@ async function mockApi(
           candidatesSkipped: 3,
           readinessReport: {
             summary: 'Hay evidencia auditable.',
-            candidates: [],
+            candidates: options.readinessHasPublicCandidate
+              ? [{ id: 'candidate-ready', readiness: 'GENERATABLE', reasons: [] }]
+              : [],
+            reviewCandidates: [{ id: 'blocked-3', resourceId: 'ocid1.instance.oc1.fixture', reasons: ['Falta memoria.'] }],
             blocked: [
               { id: 'blocked-1', reasons: ['Cobertura insuficiente.'] },
               { id: 'blocked-2', reasons: ['Cobertura insuficiente.'] },
-              { id: 'blocked-3', reasons: ['Reglas deterministicas detectaron bloqueos: MISSING_MEMORY_METRIC.'] },
+              { id: 'blocked-3', resourceId: 'ocid1.instance.oc1.fixture', resourceName: 'web-prod-01',
+                reasons: ['Reglas deterministicas detectaron bloqueos: MISSING_MEMORY_METRIC.'],
+                evidencePeriod: { costStart: '2026-05-01T00:00:00.000Z', costEnd: '2026-06-01T00:00:00.000Z' },
+                evidenceIssues: [{ code: 'MISSING_MEMORY_METRIC', action: 'Comprobar la emisión de memoria y el plugin OCI.' }] },
             ],
           },
         },
@@ -620,6 +646,22 @@ function completedRun() {
       outcome: 'PUBLISHED',
       reasons: ['Evidencia técnica suficiente.'],
       recommendationId: 'rec-1',
+    }],
+    candidateAudits: [{
+      candidateId: 'resource-2',
+      draftIndex: 0,
+      auditVerdict: 'APPROVED',
+      auditScore: 93,
+      auditChecks: [],
+      blockingIssues: [],
+      requiredChanges: [],
+      finalDisposition: 'REVIEW_DRAFT',
+      draft: {
+        title: 'Validar telemetría de memoria en web-prod-02',
+        description: 'Confirmar en Monitoring si la métrica de memoria está habilitada y vinculada al recurso antes de evaluar capacidad.',
+        estimatedMonthlySavings: undefined,
+        evidence: { requiresTechnicalValidation: true, operationalAuthorization: 'NONE' },
+      },
     }],
     recommendations: [{
       recommendationId: 'rec-1',

@@ -194,7 +194,14 @@ try {
   await waitFor(`${frontendUrl}/`);
   // The database-backed specs intentionally share one isolated fixture tenant.
   // Run them serially so concurrent analysis commands cannot race on the same durable job.
-  await run(command('npx'), ['playwright', 'test', '--workers=1'], { cwd: resolve('.') , env: frontendEnv });
+  await run(command('npx'), ['playwright', 'test', '--workers=1', '--grep-invert', '@role-matrix'], { cwd: resolve('.') , env: frontendEnv });
+  // Keep the production 10-attempt/15-minute login throttle intact. The role
+  // suite performs several distinct legitimate logins, so give it a fresh
+  // isolated API process and limiter bucket rather than weakening auth.
+  await stop(backend);
+  backend = start(command('npx'), ['tsx', 'src/index.ts'], backendEnv, backendDir);
+  await waitFor(`${backendUrl}/health`);
+  await run(command('npx'), ['playwright', 'test', 'e2e/role-access.spec.ts', '--workers=1', '--grep', '@role-matrix'], { cwd: resolve('.'), env: frontendEnv });
 } finally {
   await stop(frontend);
   await stop(backend);

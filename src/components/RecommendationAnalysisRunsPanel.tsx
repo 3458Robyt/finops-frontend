@@ -54,6 +54,9 @@ export default function RecommendationAnalysisRunsPanel({
     () => runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING'),
     [runs],
   );
+  const reviewDraftCount = preview?.readinessReport.candidates.length === 0
+    ? preview.readinessReport.reviewCandidates?.length ?? 0
+    : 0;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -230,15 +233,21 @@ export default function RecommendationAnalysisRunsPanel({
               <Metric label="Período disponible" value={`${formatDate(preview.periodStart)} – ${formatDate(preview.periodEnd)}`} />
               <Metric label="Recursos evaluables" value={String(preview.resourcesEvaluated)} />
               <Metric label="Candidatos elegibles para IA" value={String(preview.readinessReport.candidates.length)} />
+              <Metric label="Borradores técnicos posibles en esta corrida" value={String(reviewDraftCount)} />
               <Metric label="Descartados o aplazados" value={String(preview.candidatesSkipped)} />
             </div>
             <p className="mt-4 text-sm font-bold text-zinc-300">{preview.readinessReport.summary}</p>
             {preview.readinessReport.candidates.length === 0 && (
               <Notice tone="warning">
-                No hay candidatos elegibles con evidencia suficiente para llamar a la IA. La corrida registrará los bloqueos sin generar recomendaciones.
+                {reviewDraftCount > 0
+                  ? 'No hay recomendaciones publicables. La corrida podrá generar y auditar borradores de revisión técnica, sin ahorro cuantificado ni autorización operativa.'
+                  : 'No hay candidatos elegibles ni borradores técnicos seguros. La corrida registrará los bloqueos y se abstendrá de llamar a la IA.'}
               </Notice>
             )}
-            <RecommendationReadinessBlockers blocked={preview.readinessReport.blocked} />
+            <RecommendationReadinessBlockers
+              blocked={preview.readinessReport.blocked}
+              reviewCandidateCount={reviewDraftCount}
+            />
           </>
         )}
         {workerAvailable === false && (
