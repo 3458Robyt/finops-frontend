@@ -1,5 +1,6 @@
 import type { TechnicalMetricOpportunity, TechnicalMetricResourceSummary, TechnicalMetricsOverview } from '../../services/api';
 import type { MetricGroupFilter } from './technicalMetricsModel';
+import { formatCurrencyAmount } from '../../utils/formatCurrency';
 
 export const groupLabels: Readonly<Record<MetricGroupFilter, string>> = {
   ALL: 'Todas',
@@ -45,14 +46,7 @@ export function formatPercent(value: number): string {
 }
 
 export function formatCurrency(value: number, currency: string): string {
-  const normalizedCurrency = /^[A-Z]{3}$/.test(currency.trim().toUpperCase())
-    ? currency.trim().toUpperCase()
-    : 'USD';
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: normalizedCurrency,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrencyAmount(value, currency);
 }
 
 export function formatMetricValue(value: number, unit: string | undefined): string {

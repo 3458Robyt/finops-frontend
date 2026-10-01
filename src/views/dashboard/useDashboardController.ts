@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccessToken } from '../../auth/authSession';
+import { shareInFlightRequest } from '../../services/shareInFlightRequest';
 import {
   fetchAdoptionKpis,
   fetchAnalyticsEfficiencyInsights,
-  fetchAnalyticsForecast,
   fetchAnalyticsForecastScenarios,
   fetchAnalyticsOpportunities,
   fetchAnalyticsUnitEconomics,
   fetchBudgetPerformance,
   fetchBudgets,
-  fetchCosts,
   fetchCostHistory,
   fetchRecommendations,
   fetchSavingsKpis,
-  recomputeAnalytics,
   type AdoptionKpisResponse,
   type Budget,
   type BudgetPerformance,
-  type CostsResponse,
   type CostHistoryResponse,
   type Recommendation,
   type SavingsKpisResponse,
@@ -28,7 +25,6 @@ import {
 } from '../../services/api';
 import {
   buildChartData,
-  buildDashboardCostRange,
   buildSuggestions,
   roundCurrency,
   type ChartPoint,
@@ -44,7 +40,6 @@ export interface DashboardControllerState {
   readonly loading: boolean;
   readonly error: string | null;
   readonly budgetError: string | null;
-  readonly costs: CostsResponse | null;
   readonly recommendations: readonly Recommendation[];
   readonly opportunities: readonly CostOpportunity[];
   readonly usageInsights: readonly UsageInsight[];
@@ -64,6 +59,7 @@ export interface DashboardControllerState {
   readonly verifiedSavings: number;
   readonly roi: number;
   readonly openOpportunities: number;
+  readonly staleOpportunities: number;
   readonly acceptanceRate: number;
   readonly topUnitEconomics: readonly MonthlyUsagePoint[];
   readonly missedSavingsAmount: number;
@@ -72,9 +68,8 @@ export interface DashboardControllerState {
 
 export function useDashboardController(): DashboardControllerState {
   const token = useAccessToken();
-  const [costs, setCosts] = useState<CostsResponse | null>(null);
   const [costHistory, setCostHistory] = useState<CostHistoryResponse | null>(null);
-  const [reportingCurrency, setReportingCurrency] = useState<string>('USD');
+  const reportingCurrency = costHistory?.reportingCurrency ?? '';
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
   const [opportunities, setOpportunities] = useState<readonly CostOpportunity[]>([]);
   const [usageInsights, setUsageInsights] = useState<readonly UsageInsight[]>([]);
@@ -88,7 +83,6 @@ export function useDashboardController(): DashboardControllerState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
-
   useEffect(() => {
     const refresh = () => setRefreshVersion((version) => version + 1);
     window.addEventListener('finops:recommendations-updated', refresh);
@@ -98,36 +92,30 @@ export function useDashboardController(): DashboardControllerState {
   useEffect(() => {
     let active = true;
 
-    void (async () => {
-      const results = await Promise.allSettled([
-        fetchCosts(token, buildDashboardCostRange()),
+    void shareInFlightRequest(`overview:${token}:${refreshVersion}`, () => Promise.allSettled([
         fetchRecommendations(token),
         fetchAnalyticsOpportunities(token),
-        fetchAnalyticsForecast(token),
         fetchAnalyticsForecastScenarios(token),
         fetchAnalyticsEfficiencyInsights(token),
         fetchAnalyticsUnitEconomics(token),
         fetchSavingsKpis(token),
         fetchAdoptionKpis(token),
         fetchBudgets(token, { period: currentMonth() }),
-      ]);
+      ])).then(async (results) => {
       if (!active) return;
 
       const value = <T,>(index: number): T | undefined => (
         results[index]?.status === 'fulfilled' ? results[index].value as T : undefined
       );
-      const costResponse = value<CostsResponse>(0);
-      const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(1);
-      const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(2);
-      const forecastResponse = value<{ forecasts: readonly unknown[] }>(3);
-      const scenarioResponse = value<{ scenarios: readonly CostForecastScenario[] }>(4);
-      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(5);
-      const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(6);
-      const savingsResponse = value<SavingsKpisResponse>(7);
-      const adoptionResponse = value<AdoptionKpisResponse>(8);
-      const budgetResponse = value<{ budgets: readonly Budget[] }>(9);
+      const recommendationResponse = value<{ recommendations: readonly Recommendation[] }>(0);
+      const opportunityResponse = value<{ opportunities: readonly CostOpportunity[] }>(1);
+      const scenarioResponse = value<{ scenarios: readonly CostForecastScenario[] }>(2);
+      const insightsResponse = value<{ insights: readonly UsageInsight[] }>(3);
+      const unitEconomicsResponse = value<{ unitEconomics: readonly MonthlyUsagePoint[] }>(4);
+      const savingsResponse = value<SavingsKpisResponse>(5);
+      const adoptionResponse = value<AdoptionKpisResponse>(6);
+      const budgetResponse = value<{ budgets: readonly Budget[] }>(7);
 
-      if (costResponse !== undefined) setCosts(costResponse);
       if (recommendationResponse !== undefined) setRecommendations(recommendationResponse.recommendations);
       if (opportunityResponse !== undefined) setOpportunities(opportunityResponse.opportunities);
       if (scenarioResponse !== undefined) setForecastScenarios(scenarioResponse.scenarios);
@@ -158,20 +146,8 @@ export function useDashboardController(): DashboardControllerState {
 
       const failures = results.filter((result) => result.status === 'rejected');
       setError(failures.length === 0 ? null : `${failures.length} bloque(s) no pudieron actualizarse. Los demás datos siguen disponibles.`);
-      if (opportunityResponse !== undefined && forecastResponse !== undefined
-        && opportunityResponse.opportunities.length === 0 && forecastResponse.forecasts.length === 0) {
-        try {
-          const analyticsResponse = await recomputeAnalytics(token);
-          if (active) {
-            setOpportunities(analyticsResponse.opportunities ?? analyticsResponse.anomalies ?? []);
-            setUsageInsights(analyticsResponse.usageInsights);
-          }
-        } catch {
-          // Existing persisted data stays visible.
-        }
-      }
       if (active) setLoading(false);
-    })();
+    });
 
     return () => {
       active = false;
@@ -179,29 +155,24 @@ export function useDashboardController(): DashboardControllerState {
   }, [refreshVersion, token]);
 
   useEffect(() => {
-    const controller = new AbortController();
     let active = true;
-    void fetchCostHistory(token, {
+    void shareInFlightRequest(`cost-history:${token}`, () => fetchCostHistory(token, {
       rangeMode: 'LATEST_AVAILABLE',
       lookbackDays: 90,
       granularity: 'day',
-      signal: controller.signal,
-    }).then((response) => {
+    })).then((response) => {
       if (!active) return;
       setCostHistory(response);
-      setReportingCurrency(response.reportingCurrency);
-    }).catch((requestError: unknown) => {
-      if (active && !(requestError instanceof DOMException && requestError.name === 'AbortError')) {
+    }).catch(() => {
+      if (active) {
         setError('El histórico de costos no pudo actualizarse. Los demás datos siguen disponibles.');
       }
     });
     return () => {
       active = false;
-      controller.abort();
     };
   }, [token]);
 
-  const metrics = useMemo(() => costs?.metrics ?? [], [costs]);
   const totalCost = useMemo(
     () => roundCurrency(costHistory?.points.reduce((total, point) => total + (point.amount ?? 0), 0) ?? 0),
     [costHistory],
@@ -210,7 +181,7 @@ export function useDashboardController(): DashboardControllerState {
   const budgetUsage = budgetPerformance?.consumedPercent ?? 0;
   const identifiedWaste = savingsKpis?.estimatedMonthlySavings ?? 0;
   const verifiedSavings = savingsKpis?.verifiedMonthlySavings ?? savingsKpis?.confirmedMonthlySavings ?? 0;
-  const roi = totalCost > 0 && (savingsKpis === null || savingsKpis.currency === (reportingCurrency ?? 'USD'))
+  const roi = totalCost > 0 && savingsKpis !== null && reportingCurrency !== '' && savingsKpis.currency === reportingCurrency
     ? roundCurrency((verifiedSavings / totalCost) * 100)
     : 0;
 
@@ -218,7 +189,6 @@ export function useDashboardController(): DashboardControllerState {
     loading,
     error,
     budgetError,
-    costs,
     recommendations,
     opportunities,
     usageInsights,
@@ -228,19 +198,20 @@ export function useDashboardController(): DashboardControllerState {
     budgets,
     budgetPerformance,
     chartData: useMemo(() => buildChartData(costHistory), [costHistory]),
-    suggestions: useMemo(() => buildSuggestions(metrics, recommendations), [metrics, recommendations]),
+    suggestions: useMemo(() => buildSuggestions(recommendations), [recommendations]),
     totalCost,
     dashboardBudget,
     budgetUsage,
     identifiedWaste,
     verifiedSavings,
     roi,
-    openOpportunities: opportunities.filter((opportunity) => opportunity.status === 'OPEN').length,
+    openOpportunities: opportunities.filter((opportunity) => opportunity.status === 'OPEN' && opportunity.isStale !== true).length,
+    staleOpportunities: opportunities.filter((opportunity) => opportunity.isStale === true).length,
     acceptanceRate: adoptionKpis !== null ? adoptionKpis.acceptanceRate * 100 : 0,
     topUnitEconomics: unitEconomics.slice(0, 3),
     missedSavingsAmount: savingsKpis?.missedSavingsAmount ?? 0,
     forecastScenarios,
     costHistory,
-    reportingCurrency: reportingCurrency || costHistory?.reportingCurrency || 'USD',
+    reportingCurrency,
   };
 }

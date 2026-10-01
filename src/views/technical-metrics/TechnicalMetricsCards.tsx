@@ -112,7 +112,7 @@ export function OpportunityCard({ opportunity }: { readonly opportunity: Technic
         )}
         {opportunity.cost !== undefined && (
           <span className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-tak-yellow">
-            {formatCurrency(opportunity.cost, opportunity.currency ?? 'USD')}
+            {formatCurrency(opportunity.cost, opportunity.currency ?? '')}
           </span>
         )}
       </div>

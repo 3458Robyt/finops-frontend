@@ -167,3 +167,25 @@ export interface CloudFocusPreview {
     readonly lastModified?: string;
   }[];
 }
+export interface CloudMetricDefinitionCandidate {
+  readonly compartmentId: string;
+  readonly namespace: string;
+  readonly metricName: string;
+  readonly resourceId: string;
+  readonly regionId?: string;
+  readonly dimensions?: Readonly<Record<string, string>>;
+  readonly statistics?: readonly string[];
+  readonly unit?: string;
+  readonly inventoryLinkage?: {
+    readonly status: 'MATCHED' | 'NOT_FOUND' | 'NOT_VERIFIED' | 'MISSING_RESOURCE_ID';
+    readonly resourceName?: string;
+  };
+}
+export interface CloudMetricDiscovery {
+  readonly definitions: readonly CloudMetricDefinitionCandidate[];
+  readonly regions: readonly string[];
+  readonly compartments: readonly string[];
+  readonly apiCallCount: number;
+  readonly truncated: boolean;
+  readonly warnings: readonly string[];
+}

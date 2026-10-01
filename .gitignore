@@ -21,7 +21,9 @@ dist-ssr
 *.local
 .test-artifacts/
 test-results/
+test-results-real-*/
 playwright-report/
+playwright-report-real/
 .playwright-cli/
 output/playwright/
 graphify-out/

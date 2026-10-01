@@ -1,6 +1,19 @@
 import { apiRequest } from './apiClient';
 import type { ApiRole, AppRole, AuthLoginResponse, AuthSession, AuthSessionDevice, AuthTenant, MfaRecoveryCodesResponse, MfaSetupResponse, MfaStatusResponse } from './authTypes';
 
+// MFA changes invalidate this cache immediately; keep navigation below the
+// sensitive endpoint limit without making the security status stale for long.
+const MFA_STATUS_CACHE_MS = 5 * 60_000;
+let mfaStatusCache: {
+  readonly key: string;
+  readonly expiresAt: number;
+  readonly promise: Promise<MfaStatusResponse>;
+} | null = null;
+
+function invalidateMfaStatusCache(): void {
+  mfaStatusCache = null;
+}
+
 export function mapApiRoleToAppRole(role: ApiRole): AppRole {
   return role;
 }
@@ -16,6 +29,7 @@ export function getEffectiveRole(session: Pick<AuthSession, 'user' | 'activeTena
 }
 
 export async function login(email: string, password: string): Promise<AuthLoginResponse> {
+  invalidateMfaStatusCache();
   return apiRequest<AuthLoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
@@ -31,6 +45,7 @@ export async function acceptClientInvitation(code: string, name: string, passwor
 }
 
 export async function completeMfaLogin(challengeToken: string, code: string): Promise<AuthSession> {
+  invalidateMfaStatusCache();
   return apiRequest<AuthSession>('/auth/mfa/complete', {
     method: 'POST',
     body: JSON.stringify({ challengeToken, code }),
@@ -79,6 +94,7 @@ export async function logout(token: string): Promise<void> {
     method: 'POST',
     token,
   });
+  invalidateMfaStatusCache();
 }
 
 export async function logoutAll(token: string): Promise<void> {
@@ -86,6 +102,7 @@ export async function logoutAll(token: string): Promise<void> {
     method: 'POST',
     token,
   });
+  invalidateMfaStatusCache();
 }
 
 export async function fetchAuthSessions(token: string): Promise<{
@@ -102,34 +119,49 @@ export async function revokeAuthSession(token: string, sessionId: string): Promi
   });
 }
 
-export function fetchMfaStatus(token: string): Promise<MfaStatusResponse> {
-  return apiRequest('/auth/mfa/status', { token });
+export function fetchMfaStatus(token: string, cacheKey = token): Promise<MfaStatusResponse> {
+  const now = Date.now();
+  if (mfaStatusCache !== null && mfaStatusCache.key === cacheKey && mfaStatusCache.expiresAt > now) {
+    return mfaStatusCache.promise;
+  }
+  const promise = apiRequest<MfaStatusResponse>('/auth/mfa/status', { token });
+  mfaStatusCache = { key: cacheKey, expiresAt: now + MFA_STATUS_CACHE_MS, promise };
+  void promise.catch(() => {
+    if (mfaStatusCache?.promise === promise) mfaStatusCache = null;
+  });
+  return promise;
 }
 
 export function beginMfaSetup(token: string): Promise<MfaSetupResponse> {
   return apiRequest('/auth/mfa/setup', { method: 'POST', token, body: JSON.stringify({}) });
 }
 
-export function confirmMfaSetup(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
-  return apiRequest('/auth/mfa/confirm', {
+export async function confirmMfaSetup(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  const response = await apiRequest<MfaRecoveryCodesResponse>('/auth/mfa/confirm', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  invalidateMfaStatusCache();
+  return response;
 }
 
-export function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
-  return apiRequest('/auth/mfa/recovery-codes/regenerate', {
+export async function regenerateMfaRecoveryCodes(token: string, code: string): Promise<MfaRecoveryCodesResponse> {
+  const response = await apiRequest<MfaRecoveryCodesResponse>('/auth/mfa/recovery-codes/regenerate', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  invalidateMfaStatusCache();
+  return response;
 }
 
-export function disableMfa(token: string, code: string): Promise<{ readonly success: true; readonly enabled: false; readonly message: string }> {
-  return apiRequest('/auth/mfa/disable', {
+export async function disableMfa(token: string, code: string): Promise<{ readonly success: true; readonly enabled: false; readonly message: string }> {
+  const response = await apiRequest<{ readonly success: true; readonly enabled: false; readonly message: string }>('/auth/mfa/disable', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
   });
+  invalidateMfaStatusCache();
+  return response;
 }

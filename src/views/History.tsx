@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { formatCurrencyAmount } from '../utils/formatCurrency';
 import { fetchAdoptionKpis, fetchRecommendations, fetchSavingsKpis, type Recommendation } from '../services/api';
 
 interface IntegrationCardProps {
@@ -16,7 +17,7 @@ export default function History() {
     estimated: 0,
     observed: 0,
     acceptanceRate: 0,
-    currency: 'USD',
+    currency: '',
   });
   const [engagement, setEngagement] = useState<{
     activeUsers: number;
@@ -203,6 +204,5 @@ function formatDate(value: string): string {
 }
 
 function formatCurrency(value: number, currency: string): string {
-  const normalized = /^[A-Z]{3}$/.test(currency.trim().toUpperCase()) ? currency.trim().toUpperCase() : 'USD';
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: normalized, maximumFractionDigits: 2 }).format(value);
+  return formatCurrencyAmount(value, currency);
 }

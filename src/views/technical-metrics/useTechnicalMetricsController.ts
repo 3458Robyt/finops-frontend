@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAccessToken } from '../../auth/authSession';
+import { useAccessToken, useAuthSession } from '../../auth/authSession';
 import {
   fetchTechnicalMetricsCoverage,
   fetchTechnicalMetricSamples,
@@ -27,7 +27,13 @@ import {
 
 export function useTechnicalMetricsController() {
   const token = useAccessToken();
+  const { session } = useAuthSession();
+  const activeTenantId = session.activeTenant.id;
   const [overview, setOverview] = useState<TechnicalMetricsOverview | null>(null);
+  const [tenantMetricCatalog, setTenantMetricCatalog] = useState<{
+    readonly tenantId: string;
+    readonly metrics: TechnicalMetricsOverview['metrics'];
+  } | null>(null);
   const [coverage, setCoverage] = useState<TechnicalMetricCoverage | null>(null);
   const [series, setSeries] = useState<readonly TechnicalMetricSeriesPoint[]>([]);
   const [samples, setSamples] = useState<readonly ResourceMetricSampleItem[]>([]);
@@ -94,14 +100,18 @@ export function useTechnicalMetricsController() {
     const resourceFilter = selectedResource !== 'ALL' ? { externalResourceId: selectedResource } : {};
     void fetchTechnicalMetricsOverview(token, { ...rangeParams, ...resourceFilter, statistic: selectedStatistic }, { signal: controller.signal })
       .then((response) => {
-        if (!controller.signal.aborted) setOverview(response.overview);
+        if (controller.signal.aborted) return;
+        setOverview(response.overview);
+        if (range === 'available' && selectedResource === 'ALL') {
+          setTenantMetricCatalog({ tenantId: activeTenantId, metrics: response.overview.metrics });
+        }
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el resumen de metricas.');
       })
       .finally(() => { if (!controller.signal.aborted) setLoadingOverview(false); });
     return () => controller.abort();
-  }, [range, rangeParams, selectedResource, selectedStatistic, token]);
+  }, [activeTenantId, range, rangeParams, selectedResource, selectedStatistic, token]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,10 +123,14 @@ export function useTechnicalMetricsController() {
     return () => controller.abort();
   }, [token]);
 
+  const metricCatalog = useMemo(
+    () => tenantMetricCatalog?.tenantId === activeTenantId ? tenantMetricCatalog.metrics : [],
+    [activeTenantId, tenantMetricCatalog],
+  );
   const metricOptions = useMemo(() => {
-    const metrics = overview?.metrics ?? [];
+    const metrics = metricCatalog;
     return selectedGroup === 'ALL' ? metrics : metrics.filter((metric) => metric.group === selectedGroup);
-  }, [overview?.metrics, selectedGroup]);
+  }, [metricCatalog, selectedGroup]);
 
   const activeMetric = useMemo(() => {
     if (selectedMetric !== null && metricOptions.some((metric) => metric.metricName === selectedMetric)) {
@@ -252,7 +266,7 @@ export function useTechnicalMetricsController() {
   }, [overview?.kpis, selectedGroup]);
 
   return {
-    overview, coverage, samples, selectedResource, selectedGroup, range, bucket, selectedStatistic, statisticOptions, drilldownWindow,
+    overview, metricCatalog, coverage, samples, selectedResource, selectedGroup, range, bucket, selectedStatistic, statisticOptions, drilldownWindow,
     loadingOverview, loadingMoreSeries, error, metricOptions, activeMetric, selectedMetricMeta, filteredKpis,
     visibleSeries: seriesUnavailable ? [] : series,
     visibleSeriesMeta: seriesUnavailable ? null : seriesMeta,

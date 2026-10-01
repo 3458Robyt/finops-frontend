@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useAccessToken } from '../../auth/authSession';
+import { useAuthSession } from '../../auth/authSession';
 import { disableMfa, fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
 import MfaRecoveryCodesDialog from './MfaRecoveryCodesDialog';
 import MfaSetupFlow from './MfaSetupFlow';
 
 export default function MfaSecurityPanel() {
-  const token = useAccessToken();
+  const { accessToken: token, session } = useAuthSession();
+  const mfaCacheKey = `${session.user.id}:${session.authorization?.effectiveRole ?? session.activeTenant.effectiveRole ?? session.user.role}`;
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [requiredForRole, setRequiredForRole] = useState(false);
   const [remaining, setRemaining] = useState(0);
@@ -21,7 +22,7 @@ export default function MfaSecurityPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchMfaStatus(token)
+    void fetchMfaStatus(token, mfaCacheKey)
       .then((status) => {
         if (!cancelled) {
           setEnabled(status.enabled);
@@ -31,7 +32,7 @@ export default function MfaSecurityPanel() {
       })
       .catch(() => { if (!cancelled) setError('No fue posible consultar el estado MFA.'); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [mfaCacheKey, token]);
 
   const regenerate = async () => {
     if (!/^\d{6}$/.test(code)) {

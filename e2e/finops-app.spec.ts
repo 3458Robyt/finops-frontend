@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { createHmac } from 'node:crypto';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 
@@ -19,6 +20,7 @@ interface FixtureManifest {
 
 test.describe('FinOps app E2E', () => {
   test('login, tenant switch, recommendations and technical resource detail', async ({ page }) => {
+    test.setTimeout(120_000);
     const manifest = await readManifest();
 
     await page.goto('/');
@@ -27,7 +29,7 @@ test.describe('FinOps app E2E', () => {
     await loginInputs.nth(1).fill(manifest.password);
     await page.getByRole('button', { name: /ingresar al panel/i }).click();
 
-    await expect(page.getByText(/consola técnica finops/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /decisiones cloud con evidencia/i })).toBeVisible();
     await expect(page.getByText(/tenant activo/i)).toBeVisible();
 
     await page.getByRole('button', { name: /presupuestos/i }).click();
@@ -172,14 +174,52 @@ test.describe('FinOps app E2E', () => {
     await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
     await expect(page.getByTestId('canonical-evidence-panel')).toBeVisible();
 
+    await page.route('**/api/v1/cloud-connections/*/onboarding', async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json() as {
+        success: boolean;
+        onboarding: {
+          connection: Record<string, unknown>;
+          credentials: readonly Record<string, unknown>[];
+          readiness: Record<string, unknown> | null;
+        };
+      };
+      if (payload.onboarding.readiness === null) {
+        await route.fulfill({ response });
+        return;
+      }
+      await route.fulfill({
+        response,
+        body: JSON.stringify({
+          ...payload,
+          onboarding: {
+            ...payload.onboarding,
+            connection: { ...payload.onboarding.connection, lastValidatedAt: '2026-09-19T15:18:50.000Z' },
+            credentials: [{
+              id: 'e2e-active-credential',
+              purpose: 'OPERATIONAL',
+              status: 'ACTIVE',
+              label: 'Credencial operativa de prueba',
+              createdAt: '2026-09-19T15:18:50.000Z',
+            }],
+            readiness: { ...payload.onboarding.readiness, onboardingStatus: 'REQUIRES_VALIDATION' },
+          },
+        }),
+      });
+    });
+
     await page.getByRole('button', { name: /ingesta y datos/i }).click();
     await expect(page.getByRole('heading', { name: 'Ingesta y calidad de datos', exact: true })).toBeVisible();
+    await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /agregar y activar una cuenta cloud/i })).toBeVisible();
     const cloudConnectionSelector = page.getByLabel('Cuenta configurada');
     await cloudConnectionSelector.selectOption({ index: 1 });
+    await expect(page.getByRole('alert').filter({ hasText: /validación de acceso ya no está vigente/i })).toBeVisible();
+    await page.getByText(/configuración técnica avanzada/i).click();
+    await expect(page.getByRole('button', { name: 'Activar cuenta' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Validar acceso' })).toBeEnabled();
     await expect(page.getByText(/acceso seguro de solo lectura/i)).toBeVisible();
     await expect(page.getByText(/validar capacidades/i)).toBeVisible();
-    await page.getByText(/configuración técnica avanzada/i).click();
     await expect(page.getByText(/sincronización inicial/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /abrir inventario/i })).toBeVisible();
 
@@ -219,9 +259,129 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/recomendaci[oó]n aprobada/i)).toBeVisible();
     await expect(page.getByText('Ejecucion manual registrada', { exact: true })).toBeVisible();
 
+    await page.route('**/api/v1/master-admin/ingestion-jobs**', async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          jobs: [{
+            id: 'lease-recovery-ui-fixture', tenantId: 'tenant-fixture', tenantName: 'TAK QA', tenantSlug: 'tak-qa',
+            cloudConnectionId: 'connection-fixture', connectionName: 'OCI QA', providerCode: 'oci',
+            sourceType: 'TECHNICAL_METRIC', status: 'FAILED', attempts: 3, maxAttempts: 3,
+            targetStart: '2026-09-20T00:00:00.000Z', targetEnd: '2026-09-20T01:00:00.000Z',
+            errorMessage: 'El bloqueo del trabajo venció tras agotar los intentos; la causa inicial no quedó registrada.',
+            progress: { phase: 'FAILED', message: 'Revisa la evidencia de recuperación del lease.' },
+            resultSummary: {
+              coverage: { focusSchemaValidation: { status: 'NONCONFORMANT', filesChecked: 2, missingMandatoryColumns: ['ChargeClass', 'ContractedCost'] } },
+              leaseRecoveryHistory: [{
+              action: 'FAILED', reason: 'retry_attempts_exhausted', attempt: 3, maxAttempts: 3,
+              leaseDurationMs: 300000, recoveredAt: '2026-09-26T10:17:00.000Z',
+              attemptStartedAt: '2026-09-26T09:45:00.000Z', lastHeartbeatAt: '2026-09-26T10:10:00.000Z',
+              leaseExpiredAt: '2026-09-26T10:15:00.000Z',
+              lastProgress: { phase: 'FETCHING', message: 'Consultando proveedor: 4 llamadas, 18 muestras.' },
+              }],
+            },
+            priority: 100, availableAt: '2026-09-26T09:00:00.000Z', createdAt: '2026-09-26T09:00:00.000Z',
+            updatedAt: '2026-09-26T10:17:00.000Z',
+          }],
+          summary: { total: 1, pending: 0, running: 0, success: 0, failed: 1, cancelled: 0, skipped: 0 },
+          hasMore: false,
+        }),
+      });
+    });
+    await page.locator('aside').getByRole('button', { name: 'Administración MSP', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Consola central de jobs' })).toBeVisible();
+    await expect(page.getByText(/Esquema FOCUS: no conforme · 2 archivos · faltan ChargeClass, ContractedCost/i)).toBeVisible();
+    await expect(page.getByText(/Lease vencido tras agotar reintentos · intento 3\/3/i)).toBeVisible();
+    await expect(page.getByText(/la causa inicial no quedó registrada/i)).toBeVisible();
+    await expect(page.getByText(/último avance: Consultando proveedor: 4 llamadas, 18 muestras/i)).toBeVisible();
+
+    await page.locator('aside').getByRole('button', { name: 'Perfil y Seguridad', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Seguridad y Acceso' })).toBeVisible();
+    await expect(page.getByText('No está activada para esta cuenta.')).toBeVisible();
+
+    let mfa = await enrollMfa(page);
+    await disableMfa(page, mfa.secret, mfa.lastUsedStep);
+    mfa = await enrollMfa(page);
+    await disableMfa(page, mfa.secret, mfa.lastUsedStep);
+
   });
 });
 
 async function readManifest(): Promise<FixtureManifest> {
   return JSON.parse(await readFile(fixtureFile, 'utf8')) as FixtureManifest;
+}
+
+async function enrollMfa(page: import('@playwright/test').Page): Promise<{ secret: string; lastUsedStep: number }> {
+  const setupResponse = page.waitForResponse((response) => (
+    response.url().includes('/auth/mfa/setup') && response.request().method() === 'POST'
+  ));
+  await page.getByRole('button', { name: 'Activar MFA', exact: true }).click();
+  await expect(page.getByRole('img', { name: 'Código QR para configurar MFA' })).toBeVisible();
+  expect((await setupResponse).status()).toBe(200);
+
+  const secret = (await page.locator('code').filter({ hasText: /^[A-Z2-7]{32}$/ }).first().innerText()).trim();
+  expect(secret).toMatch(/^[A-Z2-7]{32}$/);
+  const totp = createTotpCode(secret, -1);
+  await page.getByLabel('Código MFA de confirmación').fill(totp.code);
+  const confirmResponse = page.waitForResponse((response) => (
+    response.url().includes('/auth/mfa/confirm') && response.request().method() === 'POST'
+  ));
+  await page.getByRole('button', { name: 'Confirmar activación' }).click();
+  expect((await confirmResponse).status()).toBe(200);
+
+  const dialog = page.getByRole('dialog', { name: 'Guarda tus códigos de recuperación' });
+  await expect(dialog.locator('code')).toHaveCount(10);
+  await dialog.getByRole('button', { name: 'Ya los guardé' }).click();
+  await expect(page.getByText(/Activa · 10 códigos disponibles/)).toBeVisible();
+  return { secret, lastUsedStep: totp.step };
+}
+
+async function disableMfa(page: import('@playwright/test').Page, secret: string, lastUsedStep: number): Promise<void> {
+  await page.getByRole('button', { name: 'Quitar MFA' }).click();
+  await expect(page.getByText('Confirmar eliminación')).toBeVisible();
+  const totp = createTotpCode(secret, lastUsedStep);
+  await page.getByPlaceholder('Código MFA actual').fill(totp.code);
+  const disableResponse = page.waitForResponse((response) => (
+    response.url().includes('/auth/mfa/disable') && response.request().method() === 'POST'
+  ));
+  await page.getByRole('button', { name: 'Confirmar y quitar' }).click();
+  const response = await disableResponse;
+  expect(response.status()).toBe(200);
+  await expect(page.getByText('No está activada para esta cuenta.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Activar MFA', exact: true })).toBeVisible();
+}
+
+function createTotpCode(secret: string, lastUsedStep: number): { code: string; step: number } {
+  const currentStep = Math.floor(Date.now() / 30_000);
+  const step = Math.max(currentStep, lastUsedStep + 1);
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(step));
+  const digest = createHmac('sha1', decodeBase32(secret)).update(counter).digest();
+  const offset = digest[digest.length - 1]! & 0x0f;
+  const binary = ((digest[offset]! & 0x7f) << 24)
+    | ((digest[offset + 1]! & 0xff) << 16)
+    | ((digest[offset + 2]! & 0xff) << 8)
+    | (digest[offset + 3]! & 0xff);
+  return { code: String(binary % 1_000_000).padStart(6, '0'), step };
+}
+
+function decodeBase32(value: string): Buffer {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let buffer = 0;
+  let bits = 0;
+  const bytes: number[] = [];
+  for (const character of value.replace(/=+$/g, '').toUpperCase()) {
+    const index = alphabet.indexOf(character);
+    if (index < 0) throw new Error('El secreto MFA no tiene formato Base32.');
+    buffer = (buffer << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >>> bits) & 0xff);
+    }
+  }
+  return Buffer.from(bytes);
 }

@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { ClientInvitationRole, MasterAdminTenantStatus, MasterAdminAssignmentRole, MasterAdminTenantsResponse, MasterAdminTenantResponse, MasterAdminUsersResponse, MasterAdminUserResponse, MasterAdminAssignmentsResponse, MasterAdminAssignmentResponse, MasterAdminClientInvitationResponse, MasterAdminClientInvitationsResponse, MasterAdminDeletedPendingJobsResponse, MasterAdminIngestionJobResponse, MasterAdminIngestionJobsResponse } from './apiTypes';
+import type { ClientInvitationRole, MasterAdminTenantStatus, MasterAdminAssignmentRole, MasterAdminTenantsResponse, MasterAdminTenantResponse, MasterAdminUsersResponse, MasterAdminUserResponse, MasterAdminAssignmentsResponse, MasterAdminAssignmentResponse, MasterAdminClientInvitationResponse, MasterAdminClientInvitationsResponse, MasterAdminDeletedPendingJobsResponse, MasterAdminIngestionJobResponse, MasterAdminIngestionJobsResponse, MasterAdminReprocessedIngestionJobResponse } from './apiTypes';
 
 export async function fetchMasterAdminTenants(token: string): Promise<MasterAdminTenantsResponse> {
   return apiRequest<MasterAdminTenantsResponse>('/master-admin/tenants', { token });
@@ -122,4 +122,16 @@ export async function cancelMasterAdminIngestionJob(token: string, jobId: string
 
 export async function archiveMasterAdminIngestionJob(token: string, jobId: string): Promise<MasterAdminIngestionJobResponse> {
   return apiRequest<MasterAdminIngestionJobResponse>(`/master-admin/ingestion-jobs/${encodeURIComponent(jobId)}/archive`, { method: 'POST', token });
+}
+
+export async function reprocessMasterAdminIngestionJob(
+  token: string,
+  jobId: string,
+  reason: string,
+): Promise<MasterAdminReprocessedIngestionJobResponse> {
+  return apiRequest<MasterAdminReprocessedIngestionJobResponse>(`/master-admin/ingestion-jobs/${encodeURIComponent(jobId)}/reprocess`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ reason }),
+  });
 }

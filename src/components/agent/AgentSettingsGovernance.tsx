@@ -1,5 +1,5 @@
 import type { AgentInstructionProfile, AgentInstructionRules, TenantAgentRule } from '../../services/api';
-import { Input, SectionHeader, TextArea } from './AgentSettingsUi';
+import { Input, ReadOnlyNotice, SectionHeader, TextArea } from './AgentSettingsUi';
 
 interface AgentSettingsGovernanceProps {
   readonly canConfigureAgent: boolean;
@@ -21,13 +21,14 @@ export function AgentSettingsGovernance({ canConfigureAgent, saving, profile, fo
   return <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
     <div className="ui-surface space-y-4 p-5">
       <SectionHeader title="Perfil activo del agente" eyebrow={`Version ${profile?.version ?? '-'}`} icon="psychology" />
-      <TextArea label="Objetivo principal" value={form.objective} rows={3} onChange={(value) => updateForm('objective', value)} />
-      <TextArea label="Tono y estilo" value={form.tone} rows={3} onChange={(value) => updateForm('tone', value)} />
-      <TextArea label="Prioridades de recomendacion" value={form.recommendationPriorities} rows={5} onChange={(value) => updateForm('recommendationPriorities', value)} />
-      <TextArea label="Evidencia requerida" value={form.evidenceRequirements} rows={5} onChange={(value) => updateForm('evidenceRequirements', value)} />
-      <TextArea label="Politica de riesgo" value={form.riskPolicy} rows={4} onChange={(value) => updateForm('riskPolicy', value)} />
-      <TextArea label="Acciones prohibidas" value={form.forbiddenActions} rows={4} onChange={(value) => updateForm('forbiddenActions', value)} />
-      <TextArea label="Notas administrativas" value={form.freeformNotes} rows={4} onChange={(value) => updateForm('freeformNotes', value)} />
+      {!canConfigureAgent && <ReadOnlyNotice text="Puedes consultar la configuración activa, pero solo un administrador o técnico líder puede modificarla." />}
+      <TextArea label="Objetivo principal" value={form.objective} rows={3} readOnly={!canConfigureAgent} onChange={(value) => updateForm('objective', value)} />
+      <TextArea label="Tono y estilo" value={form.tone} rows={3} readOnly={!canConfigureAgent} onChange={(value) => updateForm('tone', value)} />
+      <TextArea label="Prioridades de recomendacion" value={form.recommendationPriorities} rows={5} readOnly={!canConfigureAgent} onChange={(value) => updateForm('recommendationPriorities', value)} />
+      <TextArea label="Evidencia requerida" value={form.evidenceRequirements} rows={5} readOnly={!canConfigureAgent} onChange={(value) => updateForm('evidenceRequirements', value)} />
+      <TextArea label="Politica de riesgo" value={form.riskPolicy} rows={4} readOnly={!canConfigureAgent} onChange={(value) => updateForm('riskPolicy', value)} />
+      <TextArea label="Acciones prohibidas" value={form.forbiddenActions} rows={4} readOnly={!canConfigureAgent} onChange={(value) => updateForm('forbiddenActions', value)} />
+      <TextArea label="Notas administrativas" value={form.freeformNotes} rows={4} readOnly={!canConfigureAgent} onChange={(value) => updateForm('freeformNotes', value)} />
       {canConfigureAgent && <button onClick={onActivateProfile} disabled={saving} className="rounded-lg bg-tak-yellow px-5 py-3 text-sm font-black text-zinc-950 hover:bg-yellow-300 disabled:opacity-60">Activar perfil validado</button>}
     </div>
 

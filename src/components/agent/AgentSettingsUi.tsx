@@ -34,20 +34,20 @@ export function ReadOnlyNotice({ text }: { readonly text: string }) {
   return <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-200">{text}</div>;
 }
 
-export function Input({ label, value, onChange }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void }) {
+export function Input({ label, value, onChange, readOnly = false }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly readOnly?: boolean }) {
   return (
     <label className="block">
       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="ui-control mt-2 w-full px-3 py-3 text-sm font-bold outline-none" />
+      <input value={value} readOnly={readOnly} onChange={(event) => onChange(event.target.value)} className={`ui-control mt-2 w-full px-3 py-3 text-sm font-bold outline-none ${readOnly ? 'cursor-default opacity-70' : ''}`} />
     </label>
   );
 }
 
-export function TextArea({ label, value, rows, onChange }: { readonly label: string; readonly value: string; readonly rows: number; readonly onChange: (value: string) => void }) {
+export function TextArea({ label, value, rows, onChange, readOnly = false }: { readonly label: string; readonly value: string; readonly rows: number; readonly onChange: (value: string) => void; readonly readOnly?: boolean }) {
   return (
     <label className="block">
       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      <textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className="ui-control mt-2 w-full resize-y px-3 py-3 text-sm font-bold leading-relaxed outline-none" />
+      <textarea value={value} rows={rows} readOnly={readOnly} onChange={(event) => onChange(event.target.value)} className={`ui-control mt-2 w-full resize-y px-3 py-3 text-sm font-bold leading-relaxed outline-none ${readOnly ? 'cursor-default opacity-70' : ''}`} />
     </label>
   );
 }

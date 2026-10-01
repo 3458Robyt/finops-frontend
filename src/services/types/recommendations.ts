@@ -136,6 +136,7 @@ export interface SavingsKpisResponse {
   readonly success: true;
   readonly savings: {
     readonly estimatedMonthlySavings: number;
+    readonly approvedMonthlySavings: number;
     readonly observedMonthlySavings: number;
     readonly userReportedMonthlySavings: number;
     readonly verifiedMonthlySavings: number;

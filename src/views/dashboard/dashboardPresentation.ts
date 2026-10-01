@@ -1,5 +1,4 @@
 import type {
-  CostMetric,
   CostOpportunity,
   CostHistoryResponse,
   MonthlyUsagePoint,
@@ -7,6 +6,7 @@ import type {
   SavingsKpisResponse,
   UsageInsight,
 } from '../../services/api';
+import { formatCurrencyAmount } from '../../utils/formatCurrency';
 
 export interface ChartPoint {
   readonly timestamp: string;
@@ -27,11 +27,7 @@ export interface Suggestion {
 }
 
 export function formatCurrency(value: number, currency: string): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrencyAmount(value, currency);
 }
 
 export function buildChartData(history: CostHistoryResponse | null): ChartPoint[] {
@@ -48,7 +44,6 @@ export function hasPlottableCostData(points: readonly ChartPoint[]): boolean {
 }
 
 export function buildSuggestions(
-  _metrics: readonly CostMetric[],
   recommendations: readonly Recommendation[],
 ): Suggestion[] {
   const recommendationSuggestions = recommendations.slice(0, 6).map((recommendation) => ({
@@ -82,13 +77,6 @@ function readEvidenceString(value: unknown, key: string): string | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const property = (value as Record<string, unknown>)[key];
   return typeof property === 'string' ? property : undefined;
-}
-
-export function buildDashboardCostRange(): { readonly startDate: string; readonly endDate: string } {
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(startDate.getUTCDate() - 90);
-  return { startDate: startDate.toISOString(), endDate: endDate.toISOString() };
 }
 
 export interface DashboardDerivedState {

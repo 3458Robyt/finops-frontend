@@ -26,6 +26,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
     identifiedWaste,
     roi,
     openOpportunities,
+    staleOpportunities,
     acceptanceRate,
     topUnitEconomics,
     missedSavingsAmount,
@@ -83,11 +84,15 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
           </div>
           <div>
             <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-1">Oportunidades abiertas</h3>
+            {staleOpportunities > 0 && <span className="text-[10px] font-semibold text-amber-300">{staleOpportunities} requieren actualizar el análisis</span>}
             <p className="text-2xl lg:text-3xl font-bold text-white">
               {loading ? '...' : openOpportunities}
             </p>
             <span className="text-[10px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded uppercase mt-2 inline-block border border-red-500/20">
               {formatCurrency(identifiedWaste, savingsKpis?.currency ?? reportingCurrency)} ahorro estimado
+            </span>
+            <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-300">
+              {formatCurrency(savingsKpis?.approvedMonthlySavings ?? 0, savingsKpis?.currency ?? reportingCurrency)} aprobado
             </span>
           </div>
         </div>
@@ -146,7 +151,7 @@ export default function Dashboard({ onOpenBudgets, apiRole, onOpenAgentSettings 
             </h3>
             <p className="text-zinc-500 text-sm">Datos reales hasta el ultimo reporte descargado</p>
           </div>
-          <span className="text-xs font-bold text-zinc-400">Moneda de reporte: <strong className="text-white">{reportingCurrency}</strong></span>
+          <span className="text-xs font-bold text-zinc-400">Moneda de reporte: <strong className="text-white">{reportingCurrency || 'No disponible'}</strong></span>
         </div>
 
         <div className="h-[300px] w-full">

@@ -96,6 +96,7 @@ export interface MasterAdminIngestionJob {
   readonly defaultRegion?: string;
   readonly sourceType: import('./ingestion').IngestionSourceType;
   readonly status: import('./ingestion').IngestionJobStatus;
+  readonly dataOutcome?: import('./ingestion').IngestionDataOutcome;
   readonly projectionStatus?: import('./ingestion').MetricProjectionStatus;
   readonly projectionAttempts?: number;
   readonly projectionMaxAttempts?: number;
@@ -150,4 +151,11 @@ export interface MasterAdminDeletedPendingJobsResponse {
 export interface MasterAdminIngestionJobResponse {
   readonly success: true;
   readonly job: MasterAdminIngestionJob;
+}
+
+export interface MasterAdminReprocessedIngestionJobResponse {
+  readonly success: true;
+  readonly job: MasterAdminIngestionJob;
+  readonly originalJobId: string;
+  readonly reusedActiveJob: boolean;
 }

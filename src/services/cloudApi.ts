@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { CostDataOptions, CloudConnectionSummary, CloudConnectionsResponse, CloudProviderCatalogEntry, CloudCredentialPurpose, CloudCredentialSummary, CloudCapabilityValidation, CloudOnboardingDetail, CloudFocusPreview, IngestionSourceType, IngestionJobHistoryItem } from './apiTypes';
+import type { CostDataOptions, CloudConnectionSummary, CloudConnectionsResponse, CloudProviderCatalogEntry, CloudCredentialPurpose, CloudCredentialSummary, CloudCapabilityValidation, CloudOnboardingDetail, CloudFocusPreview, CloudMetricDiscovery, IngestionSourceType, IngestionJobHistoryItem } from './apiTypes';
 
 export async function fetchCloudConnections(token: string): Promise<CloudConnectionsResponse> {
   return apiRequest<CloudConnectionsResponse>('/cloud-connections', { token });
@@ -89,6 +89,17 @@ export async function configureCloudMetricDefinitions(token: string, cloudConnec
 }): Promise<{ readonly success: true; readonly metricDefinitions: { readonly configuredCount: number; readonly updatedKey: string; readonly replaced: boolean } }> {
   return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/metric-definitions`, {
     method: 'PUT', token, body: JSON.stringify(input),
+  });
+}
+
+export async function previewCloudMetricDefinitions(token: string, cloudConnectionId: string, scope: {
+  readonly regionId: string;
+  readonly compartmentId: string;
+  readonly namespace?: string;
+}, options: { readonly signal?: AbortSignal } = {}): Promise<{ readonly success: true; readonly discovery: CloudMetricDiscovery }> {
+  return apiRequest(`/cloud-connections/${encodeURIComponent(cloudConnectionId)}/metric-definitions/discover`, {
+    method: 'POST', token, body: JSON.stringify({ scope }),
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
   });
 }
 

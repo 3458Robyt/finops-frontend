@@ -5,20 +5,32 @@ export function TechnicalMetricBackfillPanel({
   connectionId,
   lookbackDays,
   windowHours,
+  targeted, resourceId, regionId, namespace, metricName,
   submitting,
   onConnectionChange,
   onLookbackDaysChange,
   onWindowHoursChange,
+  onTargetedChange, onResourceIdChange, onRegionIdChange, onNamespaceChange, onMetricNameChange,
   onSubmit,
 }: {
   readonly connections: readonly CloudConnectionSummary[];
   readonly connectionId: string;
   readonly lookbackDays: string;
   readonly windowHours: string;
+  readonly targeted: boolean;
+  readonly resourceId: string;
+  readonly regionId: string;
+  readonly namespace: string;
+  readonly metricName: 'CpuUtilization' | 'MemoryUtilization';
   readonly submitting: boolean;
   readonly onConnectionChange: (value: string) => void;
   readonly onLookbackDaysChange: (value: string) => void;
   readonly onWindowHoursChange: (value: string) => void;
+  readonly onTargetedChange: (value: boolean) => void;
+  readonly onResourceIdChange: (value: string) => void;
+  readonly onRegionIdChange: (value: string) => void;
+  readonly onNamespaceChange: (value: string) => void;
+  readonly onMetricNameChange: (value: 'CpuUtilization' | 'MemoryUtilization') => void;
   readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -27,11 +39,25 @@ export function TechnicalMetricBackfillPanel({
         <div className="flex items-center gap-2"><span className="material-symbols-outlined text-tak-yellow">history</span><h3 className="text-lg font-bold text-white">Backfill histórico de métricas técnicas</h3></div>
         <span className="ui-status">máximo 90 días</span>
       </header>
-      <form onSubmit={onSubmit} className="grid items-end gap-4 p-6 lg:grid-cols-[minmax(220px,1.5fr)_minmax(140px,0.7fr)_minmax(140px,0.7fr)_auto]">
-        <ConnectionSelect connections={connections} value={connectionId} onChange={onConnectionChange} />
-        <NumberField label="Días hacia atrás" min={1} max={90} value={lookbackDays} onChange={onLookbackDaysChange} />
-        <NumberField label="Ventana horas" min={1} max={24} value={windowHours} onChange={onWindowHoursChange} />
-        <SubmitButton icon="cloud_download" submitting={submitting} disabled={connectionId.trim() === ''} idleLabel="Traer histórico" />
+      <form onSubmit={onSubmit} className="space-y-4 p-6">
+        <div className="grid items-end gap-4 lg:grid-cols-[minmax(220px,1.5fr)_minmax(140px,0.7fr)_minmax(140px,0.7fr)_auto]">
+          <ConnectionSelect connections={connections} value={connectionId} onChange={onConnectionChange} />
+          <NumberField label="Días hacia atrás" min={1} max={90} value={lookbackDays} onChange={onLookbackDaysChange} />
+          <NumberField label="Ventana horas" min={1} max={24} value={windowHours} onChange={onWindowHoursChange} />
+          <SubmitButton icon="cloud_download" submitting={submitting} disabled={connectionId.trim() === ''} idleLabel={targeted ? 'Traer serie' : 'Traer histórico'} />
+        </div>
+        {connections.find((item) => item.id === connectionId)?.providerCode.toLowerCase() === 'oci' && (
+          <div className="rounded-lg border border-zinc-800 p-3">
+            <label className="flex items-center gap-2 text-sm text-zinc-200"><input type="checkbox" checked={targeted} onChange={(event) => onTargetedChange(event.target.checked)} /> Recuperar solo una serie OCI confirmada</label>
+            {targeted && <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="text-xs text-zinc-300">Métrica<select className={inputClassName} value={metricName} onChange={(event) => onMetricNameChange(event.target.value as 'CpuUtilization' | 'MemoryUtilization')}><option value="MemoryUtilization">Memoria</option><option value="CpuUtilization">CPU</option></select></label>
+              <label className="text-xs text-zinc-300">Namespace<input className={inputClassName} value={namespace} onChange={(event) => onNamespaceChange(event.target.value)} required /></label>
+              <label className="text-xs text-zinc-300">OCID del recurso<input className={inputClassName} value={resourceId} onChange={(event) => onResourceIdChange(event.target.value)} required /></label>
+              <label className="text-xs text-zinc-300">Región OCI<input className={inputClassName} value={regionId} onChange={(event) => onRegionIdChange(event.target.value)} required /></label>
+              <p className="md:col-span-2 text-xs text-zinc-500">La serie debe estar descubierta y habilitada. Esta operación solo descarga datos que OCI ya emite; no activa el agente de la instancia.</p>
+            </div>}
+          </div>
+        )}
       </form>
       <p className="border-t border-zinc-800 px-6 py-4 text-xs font-medium leading-relaxed text-zinc-500">Crea trabajos diarios desde la retención disponible del proveedor. Omite ventanas ya cubiertas por jobs pendientes, en ejecución o exitosos.</p>
     </section>

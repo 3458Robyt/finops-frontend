@@ -74,7 +74,7 @@ test('crea, previsualiza, cierra y consulta una asignación SPLIT', async ({ pag
   expect(previewed).toBe(true);
 
   await page.getByRole('button', { name: 'Guardar borrador', exact: true }).click();
-  await expect(page.getByText('Regla compartida')).toBeVisible();
+  await expect(page.getByText('Regla compartida', { exact: true })).toBeVisible();
   expect(saved).toBe(true);
 
   page.once('dialog', (dialog) => void dialog.accept());

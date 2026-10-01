@@ -20,6 +20,10 @@ test('protege el ciclo de vida de sesión y la rotación de credenciales', async
   });
 
   try {
+    const anonymousRefresh = await api.post('/api/v1/auth/refresh');
+    expect(anonymousRefresh.status()).toBe(204);
+    expect(await anonymousRefresh.text()).toBe('');
+
     const login = await api.post('/api/v1/auth/login', {
       data: { email: manifest.admin.email, password: manifest.password },
     });

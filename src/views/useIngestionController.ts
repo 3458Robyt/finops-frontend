@@ -62,6 +62,11 @@ export function useIngestionController() {
   const [backfillConnectionId, setBackfillConnectionId] = useState('');
   const [backfillLookbackDays, setBackfillLookbackDays] = useState('90');
   const [backfillWindowHours, setBackfillWindowHours] = useState('24');
+  const [backfillTargeted, setBackfillTargeted] = useState(false);
+  const [backfillResourceId, setBackfillResourceId] = useState('');
+  const [backfillRegionId, setBackfillRegionId] = useState('');
+  const [backfillNamespace, setBackfillNamespace] = useState('oci_computeagent');
+  const [backfillMetricName, setBackfillMetricName] = useState<'CpuUtilization' | 'MemoryUtilization'>('MemoryUtilization');
   const [focus, setFocus] = useState<FocusFormState>(initialFocus);
   const [billingSourceMode, setBillingSourceMode] = useState<BillingSourceMode>('AUTO');
   const [configuringBillingSource, setConfiguringBillingSource] = useState(false);
@@ -148,7 +153,8 @@ export function useIngestionController() {
       if (document.visibilityState !== 'visible' || !navigator.onLine) return;
       void refreshJobs();
     };
-    const timer = window.setInterval(pollIfActive, 4_000);
+    const intervalMs = operationalReadiness?.worker.available === true ? 4_000 : 15_000;
+    const timer = window.setInterval(pollIfActive, intervalMs);
     window.addEventListener('online', pollIfActive);
     document.addEventListener('visibilitychange', pollIfActive);
     return () => {
@@ -156,7 +162,7 @@ export function useIngestionController() {
       window.removeEventListener('online', pollIfActive);
       document.removeEventListener('visibilitychange', pollIfActive);
     };
-  }, [jobs, refreshJobs]);
+  }, [jobs, operationalReadiness?.worker.available, refreshJobs]);
 
   const handleCancelJob = useCallback(async (jobId: string): Promise<void> => {
     setError(null);
@@ -211,6 +217,10 @@ export function useIngestionController() {
         cloudConnectionId: backfillConnectionId.trim(),
         lookbackDays: Number.parseInt(backfillLookbackDays, 10),
         windowHours: Number.parseInt(backfillWindowHours, 10),
+        ...(backfillTargeted ? { metricFilter: {
+          namespace: backfillNamespace.trim(), metricName: backfillMetricName,
+          resourceId: backfillResourceId.trim(), regionId: backfillRegionId.trim(),
+        } } : {}),
       });
       setQueueMessage(`Backfill tecnico encolado: ${response.backfill.createdJobs.length} jobs creados, ${response.backfill.skippedWindows.length} ventanas omitidas.`);
       await refresh();
@@ -219,11 +229,17 @@ export function useIngestionController() {
     } finally {
       setBackfilling(false);
     }
-  }, [backfillConnectionId, backfillLookbackDays, backfillWindowHours, refresh, token]);
+  }, [backfillConnectionId, backfillLookbackDays, backfillWindowHours, backfillTargeted,
+    backfillNamespace, backfillMetricName, backfillResourceId, backfillRegionId, refresh, token]);
 
   const handleFocusChange = useCallback((patch: Partial<FocusFormState>): void => {
-    setFocus((current) => ({ ...current, ...patch }));
-  }, []);
+    setFocus((current) => {
+      const next = { ...current, ...patch };
+      if (patch.connectionId === undefined) return next;
+      const provider = connections.find((connection) => connection.id === patch.connectionId)?.providerCode.toLowerCase();
+      return { ...next, version: provider === 'aws' ? '1.2' : '1.0' };
+    });
+  }, [connections]);
 
   const selectedFocusProvider = connections.find((connection) => connection.id === focus.connectionId)?.providerCode.toLowerCase();
 
@@ -268,8 +284,10 @@ export function useIngestionController() {
     jobs, checks, connections, readinessOk, readinessGeneratedAt, readinessConnections, readinessIssues, operationalReadiness, resourceLinkage, metricCoverage, includeArchived,
     loading, error, queueing, backfilling, queueMessage, cloudConnectionId, backfillConnectionId, backfillLookbackDays,
     backfillWindowHours, focus, billingSourceMode, configuringBillingSource, configuringFocus, sourceType, targetStart,
+    backfillTargeted, backfillResourceId, backfillRegionId, backfillNamespace, backfillMetricName,
     targetEnd, selectedFocusProvider, setCloudConnectionId, setBackfillConnectionId, setBackfillLookbackDays,
     setBackfillWindowHours, setBillingSourceMode, setSourceType, setTargetStart, setTargetEnd, handleQueueJob,
+    setBackfillTargeted, setBackfillResourceId, setBackfillRegionId, setBackfillNamespace, setBackfillMetricName,
     handleBackfill, handleFocusChange, handleConfigureBillingSource, handleConfigureFocus, handleCancelJob, handleArchiveJob, setIncludeArchived, refresh,
   };
 }

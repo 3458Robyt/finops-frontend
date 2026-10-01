@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 const moduleMatrix = [
   { label: 'Panel de Control', heading: /consumo y eficiencia focus|oportunidades abiertas/i },
@@ -12,18 +12,45 @@ const moduleMatrix = [
   { label: 'Asistente IA', heading: /asistente finops|escribe tu consulta/i },
   { label: 'Historial', heading: /registro de auditoría|historial ops/i },
   { label: 'Agente IA', heading: /gobierno, evidencia y canales externos/i },
+  { label: 'Mensajería', heading: /mensajería finops|probar canales/i },
+  { label: 'Perfil y Seguridad', heading: /seguridad y acceso|sesiones activas/i },
+  { label: 'Administración MSP', heading: /tenants, usuarios y accesos|vista global/i },
 ] as const;
 
 const viewports = [
   { width: 390, height: 844, name: 'móvil' },
+  { width: 768, height: 1024, name: 'tableta' },
   { width: 1024, height: 768, name: 'portátil' },
   { width: 1366, height: 768, name: 'escritorio' },
   { width: 1920, height: 1080, name: 'escritorio amplio' },
 ] as const;
 
+let sharedContext: BrowserContext | undefined;
+let sharedPage: Page | undefined;
+
 test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeAll(async ({ browser }) => {
+    sharedContext = await browser.newContext({ baseURL: process.env['E2E_REAL_BASE_URL'] });
+    // Real tenant cost context must never reach the external model from this suite.
+    await sharedContext.route('**/api/v1/ai/chat', async (route) => {
+      if (route.request().method() === 'GET') await route.continue();
+      else await route.abort('blockedbyclient');
+    });
+    sharedPage = await sharedContext.newPage();
+    await authenticate(sharedPage);
+  });
+
+  test.afterAll(async () => {
+    await sharedContext?.close();
+    sharedContext = undefined;
+    sharedPage = undefined;
+  });
+
   for (const viewport of viewports) {
-    test(`recorre módulos y verifica estabilidad en ${viewport.name}`, async ({ page }) => {
+    test(`recorre módulos y verifica estabilidad en ${viewport.name}`, async () => {
+      const page = getSharedPage();
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       const audit = observeReadOnlyPage(page);
 
@@ -37,6 +64,7 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
         await expect(page.locator('main')).toContainText(module.heading, { timeout: 20_000 });
         await assertNoKnownRuntimeError(page, module.label);
         await assertNoHorizontalOverflow(page, module.label);
+        if (module.label === 'Métricas Técnicas') await assertMetricLegendLayout(page);
       }
 
       if (viewport.width < 640) {
@@ -44,11 +72,13 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
       }
 
       expect(audit.unsafeRequests, `Se detectaron mutaciones durante la prueba: ${audit.unsafeRequests.join('\n')}`).toEqual([]);
-      expect(audit.failures, `Fallos de red o errores de página: ${audit.failures.join('\n')}`).toEqual([]);
+      const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+      expect(failures, `Fallos de red o errores de página: ${failures.join('\n')}`).toEqual([]);
     });
   }
 
-  test('ejercita filtros de métricas sin mutar datos', async ({ page }) => {
+  test('ejercita filtros de métricas sin mutar datos', async () => {
+    const page = getSharedPage();
     await page.setViewportSize({ width: 1366, height: 768 });
     const audit = observeReadOnlyPage(page);
     await login(page);
@@ -66,12 +96,15 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
         await assertNoKnownRuntimeError(page, `métrica select ${index}`);
       }
     }
+    await assertMetricLegendLayout(page);
 
     expect(audit.unsafeRequests).toEqual([]);
-    expect(audit.failures).toEqual([]);
+    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+    expect(failures).toEqual([]);
   });
 
-  test('mantiene el chat en español y sin scroll del documento', async ({ page }) => {
+  test('mantiene el chat accesible sin enviar datos del tenant al modelo', async () => {
+    const page = getSharedPage();
     await page.setViewportSize({ width: 390, height: 844 });
     const audit = observeReadOnlyPage(page);
     await login(page);
@@ -80,28 +113,108 @@ test.describe('FinOps real: smoke exhaustivo de solo lectura', () => {
     await expect(page.getByTestId('chat-composer')).toBeVisible();
     await expect(page.getByTestId('chat-module')).toContainText(/asistente finops/i);
     await expect(page.locator('main')).toHaveCSS('overflow-y', 'hidden');
+    await assertKeyboardNavigation(page);
+    expect(audit.unsafeRequests.filter((request) => request.includes('/ai/chat'))).toEqual([]);
     expect(audit.unsafeRequests).toEqual([]);
-    expect(audit.failures).toEqual([]);
+    const failures = [...audit.failures, ...audit.unrecoveredAuthFailures()];
+    expect(failures).toEqual([]);
+  });
+
+  test('distingue candidatos elegibles de candidatos bloqueados en readiness', async () => {
+    const page = getSharedPage();
+    await page.setViewportSize({ width: 1366, height: 768 });
+    const audit = observeReadOnlyPage(page);
+    await login(page);
+    const readinessResponse = page.waitForResponse((response) =>
+      response.url().includes('/ai/analysis-runs/readiness') && response.request().method() === 'GET',
+    );
+    await openModule(page, 'Agente IA');
+    const response = await readinessResponse;
+    expect(response.status()).toBe(200);
+    const envelope = await response.json() as {
+      readonly preview?: {
+        readonly candidatesSkipped: number;
+        readonly readinessReport: { readonly candidates: readonly unknown[] };
+      };
+    };
+    const preview = envelope.preview;
+    if (preview === undefined) throw new Error('La vista previa de readiness no devolvió datos.');
+
+    const eligibleCount = preview.readinessReport.candidates.length;
+    const readinessPanel = page.locator('.ui-surface').filter({
+      has: page.getByRole('heading', { name: 'Análisis gobernado del tenant activo' }),
+    });
+    await expect(readinessPanel.getByText('Candidatos elegibles para IA', { exact: true }).locator('..'))
+      .toContainText(String(eligibleCount));
+    await expect(readinessPanel.getByText('Descartados o aplazados', { exact: true }).locator('..'))
+      .toContainText(String(preview.candidatesSkipped));
+    if (eligibleCount === 0) {
+      await expect(readinessPanel.getByText(/No hay candidatos elegibles con evidencia suficiente/i)).toBeVisible();
+    }
+
+    expect(audit.unsafeRequests).toEqual([]);
+    expect([...audit.failures, ...audit.unrecoveredAuthFailures()]).toEqual([]);
   });
 });
 
 async function login(page: Page): Promise<void> {
-  await page.goto('/');
-  await page.locator('input[type="email"]').fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
-  await page.locator('input[type="password"]').fill(process.env['E2E_REAL_ADMIN_PASSWORD']!);
-  await page.getByRole('button', { name: /ingresar al panel/i }).click();
+  if (await page.getByLabel('Tenant activo').isVisible().catch(() => false)) return;
+  await authenticate(page);
+}
 
-  const mfaPrompt = page.getByText(/verificación mfa/i);
-  if (await mfaPrompt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    const code = process.env['E2E_REAL_MFA_CODE'];
-    if (code === undefined || code.trim() === '') {
-      throw new Error('La cuenta real exige MFA. Define E2E_REAL_MFA_CODE solo durante la ejecución local de esta suite.');
-    }
-    await page.locator('input[pattern="[0-9]{6}"]').fill(code);
-    await page.getByRole('button', { name: /ingresar al panel/i }).click();
+async function assertMetricLegendLayout(page: Page): Promise<void> {
+  const legend = page.getByTestId('technical-metric-legend');
+  const opportunities = page.getByTestId('technical-metric-opportunities');
+  if (!(await legend.isVisible().catch(() => false)) || !(await opportunities.isVisible().catch(() => false))) return;
+  const [legendBox, opportunitiesBox] = await Promise.all([legend.boundingBox(), opportunities.boundingBox()]);
+  if (legendBox === null || opportunitiesBox === null) return;
+  const overlapsHorizontally = legendBox.x < opportunitiesBox.x + opportunitiesBox.width
+    && legendBox.x + legendBox.width > opportunitiesBox.x;
+  const overlapsVertically = legendBox.y < opportunitiesBox.y + opportunitiesBox.height
+    && legendBox.y + legendBox.height > opportunitiesBox.y;
+  expect(overlapsHorizontally && overlapsVertically, 'La leyenda de métricas se sobrepone a oportunidades técnicas').toBe(false);
+}
+
+async function assertKeyboardNavigation(page: Page): Promise<void> {
+  await page.getByLabel('Tenant activo').focus();
+  for (let index = 0; index < 8; index += 1) {
+    await page.keyboard.press('Tab');
+    const focus = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement)) return null;
+      const rect = element.getBoundingClientRect();
+      return { tag: element.tagName, width: rect.width, height: rect.height };
+    });
+    expect(focus, 'El foco de teclado salió del documento').not.toBeNull();
+    expect((focus?.width ?? 0) + (focus?.height ?? 0), 'El foco cayó en un control no visible').toBeGreaterThan(0);
   }
+}
 
-  await expect(page.locator('header')).toBeVisible({ timeout: 30_000 });
+async function authenticate(page: Page): Promise<void> {
+  await page.goto('/');
+  await expect(page.locator('input[type="email"], [aria-label="Tenant activo"]').first()).toBeVisible({ timeout: 30_000 });
+  const email = page.locator('input[type="email"]');
+  if (await email.isVisible().catch(() => false)) {
+    await email.fill(process.env['E2E_REAL_ADMIN_EMAIL']!);
+    await page.locator('input[type="password"]').fill(process.env['E2E_REAL_ADMIN_PASSWORD']!);
+    await page.getByRole('button', { name: /ingresar al panel/i }).click();
+
+    const mfaPrompt = page.getByText(/verificación mfa/i);
+    if (await mfaPrompt.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const code = process.env['E2E_REAL_MFA_CODE'];
+      if (code === undefined || code.trim() === '') {
+        throw new Error('La cuenta real exige MFA. Define E2E_REAL_MFA_CODE solo durante la ejecución local de esta suite.');
+      }
+      await page.locator('input[pattern="[0-9]{6}"]').fill(code);
+      await page.getByRole('button', { name: /ingresar al panel/i }).click();
+    }
+  }
+  await expect(page.getByLabel('Tenant activo')).toBeVisible({ timeout: 30_000 });
+}
+
+function getSharedPage(): Page {
+  if (sharedPage === undefined) throw new Error('La sesión compartida de Playwright no está inicializada.');
+  return sharedPage;
 }
 
 async function inspectTenantSelector(page: Page): Promise<void> {
@@ -114,12 +227,18 @@ async function inspectTenantSelector(page: Page): Promise<void> {
   expect(values.length).toBeGreaterThan(0);
 
   const originalValue = await selector.inputValue();
-  for (const option of values) {
-    if (option.value === originalValue) continue;
-    await selector.selectOption(option.value);
-    await expect(selector).toHaveValue(option.value, { timeout: 20_000 });
-    await waitForModuleToSettle(page);
-  }
+  const alternate = values.find((option) => option.value !== originalValue);
+  if (alternate === undefined) return;
+
+  await expect(selector).toBeEnabled();
+  await selector.selectOption(alternate.value);
+  await expect(selector).toHaveValue(alternate.value, { timeout: 20_000 });
+  await waitForModuleToSettle(page);
+
+  await expect(selector).toBeEnabled();
+  await selector.selectOption(originalValue);
+  await expect(selector).toHaveValue(originalValue, { timeout: 20_000 });
+  await waitForModuleToSettle(page);
 }
 
 async function openModule(page: Page, label: string): Promise<void> {
@@ -129,10 +248,19 @@ async function openModule(page: Page, label: string): Promise<void> {
     return;
   }
 
+  const mobilePrimaryButton = page.locator('nav[aria-label="Navegación móvil"]').getByRole('button', { name: label, exact: true });
+  if (await mobilePrimaryButton.count() > 0 && await mobilePrimaryButton.first().isVisible()) {
+    await mobilePrimaryButton.first().click();
+    return;
+  }
+
   const mobileMore = page.getByRole('button', { name: 'Más', exact: true });
   if (await mobileMore.isVisible()) {
     await mobileMore.click();
-    const dialogButton = page.getByRole('dialog', { name: 'Todos los módulos' }).getByRole('button', { name: label, exact: true });
+    const dialog = page.getByRole('dialog', { name: 'Todos los módulos' });
+    await expect(dialog).toBeVisible();
+    const dialogButton = dialog.locator('button').filter({ hasText: label }).first();
+    await expect(dialogButton).toBeVisible();
     await dialogButton.click();
     return;
   }
@@ -156,12 +284,17 @@ async function assertNoHorizontalOverflow(page: Page, module: string): Promise<v
   expect(overflow, `Desbordamiento horizontal en ${module}`).toBeLessThanOrEqual(2);
 }
 
-function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; readonly failures: string[] } {
+function observeReadOnlyPage(page: Page): {
+  readonly unsafeRequests: string[];
+  readonly failures: string[];
+  readonly unrecoveredAuthFailures: () => string[];
+} {
   const unsafeRequests: string[] = [];
   const failures: string[] = [];
+  const pendingAuthRecovery = new Map<string, number>();
 
   page.on('request', (request) => {
-    if (request.method() === 'GET' || isAllowedAuthMutation(request.url())) return;
+    if (request.method() === 'GET' || isAllowedReadOnlyMutation(request.url())) return;
     unsafeRequests.push(`${request.method()} ${request.url()}`);
   });
   page.on('requestfailed', (request) => {
@@ -171,18 +304,40 @@ function observeReadOnlyPage(page: Page): { readonly unsafeRequests: string[]; r
     }
   });
   page.on('response', (response) => {
+    const request = response.request();
+    const requestKey = `${request.method()} ${response.url()}`;
+    if (response.status() === 401 && !response.url().endsWith('/auth/refresh')) {
+      pendingAuthRecovery.set(requestKey, (pendingAuthRecovery.get(requestKey) ?? 0) + 1);
+      return;
+    }
+    if ((response.status() >= 200 && response.status() < 300) || response.status() === 304) {
+      const pending = pendingAuthRecovery.get(requestKey) ?? 0;
+      if (pending <= 1) pendingAuthRecovery.delete(requestKey);
+      else pendingAuthRecovery.set(requestKey, pending - 1);
+    }
     if (response.status() >= 500) {
-      failures.push(`${response.status()} ${response.request().method()} ${response.url()}`);
+      failures.push(`${response.status()} ${request.method()} ${response.url()}`);
     }
   });
   page.on('pageerror', (error) => {
     failures.push(`pageerror: ${error.message}`);
   });
+  page.on('console', (message) => {
+    if (message.type() === 'error' && !/status of 401 \(Unauthorized\)/i.test(message.text())) {
+      const location = message.location().url;
+      failures.push(`console.error: ${message.text()}${location === '' ? '' : ` (${location})`}`);
+    }
+  });
 
-  return { unsafeRequests, failures };
+  return {
+    unsafeRequests,
+    failures,
+    unrecoveredAuthFailures: () => Array.from(pendingAuthRecovery.entries()).flatMap(([requestKey, count]) =>
+      Array.from({ length: count }, () => `401 no recuperado ${requestKey}`)),
+  };
 }
 
-function isAllowedAuthMutation(url: string): boolean {
+function isAllowedReadOnlyMutation(url: string): boolean {
   const path = new URL(url).pathname;
   return path.endsWith('/auth/login')
     || path.endsWith('/auth/refresh')

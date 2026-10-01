@@ -16,6 +16,7 @@ export interface ValueRealizationCurrencySummary {
   readonly currency: string;
   readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   readonly estimatedMonthlySavings: number;
+  readonly approvedMonthlySavings?: number;
   readonly reportedMonthlySavings: number;
   readonly observedSavings: number;
   readonly projectedMonthlySavings: number;
@@ -89,6 +90,7 @@ export interface Budget { readonly id: string; readonly scope: BudgetScope; read
 export interface BudgetPerformance { readonly budget: Budget; readonly actualCost: number; readonly actualCostAvailable: boolean; readonly actualCostSource: 'COST_METRICS' | 'CLOSED_ALLOCATION' | 'NO_CLOSED_ALLOCATION'; readonly remainingBudget: number; readonly consumedPercent: number; readonly forecastCost?: number; readonly varianceAmount?: number; readonly variancePercent?: number; readonly health: BudgetHealth; readonly estimatedDepletionDate?: string; readonly conversionIssueCount?: number; }
 export interface BudgetsResponse { readonly success: true; readonly budgets: readonly Budget[]; }
 export interface CostDataOptions {
+  readonly reportingCurrency: string;
   readonly periods: readonly { readonly period: string; readonly metricCount: number }[];
   readonly latestPeriod?: string;
   readonly cloudAccounts: readonly { readonly id: string; readonly name: string; readonly provider: string }[];

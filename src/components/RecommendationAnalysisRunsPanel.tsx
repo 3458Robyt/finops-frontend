@@ -13,6 +13,7 @@ import {
   type RecommendationAnalysisRun,
 } from '../services/api';
 import RecommendationAnalysisRunDetail from './RecommendationAnalysisRunDetail';
+import RecommendationReadinessBlockers from './RecommendationReadinessBlockers';
 import {
   formatDate,
   formatDateTime,
@@ -53,6 +54,9 @@ export default function RecommendationAnalysisRunsPanel({
     () => runs.some((run) => run.status === 'PENDING' || run.status === 'RUNNING'),
     [runs],
   );
+  const reviewDraftCount = preview?.readinessReport.candidates.length === 0
+    ? preview.readinessReport.reviewCandidates?.length ?? 0
+    : 0;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -228,15 +232,22 @@ export default function RecommendationAnalysisRunsPanel({
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Metric label="Período disponible" value={`${formatDate(preview.periodStart)} – ${formatDate(preview.periodEnd)}`} />
               <Metric label="Recursos evaluables" value={String(preview.resourcesEvaluated)} />
-              <Metric label="Candidatos con evidencia" value={String(preview.candidatesFound)} />
+              <Metric label="Candidatos elegibles para IA" value={String(preview.readinessReport.candidates.length)} />
+              <Metric label="Borradores técnicos posibles en esta corrida" value={String(reviewDraftCount)} />
               <Metric label="Descartados o aplazados" value={String(preview.candidatesSkipped)} />
             </div>
             <p className="mt-4 text-sm font-bold text-zinc-300">{preview.readinessReport.summary}</p>
-            {preview.candidatesFound === 0 && (
+            {preview.readinessReport.candidates.length === 0 && (
               <Notice tone="warning">
-                No hay datos suficientes para llamar a la IA. La corrida registrará los motivos sin generar recomendaciones.
+                {reviewDraftCount > 0
+                  ? 'No hay recomendaciones publicables. La corrida podrá generar y auditar borradores de revisión técnica, sin ahorro cuantificado ni autorización operativa.'
+                  : 'No hay candidatos elegibles ni borradores técnicos seguros. La corrida registrará los bloqueos y se abstendrá de llamar a la IA.'}
               </Notice>
             )}
+            <RecommendationReadinessBlockers
+              blocked={preview.readinessReport.blocked}
+              reviewCandidateCount={reviewDraftCount}
+            />
           </>
         )}
         {workerAvailable === false && (

@@ -26,6 +26,7 @@ export interface CostOpportunity {
   readonly conversionStatus?: 'NOT_REQUIRED' | 'CONVERTED' | 'MISSING_RATE' | 'UNSUPPORTED_CURRENCY';
   readonly evidence?: unknown;
   readonly detectedAt: string;
+  readonly isStale?: boolean;
 }
 /** @deprecated Use CostOpportunity. */
 export type CostAnomaly = CostOpportunity;

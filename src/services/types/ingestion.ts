@@ -6,6 +6,7 @@ export type IngestionSourceType =
   | 'TECHNICAL_METRIC'
   | 'AGENT_METRIC';
 export type IngestionJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'SKIPPED';
+export type IngestionDataOutcome = 'DATA_WRITTEN' | 'NO_DATA' | 'PARTIAL' | 'INVALID_CONFIGURATION' | 'PROVIDER_ERROR';
 export type MetricProjectionStatus = 'NOT_REQUIRED' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type IngestionMetricCoverageStatus = 'UNKNOWN' | 'COVERED' | 'PARTIAL' | 'NO_DATA' | 'FAILED';
 export type DataQualityStatus = 'PASSED' | 'WARNING' | 'FAILED';
@@ -14,6 +15,7 @@ export interface IngestionJobHistoryItem {
   readonly cloudConnectionId: string;
   readonly sourceType: IngestionSourceType;
   readonly status: IngestionJobStatus;
+  readonly dataOutcome?: IngestionDataOutcome;
   readonly projectionStatus?: MetricProjectionStatus;
   readonly projectionAttempts?: number;
   readonly projectionMaxAttempts?: number;
@@ -70,6 +72,12 @@ export interface QueueTechnicalBackfillInput {
   readonly cloudConnectionId: string;
   readonly lookbackDays?: number;
   readonly windowHours?: number;
+  readonly metricFilter?: Readonly<{
+    readonly namespace: string;
+    readonly metricName: 'CpuUtilization' | 'MemoryUtilization';
+    readonly resourceId: string;
+    readonly regionId: string;
+  }>;
 }
 export interface QueueTechnicalBackfillResponse {
   readonly success: true;

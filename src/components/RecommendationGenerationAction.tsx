@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { shareInFlightRequest } from '../services/shareInFlightRequest';
 import {
   cancelRecommendationAnalysis,
   fetchRecommendationAnalysisPreview,
@@ -47,7 +48,7 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
 
   useEffect(() => {
     if (!canManage) return undefined;
-    const controller = new AbortController();
+    let active = true;
     setError(null);
     setPreview(null);
     setPreviewError(null);
@@ -56,31 +57,31 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
     // La vista previa es informativa y puede consultar muchos datos. No debe
     // bloquear la lectura de corridas ni, sobre todo, el envío de la solicitud
     // POST que deja el análisis en cola.
-    void fetchRecommendationAnalysisRuns(token, { signal: controller.signal })
+    void shareInFlightRequest(`recommendation-analysis-runs:${token}`, () => fetchRecommendationAnalysisRuns(token))
       .then((runsResponse) => {
-        if (!controller.signal.aborted) {
+        if (active) {
           setRun(runsResponse.runs[0] ?? null);
           setWorkerAvailable(runsResponse.worker?.available ?? null);
         }
       })
       .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) setError(readError(requestError));
+        if (active) setError(readError(requestError));
       });
 
-    void fetchRecommendationAnalysisPreview(token, { signal: controller.signal })
+    void shareInFlightRequest(`recommendation-analysis-preview:${token}`, () => fetchRecommendationAnalysisPreview(token))
       .then((previewResponse) => {
-        if (!controller.signal.aborted) setPreview(previewResponse.preview);
+        if (active) setPreview(previewResponse.preview);
       })
       .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) {
+        if (active) {
           setPreviewError(`La vista previa no está disponible todavía: ${readPreviewError(requestError)} Puedes iniciar el análisis; la compuerta volverá a validar la evidencia.`);
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setPreviewLoading(false);
+        if (active) setPreviewLoading(false);
       });
 
-    return () => controller.abort();
+    return () => { active = false; };
   }, [canManage, token]);
 
   useEffect(() => {
@@ -160,9 +161,9 @@ export default function RecommendationGenerationAction({ role, onCompleted, onOp
             Primero se calculan costos, consumo y métricas. La IA genera y un auditor independiente revisa cada resultado antes de publicarlo.
           </p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold text-zinc-400">
-            <span>{previewLoading ? 'Consultando evidencia…' : `${preview?.candidatesFound ?? 0} oportunidades candidatas`}</span>
+            <span>{previewLoading ? 'Consultando evidencia…' : `Candidatos elegibles para IA: ${preview?.readinessReport.candidates.length ?? 0}`}</span>
             {preview !== null && <span>{preview.resourcesEvaluated} recursos evaluados</span>}
-            {preview !== null && preview.candidatesSkipped > 0 && <span>{preview.candidatesSkipped} sin evidencia suficiente</span>}
+            {preview !== null && preview.candidatesSkipped > 0 && <span>{preview.candidatesSkipped} descartados o aplazados</span>}
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">

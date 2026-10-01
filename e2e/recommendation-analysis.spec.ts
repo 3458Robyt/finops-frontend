@@ -6,11 +6,24 @@ test('opera una corrida, muestra descartes, abre la recomendación y aísla el t
 
   await page.getByRole('button', { name: /agente ia/i }).click();
   await expect(page.getByText(/hay evidencia auditable/i)).toBeVisible();
+  const blockers = page.getByTestId('readiness-blocker-summary');
+  await expect(blockers).toContainText('3 candidatos no superan la compuerta');
+  await expect(blockers).toContainText('Se priorizarán hasta 1 borrador informativo');
+  await expect(blockers.getByRole('listitem').filter({ hasText: 'Cobertura insuficiente.' })).toContainText('2 candidatos');
+  await expect(blockers).toContainText('falta una métrica de memoria');
+  await blockers.getByText('web-prod-01', { exact: false }).click();
+  await expect(blockers).toContainText('Última métrica:');
+  await expect(blockers).toContainText('Siguiente paso:');
+  await expect(blockers).toContainText('plugin OCI');
   await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
   await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
   await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText(/evidencia técnica suficiente/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Borradores de revisión técnica' })).toBeVisible();
+  await expect(page.getByText('Validar telemetría de memoria en web-prod-02')).toBeVisible();
+  await expect(page.getByText('Ahorro: No cuantificado')).toBeVisible();
+  await expect(page.getByText(/no son recomendaciones publicadas/i)).toBeVisible();
   await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
   await expect(page.getByRole('heading', { name: /oportunidad auditada de prueba/i })).toBeVisible();
 
@@ -27,6 +40,16 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
   await page.getByRole('button', { name: /asistente ia/i }).click();
   await expect(page.getByText(/puedo ayudarte a interpretar los costos/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
+});
+
+test('no anuncia borradores técnicos en una corrida que sí tiene candidatos publicables', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { readinessHasPublicCandidate: true });
+  await login(page);
+  await page.getByRole('button', { name: /agente ia/i }).click();
+
+  const draftMetric = page.getByText('Borradores técnicos posibles en esta corrida').locator('xpath=..');
+  await expect(draftMetric).toContainText('0');
+  await expect(page.getByTestId('readiness-blocker-summary')).not.toContainText('Se priorizarán hasta');
 });
 
 test('el chat responde en español y la generación directa conserva la auditoría', async ({ page }) => {
@@ -47,6 +70,97 @@ test('el chat responde en español y la generación directa conserva la auditor�
   await page.getByRole('button', { name: /previsualizar recomendaciones ia/i }).click();
   await expect(page.getByText(/previsualizaci[oó]n de recomendaciones ia/i)).toBeVisible();
   await expect(page.getByText(/oportunidad validada por auditor/i)).toBeVisible();
+});
+
+test('explica un rechazo de recomendaciones sin exponer el identificador diagnóstico', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { recommendationsRejected: true });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+  await page.getByRole('button', { name: /previsualizar recomendaciones ia/i }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El auditor de IA rechazó las recomendaciones generadas.');
+  await expect(error).toContainText('Puntaje auditor: 35/100.');
+  await expect(error).toContainText('Motivos: No se puede comprobar el ahorro propuesto.');
+  await expect(error).not.toContainText('audit-tenant-confidential-2026-09-25');
+});
+
+test('explica el rechazo del auditor al plan sin filtrar el identificador diagnóstico', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { planRejected: true });
+  await login(page);
+
+  await page.getByRole('button', { name: /agente ia/i }).click();
+  await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
+  await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
+  await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
+  await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
+  await page.getByRole('button', { name: /revisar plan de ejecucion/i }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El auditor de IA rechazó el plan de ejecución');
+  await expect(error).toContainText('Puntaje del auditor: 62/100');
+  await expect(error).toContainText('Motivos: La acción propuesta no coincide con la evidencia técnica.');
+  await expect(error).toContainText('Comprobaciones fallidas: reversibilidad: Falta un paso de reversión.');
+  await expect(error).toContainText('No se guardó.');
+  await expect(error).not.toContainText('private-diagnostic-id');
+});
+
+test('explica el timeout del plan y deja disponible el reintento', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { planTimeout: true });
+  await login(page);
+
+  await page.getByRole('button', { name: /agente ia/i }).click();
+  await page.getByRole('button', { name: /analizar datos disponibles/i }).click();
+  await expect(page.getByText(/corrida quedó en cola/i)).toBeVisible();
+  await expect(page.getByText('Completada', { exact: true }).first()).toBeVisible({ timeout: 8_000 });
+  await page.getByRole('button', { name: /oportunidad auditada de prueba/i }).click();
+  const reviewButton = page.getByRole('button', { name: /revisar plan de ejecucion/i });
+  await reviewButton.click();
+
+  await expect(page.getByRole('alert')).toContainText('El plan tardó más de lo permitido. No se guardó; puedes volver a intentarlo.');
+  await expect(reviewButton).toBeEnabled();
+  await expect(page.getByText('Generando plan auditado...', { exact: true })).toBeHidden();
+});
+
+test('marca oportunidades obsoletas y actualiza el análisis desde la consola', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { staleOpportunities: true });
+  await login(page);
+  await page.getByRole('button', { name: 'Consola Técnica', exact: true }).click();
+
+  const staleRow = page.getByRole('row').filter({ hasText: 'Compute desactualizado' });
+  await expect(page.getByText(/oportunidades se calcularon antes de los datos de costos más recientes/i)).toBeVisible();
+  await expect(staleRow).toContainText('Requiere recalcular');
+  await expect(staleRow).not.toContainText('14.0%');
+
+  const recomputeRequest = page.waitForRequest((request) =>
+    request.method() === 'POST' && request.url().includes('/analytics/recompute'));
+  await page.getByRole('button', { name: 'Actualizar análisis', exact: true }).click();
+  await recomputeRequest;
+
+  await expect(page.getByText(/oportunidades se calcularon antes de los datos de costos más recientes/i)).toBeHidden();
+  await expect(page.getByRole('row').filter({ hasText: 'Compute actualizado' })).toContainText('14.0%');
+});
+
+test('conserva y permite reintentar una consulta tras una indisponibilidad temporal de IA', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { chatFailures: 1 });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const query = '¿Cuál es el mayor costo del periodo?';
+  const input = page.getByPlaceholder(/escribe tu consulta/i);
+  await input.fill(query);
+  await page.getByRole('button', { name: 'send' }).click();
+
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('El servicio de IA no está disponible temporalmente');
+  await expect(error.getByRole('button', { name: 'Reintentar consulta' })).toBeEnabled();
+  await expect(page.getByText('Procesando IA', { exact: true })).toBeHidden();
+  await expect(page.getByText(query, { exact: true })).toHaveCount(1);
+
+  await error.getByRole('button', { name: 'Reintentar consulta' }).click();
+  await expect(page.getByTestId('assistant-markdown').last()).toContainText('La mayor oportunidad');
+  await expect(page.getByText(query, { exact: true })).toHaveCount(1);
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 for (const viewport of [
@@ -126,6 +240,18 @@ test('mantiene la leyenda de métricas dentro del flujo y permite identificar re
   await expect(page.getByTestId('technical-metric-legend').getByText('web-prod-08', { exact: false })).toBeVisible();
 });
 
+test('mantiene separados los streams de dimensiones de un recurso seleccionado', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.getByRole('button', { name: 'Métricas Técnicas', exact: true }).click();
+  await page.getByLabel('Recurso').selectOption('resource-external-01');
+
+  const legend = page.getByTestId('technical-metric-legend');
+  await expect(legend).toContainText('2 series');
+  await expect(legend).toContainText('dim aaaaaaaa');
+  await expect(legend).toContainText('dim bbbbbbbb');
+});
+
 async function login(page: Page) {
   await page.goto('/');
   await page.locator('input[type="email"]').fill('user@example.com');
@@ -133,9 +259,22 @@ async function login(page: Page) {
   await page.getByRole('button', { name: /ingresar al panel/i }).click();
 }
 
-async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
+async function mockApi(
+  page: Page,
+  role: 'ADMIN' | 'CLIENT_VIEWER',
+  options: {
+    readonly chatFailures?: number;
+    readonly staleOpportunities?: boolean;
+    readonly planRejected?: boolean;
+    readonly planTimeout?: boolean;
+    readonly recommendationsRejected?: boolean;
+    readonly readinessHasPublicCandidate?: boolean;
+  } = {},
+) {
   let queued = false;
   let polls = 0;
+  let chatRequests = 0;
+  let analyticsRecomputed = false;
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -157,6 +296,14 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
       });
     }
     if (path.endsWith('/ai/chat')) {
+      chatRequests += 1;
+      if (chatRequests <= (options.chatFailures ?? 0)) {
+        return json(route, {
+          success: false,
+          error: 'El servicio de IA no está disponible temporalmente (HTTP 503). Intenta nuevamente en unos minutos.',
+          code: 'PROVIDER_UNAVAILABLE',
+        }, 503);
+      }
       return json(route, {
         success: true,
         answer: '## Resumen de costos\n\n**La mayor oportunidad** es reducir el costo de la instancia con baja utilización.\n\n- La evidencia técnica está disponible para revisión.\n\n<script>alert("no ejecutar")</script>\n\n![imagen no permitida](https://example.invalid/evidence.png)',
@@ -171,6 +318,20 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
     }
     if (path.endsWith('/ai/recommendations/generate')) {
       const body = request.postDataJSON() as { readonly persist?: boolean };
+      if (options.recommendationsRejected) {
+        return json(route, {
+          success: false,
+          error: 'Las recomendaciones generadas no superaron la auditoría.',
+          code: 'AI_AUDIT_REJECTED',
+          diagnosticId: 'audit-tenant-confidential-2026-09-25',
+          audit: {
+            verdict: 'REJECTED',
+            score: 35,
+            blockingIssues: ['No se puede comprobar el ahorro propuesto.'],
+            requiredChanges: ['Aportar evidencia verificable de costos.'],
+          },
+        }, 409);
+      }
       return json(route, {
         success: true,
         persisted: body.persist === true,
@@ -218,12 +379,19 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
       return json(route, { success: true, recommendations: [], meta: { count: 0, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
     }
     if (path.endsWith('/analytics/opportunities')) {
+      if (options.staleOpportunities && !analyticsRecomputed) {
+        return json(route, { success: true, opportunities: [costOpportunity(true)] });
+      }
+      if (options.staleOpportunities) {
+        return json(route, { success: true, opportunities: [costOpportunity(false)] });
+      }
       return json(route, { success: true, opportunities: [] });
     }
     if (path.endsWith('/analytics/efficiency-insights')) {
       return json(route, { success: true, insights: [] });
     }
     if (path.endsWith('/analytics/recompute')) {
+      analyticsRecomputed = true;
       return json(route, { success: true, anomalies: [], usageInsights: [] });
     }
     if (path.endsWith('/costs')) {
@@ -303,12 +471,22 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
           periodEnd: '2026-06-01T00:00:00.000Z',
           evidenceHash: tenantTwo ? 'tenant-2-hash' : 'tenant-1-hash',
           resourcesEvaluated: 1,
-          candidatesFound: 1,
-          candidatesSkipped: 1,
+          candidatesFound: 3,
+          candidatesSkipped: 3,
           readinessReport: {
             summary: 'Hay evidencia auditable.',
-            candidates: [],
-            blocked: [{ id: 'blocked-1', reasons: ['Cobertura insuficiente.'] }],
+            candidates: options.readinessHasPublicCandidate
+              ? [{ id: 'candidate-ready', readiness: 'GENERATABLE', reasons: [] }]
+              : [],
+            reviewCandidates: [{ id: 'blocked-3', resourceId: 'ocid1.instance.oc1..exampleid0005', reasons: ['Falta memoria.'] }],
+            blocked: [
+              { id: 'blocked-1', reasons: ['Cobertura insuficiente.'] },
+              { id: 'blocked-2', reasons: ['Cobertura insuficiente.'] },
+              { id: 'blocked-3', resourceId: 'ocid1.instance.oc1..exampleid0005', resourceName: 'web-prod-01',
+                reasons: ['Reglas deterministicas detectaron bloqueos: MISSING_MEMORY_METRIC.'],
+                evidencePeriod: { costStart: '2026-05-01T00:00:00.000Z', costEnd: '2026-06-01T00:00:00.000Z' },
+                evidenceIssues: [{ code: 'MISSING_MEMORY_METRIC', action: 'Comprobar la emisión de memoria y el plugin OCI.' }] },
+            ],
           },
         },
       });
@@ -324,6 +502,28 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
     }
     if (path.includes('/ai/analysis-runs/')) {
       return json(route, { success: true, run: polls >= 1 ? completedRun() : pendingRun(), worker: workerStatus() });
+    }
+    if (path.endsWith('/recommendations/rec-1/execution-plan') && request.method() === 'POST' && options.planRejected) {
+      return json(route, {
+        success: false,
+        error: 'Execution plan generation rejected',
+        code: 'AI_AUDIT_REJECTED',
+        diagnosticId: 'private-diagnostic-id',
+        audit: {
+          verdict: 'REJECTED',
+          score: 62,
+          blockingIssues: ['La acción propuesta no coincide con la evidencia técnica.'],
+          requiredChanges: ['Incluir un paso de reversión antes de ejecutar.'],
+          failedChecks: [{ name: 'reversibilidad', notes: 'Falta un paso de reversión.' }],
+        },
+      }, 409);
+    }
+    if (path.endsWith('/recommendations/rec-1/execution-plan') && request.method() === 'POST' && options.planTimeout) {
+      return json(route, {
+        success: false,
+        error: 'La generación del plan excedió el límite total de 120 segundos.',
+        code: 'PROVIDER_TIMEOUT',
+      }, 504);
     }
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
       return json(route, { success: true, executionPlan: null });
@@ -367,6 +567,24 @@ async function mockApi(page: Page, role: 'ADMIN' | 'CLIENT_VIEWER') {
 
     return json(route, { success: true, recommendations: [], meta: { count: 0, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
   });
+}
+
+function costOpportunity(isStale: boolean) {
+  return {
+    id: isStale ? 'stale-opportunity' : 'fresh-opportunity',
+    serviceName: isStale ? 'Compute desactualizado' : 'Compute actualizado',
+    periodStart: '2026-08-01T00:00:00.000Z',
+    periodEnd: '2026-09-01T00:00:00.000Z',
+    baselineCost: 1000,
+    observedCost: 1140,
+    deltaAmount: 140,
+    deltaPercent: 14,
+    severity: 'MEDIUM',
+    status: 'OPEN',
+    explanation: 'Variación del costo mensual.',
+    detectedAt: '2026-09-01T00:00:00.000Z',
+    isStale,
+  };
 }
 
 function session(role: 'ADMIN' | 'CLIENT_VIEWER', tenantId: string, accessToken: string) {
@@ -428,6 +646,22 @@ function completedRun() {
       outcome: 'PUBLISHED',
       reasons: ['Evidencia técnica suficiente.'],
       recommendationId: 'rec-1',
+    }],
+    candidateAudits: [{
+      candidateId: 'resource-2',
+      draftIndex: 0,
+      auditVerdict: 'APPROVED',
+      auditScore: 93,
+      auditChecks: [],
+      blockingIssues: [],
+      requiredChanges: [],
+      finalDisposition: 'REVIEW_DRAFT',
+      draft: {
+        title: 'Validar telemetría de memoria en web-prod-02',
+        description: 'Confirmar en Monitoring si la métrica de memoria está habilitada y vinculada al recurso antes de evaluar capacidad.',
+        estimatedMonthlySavings: undefined,
+        evidence: { requiresTechnicalValidation: true, operationalAuthorization: 'NONE' },
+      },
     }],
     recommendations: [{
       recommendationId: 'rec-1',
@@ -519,34 +753,42 @@ function technicalCoverage() {
 
 function technicalSeries(url: URL) {
   const statistic = url.searchParams.get('statistic') ?? 'MEAN';
-  return {
-    success: true,
-    series: technicalResources().map((resource, index) => ({
+  const requestedResource = url.searchParams.get('externalResourceId');
+  const resources = technicalResources().filter((resource) => requestedResource === null || resource.externalResourceId === requestedResource);
+  const points = resources.flatMap((resource, index) => {
+    const dimensionHashes = requestedResource === null
+      ? [`dimension-${index + 1}`]
+      : ['aaaaaaaa11111111', 'bbbbbbbb22222222'];
+    return dimensionHashes.map((dimensionsHash, streamIndex) => ({
       bucketStart: '2026-07-23T12:00:00.000Z',
       externalResourceId: resource.externalResourceId,
       cloudResourceId: resource.cloudResourceId,
       providerNamespace: 'oci_computeagent',
       regionId: resource.regionId,
-      dimensionsHash: `dimension-${index + 1}`,
+      dimensionsHash,
       metricName: 'cpu_utilization',
       metricUnit: 'Percent',
       statistic,
-      value: 10 + index,
+      value: 10 + index + (streamIndex * 5),
       aggregationSemantics: 'MEAN_OF_NATIVE',
       sourceGranularitiesSeconds: [1800],
-      avg: 10 + index,
-      min: 8 + index,
-      max: 12 + index,
-      latest: 10 + index,
+      avg: 10 + index + (streamIndex * 5),
+      min: 8 + index + (streamIndex * 5),
+      max: 12 + index + (streamIndex * 5),
+      latest: 10 + index + (streamIndex * 5),
       sampleCount: 2,
       minSampledAt: '2026-07-23T11:30:00.000Z',
       maxSampledAt: '2026-07-23T12:00:00.000Z',
       latestSampledAt: '2026-07-23T12:00:00.000Z',
-    })),
+    }));
+  });
+  return {
+    success: true,
+    series: points,
     meta: {
       hasMore: false,
-      returnedPoints: 8,
-      totalSamples: 16,
+      returnedPoints: points.length,
+      totalSamples: points.length * 2,
       queryMs: 4,
       bucket: '30m',
       pageSize: 1000,
