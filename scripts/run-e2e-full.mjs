@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { access, unlink } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 
@@ -62,9 +63,12 @@ async function isReachable(url) {
 // The TypeScript backend startup compiles the full composition root locally;
 // keep the E2E timeout above the observed cold-start ceiling without changing
 // the production runtime.
-async function waitFor(url, timeoutMs = 180_000) {
+async function waitFor(url, child, timeoutMs = 180_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`Service process exited before becoming ready (exit=${child.exitCode}, signal=${child.signalCode}).`);
+    }
     if (await isReachable(url)) return;
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 500));
   }
@@ -151,6 +155,9 @@ const migrationEnv = {
 const backendEnv = {
   ...process.env,
   DATABASE_URL: testDatabaseUrl,
+  // Local test-only secrets are generated per run; never inherit deployment credentials.
+  JWT_SECRET: randomBytes(48).toString('base64url'),
+  CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
   // Browser E2E mocks AI routes; keep backend startup independent of provider secrets and network.
   AI_API_KEY: 'e2e-disabled-provider-key',
   AI_BASE_URL: 'http://127.0.0.1:1/v1',
@@ -189,9 +196,9 @@ try {
   await run(command('npx'), ['prisma', 'migrate', 'deploy'], { cwd: backendDir, env: migrationEnv });
   await run(command('npm'), ['run', 'test:fixtures:create'], { cwd: backendDir, env: fixtureEnv });
   backend = start(command('npx'), ['tsx', 'src/index.ts'], backendEnv, backendDir);
-  await waitFor(`${backendUrl}/health`);
+  await waitFor(`${backendUrl}/health`, backend);
   frontend = start(command('npx'), ['vite', '--host', '127.0.0.1', '--port', String(frontendPort)], frontendEnv, resolve('.'));
-  await waitFor(`${frontendUrl}/`);
+  await waitFor(`${frontendUrl}/`, frontend);
   // The database-backed specs intentionally share one isolated fixture tenant.
   // Run them serially so concurrent analysis commands cannot race on the same durable job.
   await run(command('npx'), ['playwright', 'test', '--workers=1', '--grep-invert', '@role-matrix'], { cwd: resolve('.') , env: frontendEnv });
@@ -200,7 +207,7 @@ try {
   // isolated API process and limiter bucket rather than weakening auth.
   await stop(backend);
   backend = start(command('npx'), ['tsx', 'src/index.ts'], backendEnv, backendDir);
-  await waitFor(`${backendUrl}/health`);
+  await waitFor(`${backendUrl}/health`, backend);
   await run(command('npx'), ['playwright', 'test', 'e2e/role-access.spec.ts', '--workers=1', '--grep', '@role-matrix'], { cwd: resolve('.'), env: frontendEnv });
 } finally {
   await stop(frontend);
