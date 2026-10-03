@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -16,6 +17,14 @@ const forbidden = tracked.filter((file) => {
 if (forbidden.length > 0) {
   console.error('Release hygiene check failed. Forbidden tracked artifacts:');
   forbidden.forEach((file) => console.error(`- ${file}`));
+  process.exit(1);
+}
+
+const betaNginx = readFileSync('nginx.beta.conf', 'utf8');
+if (!/resolver\s+127\.0\.0\.11\b[^;]*;/m.test(betaNginx)
+  || !/server\s+api:3000\s+resolve\s*;/m.test(betaNginx)
+  || !/proxy_pass\s+http:\/\/finops_api\s*;/m.test(betaNginx)) {
+  console.error('Release hygiene check failed: beta proxy must resolve the API service through Docker DNS.');
   process.exit(1);
 }
 
