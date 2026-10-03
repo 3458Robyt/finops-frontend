@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthSession } from '../../auth/authSession';
-import { disableMfa, fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
+import { beginMfaSetup, disableMfa, fetchMfaStatus, regenerateMfaRecoveryCodes } from '../../services/api';
 import MfaRecoveryCodesDialog from './MfaRecoveryCodesDialog';
 import MfaSetupFlow from './MfaSetupFlow';
 
@@ -13,7 +13,9 @@ export default function MfaSecurityPanel() {
   const [code, setCode] = useState('');
   const [removeCode, setRemoveCode] = useState('');
   const [removeRequested, setRemoveRequested] = useState(false);
-  const [setupRequested, setSetupRequested] = useState(false);
+  const [setup, setSetup] = useState<{ readonly secret: string; readonly otpauthUri: string } | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
+  const setupRequestInFlight = useRef(false);
   const [codes, setCodes] = useState<readonly string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -76,6 +78,23 @@ export default function MfaSecurityPanel() {
     }
   };
 
+  const startSetup = async () => {
+    if (setupRequestInFlight.current) return;
+    setupRequestInFlight.current = true;
+    setSettingUp(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await beginMfaSetup(token);
+      setSetup({ secret: response.secret, otpauthUri: response.otpauthUri });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No fue posible iniciar la configuración MFA.');
+    } finally {
+      setupRequestInFlight.current = false;
+      setSettingUp(false);
+    }
+  };
+
   return (
     <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
       <div className="flex items-start justify-between gap-4">
@@ -114,19 +133,22 @@ export default function MfaSecurityPanel() {
           </div>
         </div>
       )}
-      {enabled === false && !setupRequested && (
-        <button type="button" onClick={() => { setSetupRequested(true); setError(null); setMessage(null); }} className="ui-button ui-button-primary text-xs">
-          Activar MFA
+      {enabled === false && setup === null && (
+        <button type="button" disabled={settingUp} onClick={() => void startSetup()} className="ui-button ui-button-primary text-xs disabled:opacity-50">
+          {settingUp ? 'Generando configuración…' : 'Activar MFA'}
         </button>
       )}
-      {setupRequested && (
+      {setup !== null && (
         <MfaSetupFlow
+          token={token}
+          secret={setup.secret}
+          otpauthUri={setup.otpauthUri}
           onCompleted={() => {
             setEnabled(true);
             setRemaining(10);
             setMessage('MFA quedó activado. Guarda tus códigos de recuperación.');
           }}
-          onCancel={() => setSetupRequested(false)}
+          onCancel={() => setSetup(null)}
         />
       )}
       {error !== null && <p className="text-xs text-red-400">{error}</p>}
