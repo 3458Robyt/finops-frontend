@@ -120,6 +120,7 @@ test('el administrador ve los requisitos de Gmail SMTP y el secreto nunca se pid
   await expect(page.getByRole('status')).toContainText('EMAIL_PASSWORD');
   await expect(page.getByRole('status')).toContainText('contraseña de aplicación de Google');
   await expect(page.getByRole('status')).toContainText('verificación en dos pasos');
+  await expect(page.getByRole('status')).toContainText('SMTP_HOST=smtp.gmail.com');
   await expect(page.getByRole('button', { name: 'Encolar prueba de correo', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Verificar SMTP', exact: true })).toBeDisabled();
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
