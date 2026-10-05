@@ -48,7 +48,7 @@ export function AgentSettingsChannels(props: AgentSettingsChannelsProps) {
 
       {canConfigureAgent ? <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
         <div className="space-y-4">
-          <EmailPanel email={props.emailTestTarget} saving={saving} onEmailChange={props.onEmailChange} onSend={props.onSendEmail} />
+          <EmailPanel email={props.emailTestTarget} saving={saving} emailEnabled={outboundStatus?.email.enabled === true} onEmailChange={props.onEmailChange} onSend={props.onSendEmail} />
           <TelegramPanel links={props.telegramLinks} form={props.telegramForm} saving={saving} onFormChange={props.onTelegramFormChange} onCreate={props.onCreateTelegram} onDisable={props.onDisableTelegram} onTest={props.onTestTelegram} />
         </div>
         <DeliveryTable deliveries={outboundDeliveries} />
@@ -57,8 +57,8 @@ export function AgentSettingsChannels(props: AgentSettingsChannelsProps) {
   );
 }
 
-function EmailPanel({ email, saving, onEmailChange, onSend }: { readonly email: string; readonly saving: boolean; readonly onEmailChange: (value: string) => void; readonly onSend: () => void }) {
-  return <section className="ui-surface space-y-4 p-5"><SectionHeader title="Correo SMTP" eyebrow="Prueba manual" icon="mail" /><Input label="Email destino opcional" value={email} onChange={onEmailChange} /><button onClick={onSend} disabled={saving} className="ui-button ui-button-primary w-full disabled:opacity-60">Enviar prueba de correo</button></section>;
+function EmailPanel({ email, saving, emailEnabled, onEmailChange, onSend }: { readonly email: string; readonly saving: boolean; readonly emailEnabled: boolean; readonly onEmailChange: (value: string) => void; readonly onSend: () => void }) {
+  return <section className="ui-surface space-y-4 p-5"><SectionHeader title="Correo SMTP" eyebrow="Prueba manual" icon="mail" /><Input label="Email destino opcional" value={email} onChange={onEmailChange} /><button onClick={onSend} disabled={saving || !emailEnabled} className="ui-button ui-button-primary w-full disabled:opacity-60">Enviar prueba de correo</button>{!emailEnabled && <p className="text-xs leading-relaxed text-zinc-400">Gmail/Workspace: configura <code>EMAIL_ADDRESS</code> y una contraseña de aplicación en <code>EMAIL_PASSWORD</code> en el entorno privado; luego reinicia la API y el worker. No uses la contraseña habitual ni la compartas en la interfaz.</p>}</section>;
 }
 
 function TelegramPanel({ links, form, saving, onFormChange, onCreate, onDisable, onTest }: { readonly links: readonly TelegramChatLink[]; readonly form: AgentSettingsChannelsProps['telegramForm']; readonly saving: boolean; readonly onFormChange: AgentSettingsChannelsProps['onTelegramFormChange']; readonly onCreate: () => void; readonly onDisable: (linkId: string) => void; readonly onTest: (linkId: string) => void }) {

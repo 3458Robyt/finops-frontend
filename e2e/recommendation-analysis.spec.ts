@@ -111,15 +111,28 @@ test('el cliente puede gestionar sus preferencias de mensajería, pero no la con
   await expect(page.getByRole('heading', { name: 'Chats vinculados', exact: true })).toHaveCount(0);
 });
 
-test('el administrador ve cómo activar SMTP, pero el secreto nunca se pide en la interfaz', async ({ page }) => {
+test('el administrador ve los requisitos de Gmail SMTP y el secreto nunca se pide en la interfaz', async ({ page }) => {
   await mockApi(page, 'ADMIN');
   await login(page);
   await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
 
   await expect(page.getByRole('status')).toContainText('EMAIL_ADDRESS');
   await expect(page.getByRole('status')).toContainText('EMAIL_PASSWORD');
+  await expect(page.getByRole('status')).toContainText('contraseña de aplicación de Google');
+  await expect(page.getByRole('status')).toContainText('verificación en dos pasos');
+  await expect(page.getByRole('button', { name: 'Encolar prueba de correo', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Verificar SMTP', exact: true })).toBeDisabled();
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
+test('el panel del agente no permite encolar correo si SMTP no está configurado', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Agente IA', exact: true }).click();
+  await page.getByRole('button', { name: /Canales/ }).click();
+
+  await expect(page.getByRole('button', { name: 'Enviar prueba de correo', exact: true })).toBeDisabled();
+  await expect(page.getByText(/contraseña de aplicación/)).toBeVisible();
 });
 
 test('el historial de chat sobrevive al cambio de módulo durante la misma sesión', async ({ page }) => {
