@@ -111,6 +111,17 @@ test('el cliente puede gestionar sus preferencias de mensajería, pero no la con
   await expect(page.getByRole('heading', { name: 'Chats vinculados', exact: true })).toHaveCount(0);
 });
 
+test('el administrador ve cómo activar SMTP, pero el secreto nunca se pide en la interfaz', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+
+  await expect(page.getByRole('status')).toContainText('EMAIL_ADDRESS');
+  await expect(page.getByRole('status')).toContainText('EMAIL_PASSWORD');
+  await expect(page.getByRole('button', { name: 'Verificar SMTP', exact: true })).toBeDisabled();
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
 test('el historial de chat sobrevive al cambio de módulo durante la misma sesión', async ({ page }) => {
   await mockApi(page, 'CLIENT_VIEWER');
   await login(page);

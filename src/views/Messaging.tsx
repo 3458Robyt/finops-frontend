@@ -163,6 +163,7 @@ export default function Messaging({ role, activeTenant }: MessagingProps) {
           <ChannelCard title="Telegram" icon="send" enabled={status?.telegram.enabled ?? false} detail={`${status?.telegram.activeLinks ?? 0} chats activos`} />
           <ChannelCard title="Correo SMTP" icon="mail" enabled={status?.email.enabled ?? false} detail={status?.email.smtpConfigured ? 'Credenciales cargadas' : 'Pendiente de configuración'} />
         </section>
+        {status?.email.enabled === false && <p role="status" className="ui-surface px-5 py-4 text-sm leading-relaxed text-zinc-300">Para activar el correo, configura <code>EMAIL_ADDRESS</code> y <code>EMAIL_PASSWORD</code> en las variables del servidor y reinicia la API y el worker de notificaciones. Gmail y Yahoo usan su servidor automático; otros proveedores pueden requerir <code>SMTP_HOST</code> y una contraseña SMTP o de aplicación. No pegues la contraseña en esta pantalla.</p>}
         <section className="grid gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
           <div className="ui-surface space-y-4 p-5">
             <div><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Diagnóstico</p><h2 className="mt-1 text-lg font-black text-white">Probar canales</h2></div>
