@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import type { ApiRole } from '../src/components/navigation';
 
 test('opera una corrida, muestra descartes, abre la recomendación y aísla el tenant', async ({ page }) => {
   await mockApi(page, 'ADMIN');
@@ -39,8 +40,122 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
 
   await page.getByRole('button', { name: /asistente ia/i }).click();
   await expect(page.getByText(/puedo ayudarte a interpretar los costos/i)).toBeVisible();
+  await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /explica dónde está el mayor costo/i })).toBeVisible();
+  await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /detecta posibles oportunidades/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /previsualizar recomendaciones ia/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /guardar recomendaciones ia/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
 });
+
+test('descarta la respuesta del chat anterior al cambiar de tenant', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { chatDelayMs: 700 });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const privateQuestion = 'Consulta privada del tenant uno';
+  await page.getByPlaceholder(/escribe tu consulta/i).fill(privateQuestion);
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByText(privateQuestion, { exact: true })).toBeVisible();
+  await page.getByLabel('Tenant activo').selectOption('tenant-2');
+  await expect(page.getByLabel('Tenant activo')).toHaveValue('tenant-2');
+  await page.waitForTimeout(900);
+
+  const history = page.getByTestId('chat-history');
+  await expect(history).toContainText('Puedo ayudarte a interpretar los costos');
+  await expect(history).not.toContainText(privateQuestion);
+  await expect(history).not.toContainText('La mayor oportunidad');
+});
+
+test('mensajería recarga preferencias por tenant y permite vincular Telegram al tenant activo', async ({ page }) => {
+  const preferenceReads: string[] = [];
+  const preferencePatches: { readonly authorization: string; readonly body: Record<string, unknown> }[] = [];
+  const linkAuthorizations: string[] = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('/outbound-messages/preferences') && request.method() === 'GET') {
+      preferenceReads.push(request.headers()['authorization'] ?? '');
+    }
+    if (path.endsWith('/outbound-messages/preferences') && request.method() === 'PATCH') {
+      preferencePatches.push({ authorization: request.headers()['authorization'] ?? '', body: request.postDataJSON() as Record<string, unknown> });
+    }
+    if (path.endsWith('/telegram/self-link-code')) linkAuthorizations.push(request.headers()['authorization'] ?? '');
+  });
+  await mockApi(page, 'ADMIN', { messagingEnabled: true });
+  await login(page);
+
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+  await expect(page.getByText('Preferencias por tenant · Tenant Uno')).toBeVisible();
+  await page.getByLabel('Tenant activo').selectOption('tenant-2');
+  await expect(page.getByText('Preferencias por tenant · Tenant Dos')).toBeVisible();
+  await expect.poll(() => preferenceReads).toContain('Bearer token-tenant-2');
+
+  await page.getByRole('button', { name: 'Vincular Telegram aquí' }).click();
+  await expect(page.getByText('Enlace generado para Tenant Dos.')).toBeVisible();
+  await expect.poll(() => linkAuthorizations).toContain('Bearer token-tenant-2');
+
+  await page.getByRole('button', { name: 'Correo electrónico' }).click();
+  await expect.poll(() => preferencePatches.length).toBe(1);
+  expect(preferencePatches[0]?.authorization).toBe('Bearer token-tenant-2');
+  expect(preferencePatches[0]?.body).toEqual({ emailEnabled: true });
+});
+
+test('el cliente puede gestionar sus preferencias de mensajería, pero no la consola administrativa de canales', async ({ page }) => {
+  await mockApi(page, 'CLIENT_VIEWER');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+
+  await expect(page.getByText('Preferencias por tenant · Tenant Uno')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Vincular Telegram aquí' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Encolar prueba de correo/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Verificar SMTP/i })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Chats vinculados', exact: true })).toHaveCount(0);
+});
+
+test('el historial de chat sobrevive al cambio de módulo durante la misma sesión', async ({ page }) => {
+  await mockApi(page, 'CLIENT_VIEWER');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const question = '¿Qué servicio tuvo mayor costo?';
+  await page.getByPlaceholder(/escribe tu consulta/i).fill(question);
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByTestId('assistant-markdown').last()).toContainText('La mayor oportunidad');
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Mensajería FinOps', exact: true })).toBeVisible();
+  await page.locator('aside').getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  await expect(page.getByTestId('chat-history')).toContainText(question);
+  await expect(page.getByTestId('chat-history')).toContainText('La mayor oportunidad');
+});
+
+const roleCases: readonly { readonly role: ApiRole; readonly technical: boolean; readonly master: boolean }[] = [
+  { role: 'MASTER_ADMIN', technical: true, master: true },
+  { role: 'OPERATOR_ADMIN', technical: true, master: false },
+  { role: 'LEAD_TECHNICIAN', technical: true, master: false },
+  { role: 'FINOPS_TECHNICIAN', technical: true, master: false },
+  { role: 'ADMIN', technical: true, master: false },
+  { role: 'CLIENT_APPROVER', technical: false, master: false },
+  { role: 'CLIENT_VIEWER', technical: false, master: false },
+  { role: 'VIEWER', technical: false, master: false },
+];
+
+for (const roleCase of roleCases) {
+  test(`la interfaz de ${roleCase.role} respeta los permisos de navegación y chat`, async ({ page }) => {
+    await mockApi(page, roleCase.role);
+    await login(page);
+
+    const nav = page.locator('aside');
+    await expect(nav.getByRole('button', { name: 'Panel de Control', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Asistente IA', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Administración MSP', exact: true })).toHaveCount(roleCase.master ? 1 : 0);
+    await expect(nav.getByRole('button', { name: 'Consola Técnica', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+
+    await nav.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+    await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /explica dónde está el mayor costo/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /previsualizar recomendaciones ia/i })).toHaveCount(roleCase.technical ? 1 : 0);
+    await expect(page.getByRole('button', { name: /guardar recomendaciones ia/i })).toHaveCount(roleCase.technical ? 1 : 0);
+  });
+}
 
 test('no anuncia borradores técnicos en una corrida que sí tiene candidatos publicables', async ({ page }) => {
   await mockApi(page, 'ADMIN', { readinessHasPublicCandidate: true });
@@ -261,14 +376,16 @@ async function login(page: Page) {
 
 async function mockApi(
   page: Page,
-  role: 'ADMIN' | 'CLIENT_VIEWER',
+  role: ApiRole,
   options: {
     readonly chatFailures?: number;
+    readonly chatDelayMs?: number;
     readonly staleOpportunities?: boolean;
     readonly planRejected?: boolean;
     readonly planTimeout?: boolean;
     readonly recommendationsRejected?: boolean;
     readonly readinessHasPublicCandidate?: boolean;
+    readonly messagingEnabled?: boolean;
   } = {},
 ) {
   let queued = false;
@@ -297,6 +414,7 @@ async function mockApi(
     }
     if (path.endsWith('/ai/chat')) {
       chatRequests += 1;
+      if (options.chatDelayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, options.chatDelayMs));
       if (chatRequests <= (options.chatFailures ?? 0)) {
         return json(route, {
           success: false,
@@ -451,12 +569,37 @@ async function mockApi(
     }
     if (path.endsWith('/agent/tenant-rules')) return json(route, { success: true, rules: [] });
     if (path.endsWith('/agent/context-traces')) return json(route, { success: true, traces: [] });
+    if (path.endsWith('/outbound-messages/preferences')) {
+      const preferences = {
+        id: `preferences-${tenantTwo ? '2' : '1'}`,
+        tenantId: tenantTwo ? 'tenant-2' : 'tenant-1',
+        userId: 'user-1',
+        emailEnabled: false,
+        telegramEnabled: false,
+        operationalAlerts: true,
+        recommendationAlerts: true,
+        financialAlerts: true,
+        executiveSummaries: true,
+        createdAt: '2026-10-05T00:00:00.000Z',
+        updatedAt: '2026-10-05T00:00:00.000Z',
+      };
+      return json(route, { success: true, preferences: request.method() === 'PATCH' ? { ...preferences, ...request.postDataJSON() } : preferences });
+    }
+    if (path.endsWith('/telegram/self-link-code')) {
+      return json(route, {
+        success: true,
+        code: 'opaque-one-time-code',
+        expiresAt: '2026-10-05T00:05:00.000Z',
+        startCommand: '/start opaque-one-time-code',
+        deepLink: 'https://t.me/finops_bot?start=opaque-one-time-code',
+      });
+    }
     if (path.endsWith('/telegram/links')) return json(route, { success: true, links: [] });
     if (path.endsWith('/outbound-messages/status')) {
       return json(route, {
         success: true,
         status: {
-          telegram: { enabled: false, botUsernameConfigured: false, webhookSecretConfigured: false, activeLinks: 0, totalLinks: 0 },
+          telegram: { enabled: options.messagingEnabled ?? false, botUsernameConfigured: options.messagingEnabled ?? false, webhookSecretConfigured: options.messagingEnabled ?? false, activeLinks: 0, totalLinks: 0 },
           email: { enabled: false, smtpConfigured: false },
         },
       });
@@ -587,7 +730,7 @@ function costOpportunity(isStale: boolean) {
   };
 }
 
-function session(role: 'ADMIN' | 'CLIENT_VIEWER', tenantId: string, accessToken: string) {
+function session(role: ApiRole, tenantId: string, accessToken: string) {
   const tenants = [
     { id: 'tenant-1', name: 'Tenant Uno', slug: 'tenant-uno', accessRole: 'HOME', isCurrent: tenantId === 'tenant-1' },
     { id: 'tenant-2', name: 'Tenant Dos', slug: 'tenant-dos', accessRole: 'TECHNICIAN', isCurrent: tenantId === 'tenant-2' },

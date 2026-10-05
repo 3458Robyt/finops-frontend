@@ -40,6 +40,7 @@ export interface TelegramSelfLinkCodeResponse {
 }
 export interface MessagingPreferences {
   readonly id: string;
+  readonly tenantId: string;
   readonly userId: string;
   readonly emailEnabled: boolean;
   readonly telegramEnabled: boolean;
