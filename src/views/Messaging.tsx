@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { canManageOutboundChannels } from '../components/navigation';
 import {
   fetchMessagingPreferences,
   fetchOutboundChannelStatus,
@@ -11,6 +12,9 @@ import {
   verifyEmailConfiguration,
   verifyTelegramConfiguration,
   disableTelegramLink,
+  createTelegramSelfLinkCode,
+  type TelegramSelfLinkCodeResponse,
+  type AuthTenant,
   type ApiRole,
   type MessagingPreferences,
   type OutboundChannelStatusResponse,
@@ -18,13 +22,11 @@ import {
   type TelegramChatLink,
 } from '../services/api';
 
-interface MessagingProps { readonly role: ApiRole; }
+interface MessagingProps { readonly role: ApiRole; readonly activeTenant: Pick<AuthTenant, 'id' | 'name'>; }
 
-const adminRoles: readonly ApiRole[] = ['ADMIN', 'MASTER_ADMIN', 'OPERATOR_ADMIN'];
-
-export default function Messaging({ role }: MessagingProps) {
+export default function Messaging({ role, activeTenant }: MessagingProps) {
   const token = useAccessToken();
-  const canManage = adminRoles.includes(role);
+  const canManage = canManageOutboundChannels(role);
   const [preferences, setPreferences] = useState<MessagingPreferences | null>(null);
   const [status, setStatus] = useState<OutboundChannelStatusResponse['status'] | null>(null);
   const [links, setLinks] = useState<readonly TelegramChatLink[]>([]);
@@ -34,6 +36,9 @@ export default function Messaging({ role }: MessagingProps) {
   const [savingKey, setSavingKey] = useState<keyof MessagingPreferences | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [telegramLinkCode, setTelegramLinkCode] = useState<TelegramSelfLinkCodeResponse | null>(null);
+  const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+  const [telegramLinkCopied, setTelegramLinkCopied] = useState(false);
 
   const reload = useCallback(async () => {
     const preferenceResponse = await fetchMessagingPreferences(token);
@@ -79,6 +84,32 @@ export default function Messaging({ role }: MessagingProps) {
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'No fue posible completar la operación.'); }
   };
 
+  const generateTelegramLink = async () => {
+    setTelegramLinkLoading(true);
+    setTelegramLinkCopied(false);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await createTelegramSelfLinkCode(token);
+      setTelegramLinkCode(response);
+      setMessage(`Enlace generado para ${activeTenant.name}. Ábrelo en Telegram y pulsa Iniciar.`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No fue posible generar el enlace de Telegram.');
+    } finally {
+      setTelegramLinkLoading(false);
+    }
+  };
+
+  const copyTelegramLink = async () => {
+    if (telegramLinkCode?.deepLink === undefined) return;
+    try {
+      await navigator.clipboard.writeText(telegramLinkCode.deepLink);
+      setTelegramLinkCopied(true);
+    } catch {
+      setError('No fue posible copiar el enlace. Usa el comando /start mostrado abajo.');
+    }
+  };
+
   if (loading) return <div className="ui-state-screen text-sm font-bold">Cargando mensajería…</div>;
 
   return (
@@ -87,7 +118,7 @@ export default function Messaging({ role }: MessagingProps) {
         <div>
         <p className="ui-kicker">Centro de comunicaciones</p>
         <h1 className="ui-page-title mt-2">Mensajería FinOps</h1>
-        <p className="ui-page-lead">Configura tus canales, consulta su estado y revisa las entregas. El correo usa el SMTP institucional definido en el backend; Telegram solo funciona después de vincular tu cuenta desde Perfil y Seguridad.</p>
+        <p className="ui-page-lead">Activa tus canales para el tenant seleccionado, vincula Telegram y consulta el historial de entregas.</p>
         </div>
         <span className="ui-status ui-status-accent shrink-0">Canales gobernados</span>
       </header>
@@ -95,8 +126,27 @@ export default function Messaging({ role }: MessagingProps) {
       {message !== null && <p className="ui-alert-positive px-4 py-3 text-sm font-bold">{message}</p>}
       {error !== null && <p className="ui-alert-danger px-4 py-3 text-sm font-bold">{error}</p>}
 
+      <section className="ui-surface flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7" aria-labelledby="telegram-tenant-link-title">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Telegram · tenant actual</p>
+          <h2 id="telegram-tenant-link-title" className="mt-1 text-lg font-black text-white">Vincular con {activeTenant.name}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">Genera un enlace de un solo uso y pulsa Iniciar en el bot. Si tu chat ya está vinculado a tu usuario en otro tenant, esta acción cambia el tenant activo del bot al que tienes seleccionado aquí. Después activa Telegram en tus preferencias inferiores para recibir avisos aquí.</p>
+        </div>
+        <button type="button" onClick={() => void generateTelegramLink()} disabled={telegramLinkLoading || status?.telegram.enabled === false} className="ui-button ui-button-primary shrink-0 disabled:opacity-50">
+          {telegramLinkLoading ? 'Generando enlace…' : 'Vincular Telegram aquí'}
+        </button>
+        {telegramLinkCode !== null && <div className="w-full rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 sm:basis-full">
+          <div className="flex flex-wrap items-center gap-3">
+            {telegramLinkCode.deepLink !== undefined && <a href={telegramLinkCode.deepLink} target="_blank" rel="noreferrer" className="text-sm font-bold text-sky-300 underline">Abrir bot y vincular</a>}
+            {telegramLinkCode.deepLink !== undefined && <button type="button" onClick={() => void copyTelegramLink()} className="text-xs font-black uppercase text-zinc-300 hover:text-white">{telegramLinkCopied ? 'Enlace copiado' : 'Copiar enlace'}</button>}
+            <span className="text-xs text-zinc-500">Vence {new Date(telegramLinkCode.expiresAt).toLocaleTimeString('es-CO')}</span>
+          </div>
+          <p className="mt-2 break-all font-mono text-xs text-zinc-300">{telegramLinkCode.startCommand}</p>
+        </div>}
+      </section>
+
       <section className="ui-surface p-5 sm:p-7">
-        <div className="mb-5"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Preferencias personales</p><h2 className="mt-1 text-lg font-black text-white">Qué quieres recibir</h2></div>
+        <div className="mb-5"><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Preferencias por tenant · {activeTenant.name}</p><h2 className="mt-1 text-lg font-black text-white">Qué quieres recibir</h2></div>
         {preferences !== null && <div className="grid gap-3 md:grid-cols-2">
           <PreferenceRow label="Correo electrónico" description="Canal principal para avisos de FinOps." value={preferences.emailEnabled} disabled={savingKey !== null} onChange={() => void toggle('emailEnabled')} />
           <PreferenceRow label="Telegram" description="Requiere un chat privado vinculado desde tu perfil." value={preferences.telegramEnabled} disabled={savingKey !== null} onChange={() => void toggle('telegramEnabled')} />
@@ -112,11 +162,12 @@ export default function Messaging({ role }: MessagingProps) {
           <ChannelCard title="Telegram" icon="send" enabled={status?.telegram.enabled ?? false} detail={`${status?.telegram.activeLinks ?? 0} chats activos`} />
           <ChannelCard title="Correo SMTP" icon="mail" enabled={status?.email.enabled ?? false} detail={status?.email.smtpConfigured ? 'Credenciales cargadas' : 'Pendiente de configuración'} />
         </section>
+        {status?.email.enabled === false && <p role="status" className="ui-surface px-5 py-4 text-sm leading-relaxed text-zinc-300">Configura <code>EMAIL_ADDRESS</code> y una contraseña de aplicación de Google en <code>EMAIL_PASSWORD</code>, en las variables privadas del servidor; no uses la contraseña habitual. Gmail y Google Workspace usan <code>smtp.gmail.com</code> automáticamente, también con dominio propio. Google requiere verificación en dos pasos y la política de Workspace puede bloquear las contraseñas de aplicación. Reinicia la API y el servicio de notificaciones después del cambio. No compartas ni pegues secretos aquí.</p>}
         <section className="grid gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
           <div className="ui-surface space-y-4 p-5">
             <div><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Diagnóstico</p><h2 className="mt-1 text-lg font-black text-white">Probar canales</h2></div>
             <input value={emailTarget} onChange={(event) => setEmailTarget(event.target.value)} placeholder="correo destino" type="email" className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-tak-yellow" />
-            <button type="button" onClick={() => void runAdminAction(async () => { const response = await sendOutboundTestMessage(token, { email: emailTarget.trim() || undefined }); setDeliveries(response.deliveries); }, 'Prueba de correo encolada.')} className="w-full rounded-lg bg-tak-yellow px-4 py-3 text-sm font-black text-zinc-950 hover:bg-yellow-300">Encolar prueba de correo</button>
+            <button type="button" onClick={() => void runAdminAction(async () => { const response = await sendOutboundTestMessage(token, { email: emailTarget.trim() || undefined }); setDeliveries(response.deliveries); }, 'Prueba de correo encolada.')} disabled={!status?.email.enabled} className="w-full rounded-lg bg-tak-yellow px-4 py-3 text-sm font-black text-zinc-950 hover:bg-yellow-300 disabled:opacity-50">Encolar prueba de correo</button>
             <button type="button" onClick={() => void runAdminAction(async () => { await verifyEmailConfiguration(token); }, 'Conexión SMTP verificada.')} disabled={!status?.email.enabled} className="w-full rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow disabled:opacity-50">Verificar SMTP</button>
             <button type="button" onClick={() => void runAdminAction(async () => { await verifyTelegramConfiguration(token); }, 'Bot de Telegram verificado.')} disabled={!status?.telegram.enabled} className="w-full rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow disabled:opacity-50">Verificar bot Telegram</button>
             <p className="text-xs leading-relaxed text-zinc-500">Las pruebas se registran en la cola y en la auditoría. El worker las entrega respetando límites y reintentos.</p>
@@ -133,7 +184,7 @@ export default function Messaging({ role }: MessagingProps) {
 }
 
 function PreferenceRow({ label, description, value, disabled, onChange }: { readonly label: string; readonly description: string; readonly value: boolean; readonly disabled: boolean; readonly onChange: () => void }) {
-  return <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="min-w-0"><p className="text-sm font-black text-white">{label}</p><p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p></div><button type="button" aria-pressed={value} onClick={onChange} disabled={disabled} className={`relative h-6 w-11 shrink-0 rounded-full transition ${value ? 'bg-tak-yellow' : 'bg-zinc-700'} disabled:opacity-50`}><span className={`absolute top-1 size-4 rounded-full bg-zinc-950 transition ${value ? 'left-6' : 'left-1'}`} /></button></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="min-w-0"><p className="text-sm font-black text-white">{label}</p><p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p></div><button type="button" aria-label={label} aria-pressed={value} onClick={onChange} disabled={disabled} className={`relative h-6 w-11 shrink-0 rounded-full transition ${value ? 'bg-tak-yellow' : 'bg-zinc-700'} disabled:opacity-50`}><span className={`absolute top-1 size-4 rounded-full bg-zinc-950 transition ${value ? 'left-6' : 'left-1'}`} /></button></div>;
 }
 
 function ChannelCard({ title, icon, enabled, detail }: { readonly title: string; readonly icon: string; readonly enabled: boolean; readonly detail: string }) {

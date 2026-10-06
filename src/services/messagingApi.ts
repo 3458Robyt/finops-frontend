@@ -6,7 +6,7 @@ export async function fetchMessagingPreferences(token: string): Promise<Messagin
 }
 
 export async function updateMessagingPreferences(token: string, preferences: Partial<MessagingPreferences>): Promise<MessagingPreferencesResponse> {
-  const metadataKeys = new Set(['id', 'userId', 'createdAt', 'updatedAt']);
+  const metadataKeys = new Set(['id', 'tenantId', 'userId', 'createdAt', 'updatedAt']);
   const update = Object.fromEntries(
     Object.entries(preferences).filter(([key]) => !metadataKeys.has(key)),
   ) as Partial<MessagingPreferences>;

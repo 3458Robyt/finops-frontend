@@ -25,6 +25,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
   const {
     analysisOnly,
     canConfigureAgent,
+    canManageOutbound,
     profile,
     activeRules,
     traces,
@@ -137,6 +138,7 @@ export default function AgentSettings({ role, onOpenRecommendation }: AgentSetti
       {activeTab === 'channels' && (
         <AgentSettingsChannels
           canConfigureAgent={canConfigureAgent}
+          canManageOutbound={canManageOutbound}
           saving={saving}
           outboundStatus={outboundStatus}
           activeTelegramLinks={activeTelegramLinks}

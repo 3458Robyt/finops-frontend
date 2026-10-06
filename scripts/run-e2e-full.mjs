@@ -169,6 +169,7 @@ const frontendEnv = {
   ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !sensitiveTestEnvName.test(name))),
   E2E_BASE_URL: frontendUrl,
   E2E_ORIGIN: frontendUrl,
+  E2E_FIXTURE_FILE: fixtureFile,
   VITE_API_BASE_URL: `${backendUrl}/api/v1`,
 };
 if (Object.keys(frontendEnv).some((name) => sensitiveTestEnvName.test(name))) {

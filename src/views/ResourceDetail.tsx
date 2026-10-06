@@ -316,7 +316,7 @@ export default function ResourceDetail({ recommendationId, apiRole, onBack }: Re
           <div className="size-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Detalle conectado a la base de datos activa</span>
         </div>
-        <p className="text-[9px] md:text-[10px] text-zinc-600 font-black tracking-widest uppercase">FinOps Demo © {new Date().getFullYear()} • Powered by FinOps AI</p>
+        <p className="text-[9px] md:text-[10px] text-zinc-600 font-black tracking-widest uppercase">TAK Colombia © {new Date().getFullYear()} • Powered by FinOps AI</p>
       </div>
     </DetailShell>
   );

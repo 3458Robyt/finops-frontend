@@ -9,7 +9,11 @@ interface IntegrationCardProps {
   status: boolean;
 }
 
-export default function History() {
+interface HistoryProps {
+  readonly onOpenRecommendation: (recommendationId: string) => void;
+}
+
+export default function History({ onOpenRecommendation }: HistoryProps) {
   const token = useAccessToken();
   const [activeTab, setActiveTab] = useState('audit');
   const [recommendations, setRecommendations] = useState<readonly Recommendation[]>([]);
@@ -109,12 +113,13 @@ export default function History() {
                   <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Recomendacion</th>
                   <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800">Estado</th>
                   <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Ahorro Est.</th>
+                  <th className="p-4 text-xs font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {recommendations.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-sm font-bold text-zinc-500">Sin recomendaciones registradas</td>
+                    <td colSpan={6} className="p-6 text-center text-sm font-bold text-zinc-500">Sin recomendaciones registradas</td>
                   </tr>
                 ) : recommendations.slice(0, 12).map((row) => (
                   <tr key={row.id} className="hover:bg-zinc-800/50 transition-colors border-b border-zinc-800/50 last:border-0">
@@ -129,6 +134,11 @@ export default function History() {
                     </td>
                     <td className="p-4 text-sm text-green-400 font-black text-right">
                       +{formatCurrency(row.estimatedMonthlySavings ?? 0, row.currency)}
+                    </td>
+                    <td className="p-4 text-right">
+                      <button type="button" onClick={() => onOpenRecommendation(row.id)} className="ui-button ui-button-secondary min-h-9 px-3 text-xs">
+                        Revisar recomendación
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -35,7 +35,7 @@ export default function Sidebar({ currentView, onViewChange, role, user }: Sideb
             <span className="material-symbols-outlined font-bold text-zinc-950">query_stats</span>
           </div>
           <div className="hidden min-w-0 xl:block">
-            <span className="block font-display text-xl font-bold leading-none tracking-tight text-white">FinOps Demo</span>
+            <span className="block font-display text-xl font-bold leading-none tracking-tight text-white">TAK Colombia</span>
             <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">{roleLabel(role)}</span>
           </div>
         </div>

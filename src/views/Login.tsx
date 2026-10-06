@@ -129,7 +129,7 @@ export default function Login({ onLogin }: {
     <div className="auth-shell lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
       <section className="auth-brand-panel hidden lg:flex">
         <div className="relative z-10 max-w-xl">
-          <p className="ui-kicker">FinOps Demo · FinOps Inteligente</p>
+          <p className="ui-kicker">TAK Colombia · FinOps Inteligente</p>
           <h1 className="mt-5 max-w-lg font-display text-6xl font-bold leading-[0.92] tracking-tight text-white">Decisiones cloud con evidencia.</h1>
           <p className="mt-6 max-w-md text-base leading-relaxed text-zinc-400">Costos, consumo y decisiones operativas reunidos en un mismo centro de control.</p>
           <div className="mt-10 grid max-w-md grid-cols-3 border-y border-zinc-800 py-4 text-xs text-zinc-500">
@@ -272,7 +272,7 @@ export default function Login({ onLogin }: {
       </div>
 
       <div className="auth-footer text-xs font-medium">
-        &copy; {new Date().getFullYear()} FinOps Demo. Todos los derechos reservados.
+        &copy; {new Date().getFullYear()} TAK Colombia. Todos los derechos reservados.
       </div>
     </div>
   );

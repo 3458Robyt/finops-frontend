@@ -3,6 +3,7 @@ import { AgentMetric, Input, SectionHeader, StatusBadge } from './AgentSettingsU
 
 interface AgentSettingsChannelsProps {
   readonly canConfigureAgent: boolean;
+  readonly canManageOutbound: boolean;
   readonly saving: boolean;
   readonly outboundStatus: OutboundChannelStatusResponse['status'] | null;
   readonly activeTelegramLinks: number;
@@ -23,42 +24,52 @@ interface AgentSettingsChannelsProps {
 }
 
 export function AgentSettingsChannels(props: AgentSettingsChannelsProps) {
-  const { canConfigureAgent, saving, outboundStatus, activeTelegramLinks, outboundDeliveries } = props;
+  const { canConfigureAgent, canManageOutbound, saving, outboundStatus, activeTelegramLinks, outboundDeliveries } = props;
+
+  if (!canManageOutbound) {
+    return (
+      <section className="ui-surface space-y-3 p-5">
+        <SectionHeader title="Canales externos" eyebrow="Acceso de solo lectura" icon="lock" />
+        <p className="text-sm leading-relaxed text-zinc-300">Tu rol no tiene permiso para administrar Telegram, revisar entregas ni enviar correos de prueba. Solicita acceso a un administrador del tenant.</p>
+        {canConfigureAgent && <button onClick={props.onBackfill} disabled={saving} className="ui-button ui-button-secondary min-h-9 text-xs disabled:opacity-50">Reconstruir contexto del agente</button>}
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4">
       <div className="grid gap-4 md:grid-cols-3">
         <AgentMetric title="Telegram" value={outboundStatus?.telegram.enabled ? 'Activo' : 'Inactivo'} helper={`${activeTelegramLinks} chats activos`} icon="send" />
         <AgentMetric title="Correo SMTP" value={outboundStatus?.email.enabled ? 'Activo' : 'Inactivo'} helper={outboundStatus?.email.smtpConfigured ? 'Configurado' : 'Pendiente .env'} icon="mail" />
-        <AgentMetric title="Permisos" value={canConfigureAgent ? 'Administracion' : 'Lectura'} helper="Agente IA" icon="admin_panel_settings" />
+        <AgentMetric title="Permisos" value="Administración" helper="Canales externos" icon="admin_panel_settings" />
       </div>
 
       <section className="ui-surface p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <SectionHeader title="Envios manuales" eyebrow="Telegram y correo" icon="campaign" />
-          {canConfigureAgent && <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button onClick={props.onSendSavingsReminders} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Recordar ahorro pendiente</button>
             <button onClick={props.onSendRecommendationSummary} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Enviar resumen IA</button>
             <button onClick={props.onSendExecutiveSummary} disabled={saving} className="rounded-lg border border-tak-yellow/50 px-4 py-3 text-sm font-black text-tak-yellow hover:bg-tak-yellow/10 disabled:opacity-60">Enviar resumen ejecutivo</button>
             <button onClick={props.onBackfill} disabled={saving} className="rounded-lg border border-zinc-700 px-4 py-3 text-sm font-black text-zinc-200 hover:border-tak-yellow hover:text-tak-yellow disabled:opacity-60">Reconstruir contexto</button>
-          </div>}
+          </div>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-zinc-500">Los envios quedan auditados como entregas. El scheduler opcional usa las mismas rutas internas y puede activarse desde variables de entorno.</p>
       </section>
 
-      {canConfigureAgent ? <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
         <div className="space-y-4">
-          <EmailPanel email={props.emailTestTarget} saving={saving} onEmailChange={props.onEmailChange} onSend={props.onSendEmail} />
+          <EmailPanel email={props.emailTestTarget} saving={saving} enabled={outboundStatus?.email.enabled === true} onEmailChange={props.onEmailChange} onSend={props.onSendEmail} />
           <TelegramPanel links={props.telegramLinks} form={props.telegramForm} saving={saving} onFormChange={props.onTelegramFormChange} onCreate={props.onCreateTelegram} onDisable={props.onDisableTelegram} onTest={props.onTestTelegram} />
         </div>
         <DeliveryTable deliveries={outboundDeliveries} />
-      </div> : <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm font-bold text-sky-200">La gestion de canales externos esta reservada para administradores.</div>}
+      </div>
     </section>
   );
 }
 
-function EmailPanel({ email, saving, onEmailChange, onSend }: { readonly email: string; readonly saving: boolean; readonly onEmailChange: (value: string) => void; readonly onSend: () => void }) {
-  return <section className="ui-surface space-y-4 p-5"><SectionHeader title="Correo SMTP" eyebrow="Prueba manual" icon="mail" /><Input label="Email destino opcional" value={email} onChange={onEmailChange} /><button onClick={onSend} disabled={saving} className="ui-button ui-button-primary w-full disabled:opacity-60">Enviar prueba de correo</button></section>;
+function EmailPanel({ email, saving, enabled, onEmailChange, onSend }: { readonly email: string; readonly saving: boolean; readonly enabled: boolean; readonly onEmailChange: (value: string) => void; readonly onSend: () => void }) {
+  return <section className="ui-surface space-y-4 p-5"><SectionHeader title="Correo SMTP" eyebrow="Prueba manual" icon="mail" /><Input label="Email destino opcional" value={email} onChange={onEmailChange} /><button onClick={onSend} disabled={saving || !enabled} className="ui-button ui-button-primary w-full disabled:opacity-60">Enviar prueba de correo</button>{!enabled && <p className="text-xs leading-relaxed text-zinc-400">Configura <code>EMAIL_ADDRESS</code> y una contraseña de aplicación de Google en <code>EMAIL_PASSWORD</code>. Gmail y Google Workspace usan <code>smtp.gmail.com</code> automáticamente. No uses la contraseña habitual; después reinicia la API y el servicio de notificaciones.</p>}</section>;
 }
 
 function TelegramPanel({ links, form, saving, onFormChange, onCreate, onDisable, onTest }: { readonly links: readonly TelegramChatLink[]; readonly form: AgentSettingsChannelsProps['telegramForm']; readonly saving: boolean; readonly onFormChange: AgentSettingsChannelsProps['onTelegramFormChange']; readonly onCreate: () => void; readonly onDisable: (linkId: string) => void; readonly onTest: (linkId: string) => void }) {

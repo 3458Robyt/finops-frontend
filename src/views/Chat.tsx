@@ -26,6 +26,8 @@ const quickPrompts = [
   'Detecta posibles oportunidades en el gasto',
   '¿Qué acciones priorizarías para reducir costos?',
 ] as const;
+const MAX_MESSAGE_CHARS = 4_000;
+const MAX_HISTORY_MESSAGES = 8;
 
 interface ChatProps {
   readonly role: ApiRole;
@@ -111,7 +113,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
     const trimmed = message.trim();
     if (trimmed === '' || isSending) return;
 
-    const requestHistory = history;
+    const requestHistory = history.slice(-MAX_HISTORY_MESSAGES);
     setMessages((current) => [...current, {
       id: crypto.randomUUID(),
       role: 'user',
@@ -241,7 +243,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
       </div>
       
       <div data-testid="chat-composer" className="mt-4 shrink-0 border-t border-zinc-800 pt-4">
-        {canGenerateRecommendations && <div className="mb-4 flex flex-wrap gap-2">
+        <div data-testid="chat-quick-actions" className="mb-4 flex flex-wrap gap-2">
           {quickPrompts.map((prompt) => (
             <button
               key={prompt}
@@ -252,21 +254,23 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
               <span className="material-symbols-outlined text-[14px]">bolt</span> {prompt}
             </button>
           ))}
-          <button
-            onClick={() => void handleGenerateRecommendations(false)}
-            disabled={isSending || isGenerating}
-            className="ui-button ui-button-secondary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
-          >
-            <span className="material-symbols-outlined text-[14px]">auto_awesome</span> Previsualizar recomendaciones IA
-          </button>
-          <button
-            onClick={() => void handleGenerateRecommendations(true)}
-            disabled={isSending || isGenerating}
-            className="ui-button ui-button-primary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
-          >
-            <span className="material-symbols-outlined text-[14px]">save</span> Guardar recomendaciones IA
-          </button>
-        </div>}
+          {canGenerateRecommendations && <>
+            <button
+              onClick={() => void handleGenerateRecommendations(false)}
+              disabled={isSending || isGenerating}
+              className="ui-button ui-button-secondary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
+            >
+              <span className="material-symbols-outlined text-[14px]">auto_awesome</span> Previsualizar recomendaciones IA
+            </button>
+            <button
+              onClick={() => void handleGenerateRecommendations(true)}
+              disabled={isSending || isGenerating}
+              className="ui-button ui-button-primary min-h-9 whitespace-nowrap rounded-full px-4 text-xs"
+            >
+              <span className="material-symbols-outlined text-[14px]">save</span> Guardar recomendaciones IA
+            </button>
+          </>}
+        </div>
         <form
           className="relative"
           onSubmit={(event) => {
@@ -276,6 +280,7 @@ export default function Chat({ role, userId, tenantId }: ChatProps) {
         >
           <input 
             type="text" 
+            maxLength={MAX_MESSAGE_CHARS}
             value={input}
             onChange={(event) => {
               setInput(event.target.value);

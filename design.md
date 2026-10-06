@@ -1,6 +1,6 @@
 # Design — FinOps Inteligente
 
-Locked Hallmark design system for the FinOps Demo FinOps application. This is a visual contract only: it must not alter APIs, permissions, data fetching, calculations, authentication, or route ownership.
+Locked Hallmark design system for the TAK Colombia FinOps application. This is a visual contract only: it must not alter APIs, permissions, data fetching, calculations, authentication, or route ownership.
 
 ## Genre
 

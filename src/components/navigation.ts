@@ -34,6 +34,10 @@ export function getVisibleNavItems(role: ApiRole): readonly NavItem[] {
     && (item.masterOnly !== true || role === 'MASTER_ADMIN'));
 }
 
+export function canManageOutboundChannels(role: ApiRole): boolean {
+  return role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'ADMIN';
+}
+
 export function canAccessView(view: CurrentView, role: ApiRole): boolean {
   if (view === 'login' || view === 'resource_detail') return true;
   if (view === 'cloud_resource_detail') return role === 'MASTER_ADMIN'

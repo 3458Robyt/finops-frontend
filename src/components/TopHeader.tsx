@@ -142,7 +142,7 @@ export default function TopHeader({
           <span className="material-symbols-outlined text-zinc-950 text-xl font-bold">query_stats</span>
         </div>
         <h1 className="hidden min-w-0 truncate font-display text-xl font-bold tracking-tight text-white sm:block">
-          {viewTitles[currentView] || 'FinOps FinOps Demo'}
+          {viewTitles[currentView] || 'FinOps TAK Colombia'}
         </h1>
       </div>
       

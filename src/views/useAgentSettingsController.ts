@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccessToken } from '../auth/authSession';
+import { canManageOutboundChannels } from '../components/navigation';
 import {
   activateAgentProfile,
   backfillAgentContext,
@@ -34,7 +35,7 @@ import {
 } from '../services/api';
 
 const defaultRules: AgentInstructionRules = {
-  objective: 'Generar recomendaciones FinOps accionables, auditables y realistas para FinOps Demo.',
+  objective: 'Generar recomendaciones FinOps accionables, auditables y realistas para el tenant activo.',
   tone: 'Espanol claro, tecnico cuando haga falta, enfocado en ahorro, riesgo y evidencia.',
   recommendationPriorities: [
     'Priorizar ahorro verificable sobre cambios cosmeticos.',
@@ -61,6 +62,7 @@ function listToLines(value: readonly string[]): string {
 export function useAgentSettingsController(role: ApiRole) {
   const token = useAccessToken();
   const canConfigureAgent = role === 'ADMIN' || role === 'MASTER_ADMIN' || role === 'OPERATOR_ADMIN' || role === 'LEAD_TECHNICIAN';
+  const canManageOutbound = canManageOutboundChannels(role);
   const analysisOnly = role === 'VIEWER' || role === 'CLIENT_APPROVER' || role === 'CLIENT_VIEWER';
   const [profile, setProfile] = useState<AgentInstructionProfile | null>(null);
   const [rules, setRules] = useState<readonly TenantAgentRule[]>([]);
@@ -105,9 +107,9 @@ export function useAgentSettingsController(role: ApiRole) {
       fetchAiContextTraces(token),
       fetchAiQualityReport(token),
       fetchAiLearningSummary(token),
-      canConfigureAgent ? fetchTelegramLinks(token) : Promise.resolve({ success: true as const, links: [] }),
-      canConfigureAgent ? fetchOutboundChannelStatus(token) : Promise.resolve({ success: true as const, status: null }),
-      canConfigureAgent ? fetchOutboundDeliveries(token) : Promise.resolve({ success: true as const, deliveries: [] }),
+      canManageOutbound ? fetchTelegramLinks(token) : Promise.resolve({ success: true as const, links: [] }),
+      canManageOutbound ? fetchOutboundChannelStatus(token) : Promise.resolve({ success: true as const, status: null }),
+      canManageOutbound ? fetchOutboundDeliveries(token) : Promise.resolve({ success: true as const, deliveries: [] }),
     ])
       .then(([profileResponse, rulesResponse, tracesResponse, qualityResponse, learningResponse, telegramResponse, outboundStatusResponse, outboundDeliveriesResponse]) => {
         if (!active) return;
@@ -137,7 +139,7 @@ export function useAgentSettingsController(role: ApiRole) {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [analysisOnly, canConfigureAgent, token]);
+  }, [analysisOnly, canConfigureAgent, canManageOutbound, token]);
 
   const runAction = async (action: () => Promise<void>, fallback: string) => {
     setSaving(true);
@@ -211,7 +213,7 @@ export function useAgentSettingsController(role: ApiRole) {
   }, 'No se pudo revertir la memoria.');
 
   const handleCreateTelegramLink = () => runAction(async () => {
-    if (!canConfigureAgent) return;
+    if (!canManageOutbound) return;
     const response = await createTelegramLink(token, telegramForm);
     setTelegramLinks((current) => [response.link, ...current]);
     setTelegramForm({ email: '', chatId: '', telegramUserId: '', telegramUsername: '' });
@@ -219,37 +221,42 @@ export function useAgentSettingsController(role: ApiRole) {
   }, 'No se pudo vincular Telegram.');
 
   const handleDisableTelegramLink = (linkId: string) => runAction(async () => {
-    if (!canConfigureAgent) return;
+    if (!canManageOutbound) return;
     const response = await disableTelegramLink(token, linkId);
     setTelegramLinks((current) => current.map((link) => (link.id === linkId ? response.link : link)));
     setMessage('Vinculo de Telegram desactivado.');
   }, 'No se pudo desactivar Telegram.');
 
   const handleTelegramTestMessage = (linkId: string) => runAction(async () => {
+    if (!canManageOutbound) return;
     await sendTelegramTestMessage(token, linkId);
     await refreshOutboundDeliveries();
     setMessage('Mensaje de prueba enviado por Telegram.');
   }, 'No se pudo enviar el mensaje Telegram.');
 
   const handleEmailTestMessage = () => runAction(async () => {
+    if (!canManageOutbound) return;
     const response = await sendOutboundTestMessage(token, { email: emailTestTarget.trim() || undefined });
     setOutboundDeliveries(response.deliveries);
     setMessage('Prueba de correo registrada.');
   }, 'No se pudo enviar el correo de prueba.');
 
   const handleSendSavingsReminders = () => runAction(async () => {
+    if (!canManageOutbound) return;
     const response = await sendSavingsRemindersNow(token);
     setOutboundDeliveries(response.deliveries);
     setMessage(`Recordatorios procesados para ${response.attemptedUsers ?? 0} usuarios.`);
   }, 'No se pudieron enviar recordatorios.');
 
   const handleSendRecommendationSummary = () => runAction(async () => {
+    if (!canManageOutbound) return;
     const response = await sendRecommendationSummaryNow(token);
     setOutboundDeliveries(response.deliveries);
     setMessage('Resumen de recomendaciones procesado.');
   }, 'No se pudo enviar el resumen.');
 
   const handleSendExecutiveSummary = () => runAction(async () => {
+    if (!canManageOutbound) return;
     const response = await sendExecutiveSummaryNow(token);
     setOutboundDeliveries(response.deliveries);
     setMessage('Resumen ejecutivo FinOps encolado para correo y Telegram.');
@@ -258,6 +265,7 @@ export function useAgentSettingsController(role: ApiRole) {
   return {
     analysisOnly,
     canConfigureAgent,
+    canManageOutbound,
     profile,
     rules,
     activeRules,

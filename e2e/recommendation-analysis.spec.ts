@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import type { ApiRole } from '../src/components/navigation';
 
 test('opera una corrida, muestra descartes, abre la recomendación y aísla el tenant', async ({ page }) => {
   await mockApi(page, 'ADMIN');
@@ -39,8 +40,235 @@ test('un rol de cliente puede consultar pero no disparar análisis', async ({ pa
 
   await page.getByRole('button', { name: /asistente ia/i }).click();
   await expect(page.getByText(/puedo ayudarte a interpretar los costos/i)).toBeVisible();
+  await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /explica dónde está el mayor costo/i })).toBeVisible();
+  await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /detecta posibles oportunidades/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /previsualizar recomendaciones ia/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /guardar recomendaciones ia/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /analizar datos disponibles/i })).toHaveCount(0);
 });
+
+test('un cliente puede vincular Telegram en su tenant sin acceder al diagnóstico administrativo', async ({ page }) => {
+  await mockApi(page, 'CLIENT_VIEWER');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Vincular con Tenant Uno' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Vincular Telegram aquí' })).toBeEnabled();
+  await expect(page.getByRole('heading', { name: 'Probar canales' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Encolar prueba de correo' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Vincular Telegram aquí' }).click();
+  await expect(page.getByText(/enlace generado para Tenant Uno/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir bot y vincular' })).toBeVisible();
+});
+
+test('la configuración SMTP indica el método Gmail y bloquea pruebas mientras falten credenciales', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Mensajería', exact: true }).click();
+
+  await expect(page.getByRole('status')).toContainText('EMAIL_ADDRESS');
+  await expect(page.getByRole('status')).toContainText('contraseña de aplicación de Google');
+  await expect(page.getByRole('status')).toContainText('smtp.gmail.com');
+  await expect(page.getByRole('status')).not.toContainText('SMTP_HOST');
+  await expect(page.getByRole('button', { name: 'Encolar prueba de correo' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Verificar SMTP' })).toBeDisabled();
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+});
+
+test('el panel del agente bloquea el envío si SMTP no está configurado', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Agente IA', exact: true }).click();
+  await page.getByRole('button', { name: /Canales/ }).click();
+
+  await expect(page.getByRole('button', { name: 'Enviar prueba de correo', exact: true })).toBeDisabled();
+  await expect(page.getByText(/smtp.gmail.com.*autom[aá]ticamente/i)).toBeVisible();
+});
+
+test('el técnico líder conserva la configuración del agente, pero no ve controles de administración de canales', async ({ page }) => {
+  const forbiddenRequests: string[] = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.includes('/outbound-messages/') || path.includes('/telegram/links')) forbiddenRequests.push(path);
+  });
+  await mockApi(page, 'LEAD_TECHNICIAN');
+  await login(page);
+  await page.locator('aside').getByRole('button', { name: 'Agente IA', exact: true }).click();
+  await page.getByRole('button', { name: /Canales/ }).click();
+
+  await expect(page.getByText(/tu rol no tiene permiso para administrar telegram/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reconstruir contexto del agente' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar prueba de correo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Vincular chat' })).toHaveCount(0);
+  expect(forbiddenRequests).toEqual([]);
+});
+
+test('descarta la respuesta del chat anterior al cambiar de tenant', async ({ page }) => {
+  await mockApi(page, 'ADMIN', { chatDelayMs: 700 });
+  await login(page);
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const privateQuestion = 'Consulta privada del tenant uno';
+  await page.getByPlaceholder(/escribe tu consulta/i).fill(privateQuestion);
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByText(privateQuestion, { exact: true })).toBeVisible();
+  await page.getByLabel('Tenant activo').selectOption('tenant-2');
+  await expect(page.getByLabel('Tenant activo')).toHaveValue('tenant-2');
+  await page.waitForTimeout(900);
+
+  const history = page.getByTestId('chat-history');
+  await expect(history).toContainText('Puedo ayudarte a interpretar los costos');
+  await expect(history).not.toContainText(privateQuestion);
+  await expect(history).not.toContainText('La mayor oportunidad');
+});
+
+test('conserva el historial al cambiar de módulo y lo envía como contexto del siguiente turno', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  const nav = page.locator('aside');
+  await nav.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+
+  const firstQuestion = '¿Cuál es la mayor oportunidad del periodo?';
+  await page.getByPlaceholder(/escribe tu consulta/i).fill(firstQuestion);
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByTestId('assistant-markdown').last()).toContainText('La mayor oportunidad');
+
+  await nav.getByRole('button', { name: 'Panel de Control', exact: true }).click();
+  await nav.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+  const history = page.getByTestId('chat-history');
+  await expect(history).toContainText(firstQuestion);
+  await expect(history).toContainText('La mayor oportunidad');
+
+  const secondRequest = page.waitForRequest((request) =>
+    request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/ai/chat'));
+  await page.getByPlaceholder(/escribe tu consulta/i).fill('¿Por qué priorizarla?');
+  await page.getByRole('button', { name: 'send' }).click();
+  const requestBody = (await secondRequest).postDataJSON() as {
+    readonly history: readonly { readonly role: string; readonly content: string }[];
+  };
+  expect(requestBody.history).toHaveLength(2);
+  expect(requestBody.history[0]).toEqual({ role: 'user', content: firstQuestion });
+  expect(requestBody.history[1]?.role).toBe('assistant');
+  expect(requestBody.history[1]?.content).toContain('La mayor oportunidad');
+
+  for (let turn = 3; turn <= 6; turn += 1) {
+    const nextRequest = page.waitForRequest((request) =>
+      request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/ai/chat'));
+    await page.getByPlaceholder(/escribe tu consulta/i).fill(`Pregunta de seguimiento ${turn}`);
+    await page.getByRole('button', { name: 'send' }).click();
+    const nextBody = (await nextRequest).postDataJSON() as { readonly history: readonly unknown[] };
+    if (turn === 6) expect(nextBody.history).toHaveLength(8);
+    await expect(page.getByTestId('assistant-markdown')).toHaveCount(turn + 1);
+  }
+  await expect(history).toContainText(firstQuestion);
+});
+
+test('restaura el historial en sesión y lo limpia al cerrar sesión', async ({ page }) => {
+  await mockApi(page, 'ADMIN');
+  await login(page);
+  await page.route('**/api/v1/auth/refresh', (route) => json(route, session('ADMIN', 'tenant-1', 'token-tenant-1')));
+  await page.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+  await page.getByPlaceholder(/escribe tu consulta/i).fill('Resumen que debe sobrevivir a una recarga');
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByTestId('assistant-markdown').last()).toContainText('La mayor oportunidad');
+
+  await page.reload();
+  await page.locator('aside').getByRole('button', { name: 'Asistente IA', exact: true }).click();
+  const history = page.getByTestId('chat-history');
+  await expect(history).toContainText('Resumen que debe sobrevivir a una recarga');
+  await expect(history).toContainText('La mayor oportunidad');
+
+  await page.locator('aside').getByRole('button', { name: 'Perfil y Seguridad', exact: true }).click();
+  await page.getByRole('button', { name: /cerrar sesión/i }).click();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem('finops:chat:v1:user-1:tenant-1'))).toBeNull();
+});
+
+const roleCases: readonly { readonly role: ApiRole; readonly technical: boolean; readonly master: boolean; readonly outboundManager: boolean }[] = [
+  { role: 'MASTER_ADMIN', technical: true, master: true, outboundManager: true },
+  { role: 'OPERATOR_ADMIN', technical: true, master: false, outboundManager: true },
+  { role: 'LEAD_TECHNICIAN', technical: true, master: false, outboundManager: false },
+  { role: 'FINOPS_TECHNICIAN', technical: true, master: false, outboundManager: false },
+  { role: 'ADMIN', technical: true, master: false, outboundManager: true },
+  { role: 'CLIENT_APPROVER', technical: false, master: false, outboundManager: false },
+  { role: 'CLIENT_VIEWER', technical: false, master: false, outboundManager: false },
+  { role: 'VIEWER', technical: false, master: false, outboundManager: false },
+];
+
+for (const roleCase of roleCases) {
+  test(`la interfaz de ${roleCase.role} respeta navegación, módulos financieros y canales`, async ({ page }) => {
+    await mockApi(page, roleCase.role);
+    await login(page);
+
+    const nav = page.locator('aside');
+    await expect(nav.getByRole('button', { name: 'Panel de Control', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Asistente IA', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Administración MSP', exact: true })).toHaveCount(roleCase.master ? 1 : 0);
+    await expect(nav.getByRole('button', { name: 'Consola Técnica', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+
+    await nav.getByRole('button', { name: 'Asistente IA', exact: true }).click();
+    await expect(page.getByTestId('chat-quick-actions').getByRole('button', { name: /explica dónde está el mayor costo/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /previsualizar recomendaciones ia/i })).toHaveCount(roleCase.technical ? 1 : 0);
+    await expect(page.getByRole('button', { name: /guardar recomendaciones ia/i })).toHaveCount(roleCase.technical ? 1 : 0);
+
+    await nav.getByRole('button', { name: 'Presupuestos', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Nuevo presupuesto', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+    if (roleCase.technical) {
+      await page.getByRole('button', { name: 'Nuevo presupuesto', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Guardar presupuesto', exact: true })).toBeVisible();
+    }
+
+    await nav.getByRole('button', { name: 'Asignación de costos', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Asignación de costos', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Nueva regla', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+    await expect(page.getByRole('button', { name: 'Cerrar período', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+    if (roleCase.technical) {
+      await page.getByRole('button', { name: 'Nueva regla', exact: true }).click();
+      await expect(page.getByPlaceholder('Nombre de la regla')).toBeVisible();
+    }
+
+    await nav.getByRole('button', { name: 'Valor realizado', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Valor realizado', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Actualizar mediciones', exact: true })).toHaveCount(roleCase.technical ? 1 : 0);
+
+    await nav.getByRole('button', { name: 'Mensajería', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Mensajería FinOps', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Probar canales', exact: true })).toHaveCount(roleCase.outboundManager ? 1 : 0);
+  });
+}
+
+for (const decisionCase of [
+  { role: 'CLIENT_APPROVER', canDecide: true },
+  { role: 'FINOPS_TECHNICIAN', canDecide: true },
+  { role: 'CLIENT_VIEWER', canDecide: false },
+] as const) {
+  test(`${decisionCase.role} accede al detalle y respeta el permiso de decisión`, async ({ page }) => {
+    await mockApi(page, decisionCase.role, { recommendationForReview: true });
+    await login(page);
+    await page.locator('aside').getByRole('button', { name: 'Historial', exact: true }).click();
+    await page.getByRole('button', { name: 'Revisar recomendación', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Oportunidad auditada de prueba', exact: true })).toBeVisible();
+    await expect(page.getByText('Plan auditado para revisión del cliente', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aprobar plan', exact: true })).toHaveCount(decisionCase.canDecide ? 1 : 0);
+    await expect(page.getByRole('button', { name: 'Rechazar', exact: true })).toHaveCount(decisionCase.canDecide ? 1 : 0);
+
+    if (decisionCase.role === 'CLIENT_APPROVER') {
+      await page.getByRole('button', { name: 'Aprobar plan', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Aprobar recomendacion', exact: true })).toBeVisible();
+      const decisionRequest = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/recommendations/rec-1/decisions'));
+      await page.getByRole('button', { name: 'Aprobar', exact: true }).click();
+      const decisionBody = (await decisionRequest).postDataJSON() as { readonly decision: string; readonly executionPlanId: string };
+      expect(decisionBody).toEqual({ decision: 'APPROVED', executionPlanId: 'execution-plan-e2e-1', reasonCode: 'APPROVED_HIGH_CONFIDENCE' });
+      await expect(page.getByText('Decisión guardada. Aprendizaje en cola.')).toBeVisible();
+      await page.getByRole('button', { name: 'Volver a recomendaciones', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Historial y estado operativo', exact: true })).toBeVisible();
+    }
+  });
+}
 
 test('no anuncia borradores técnicos en una corrida que sí tiene candidatos publicables', async ({ page }) => {
   await mockApi(page, 'ADMIN', { readinessHasPublicCandidate: true });
@@ -261,14 +489,16 @@ async function login(page: Page) {
 
 async function mockApi(
   page: Page,
-  role: 'ADMIN' | 'CLIENT_VIEWER',
+  role: ApiRole,
   options: {
     readonly chatFailures?: number;
+    readonly chatDelayMs?: number;
     readonly staleOpportunities?: boolean;
     readonly planRejected?: boolean;
     readonly planTimeout?: boolean;
     readonly recommendationsRejected?: boolean;
     readonly readinessHasPublicCandidate?: boolean;
+    readonly recommendationForReview?: boolean;
   } = {},
 ) {
   let queued = false;
@@ -288,6 +518,8 @@ async function mockApi(
     if (path.endsWith('/auth/switch-tenant')) {
       return json(route, session(role, 'tenant-2', 'token-tenant-2'));
     }
+    if (path.endsWith('/auth/sessions')) return json(route, { success: true, sessions: [] });
+    if (path.endsWith('/auth/mfa/status')) return json(route, { success: true, enabled: false, requiredForRole: false, recoveryCodesRemaining: 0 });
     if (path.endsWith('/notifications')) {
       return json(route, {
         success: true,
@@ -297,6 +529,7 @@ async function mockApi(
     }
     if (path.endsWith('/ai/chat')) {
       chatRequests += 1;
+      if (options.chatDelayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, options.chatDelayMs));
       if (chatRequests <= (options.chatFailures ?? 0)) {
         return json(route, {
           success: false,
@@ -376,7 +609,8 @@ async function mockApi(
       }],
     });
     if (path.endsWith('/recommendations')) {
-      return json(route, { success: true, recommendations: [], meta: { count: 0, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
+      const recommendations = options.recommendationForReview ? [reviewRecommendation()] : [];
+      return json(route, { success: true, recommendations, meta: { count: recommendations.length, tenantId: tenantTwo ? 'tenant-2' : 'tenant-1' } });
     }
     if (path.endsWith('/analytics/opportunities')) {
       if (options.staleOpportunities && !analyticsRecomputed) {
@@ -397,8 +631,28 @@ async function mockApi(
     if (path.endsWith('/costs')) {
       return json(route, { success: true, metrics: [], summary: { total: 0, currency: 'USD' } });
     }
+    if (path.endsWith('/costs/history')) {
+      return json(route, {
+        success: true,
+        reportingCurrency: 'USD',
+        points: [],
+        totalsByCurrency: [],
+        coverage: {
+          firstPeriod: null,
+          lastPeriod: null,
+          periodsWithData: 0,
+          expectedPeriods: 0,
+          missingPeriods: 0,
+          conversionIssuePeriods: 0,
+        },
+        meta: { startDate: '2026-05-01', endDate: '2026-06-01', granularity: 'day' },
+      });
+    }
     if (path.endsWith('/analytics/forecast')) {
       return json(route, { success: true, forecasts: [] });
+    }
+    if (path.endsWith('/analytics/forecast/scenarios')) {
+      return json(route, { success: true, scenarios: [] });
     }
     if (path.endsWith('/analytics/unit-economics')) {
       return json(route, { success: true, unitEconomics: [] });
@@ -409,7 +663,9 @@ async function mockApi(
         savings: {
           estimatedMonthlySavings: 0,
           observedMonthlySavings: 0,
+          verifiedMonthlySavings: 0,
           missedSavingsAmount: 0,
+          currency: 'USD',
         },
       });
     }
@@ -428,6 +684,18 @@ async function mockApi(
         },
       });
     }
+    if (path.endsWith('/costs/options')) {
+      return json(route, { success: true, options: { reportingCurrency: 'USD', periods: [], cloudAccounts: [], services: [], regions: [], currencies: [] } });
+    }
+    if (path.endsWith('/cost-allocation/rules')) return json(route, { success: true, rules: [] });
+    if (path.endsWith('/cost-allocation/summary')) return json(route, { success: true, summary: [] });
+    if (path.endsWith('/cost-allocation/comparison')) return json(route, { success: true, comparison: { summary: [], previousSummary: [] } });
+    if (path.endsWith('/cost-allocation/unallocated')) return json(route, { success: true, items: [] });
+    if (path.endsWith('/cost-allocation/periods')) return json(route, { success: true, closures: [] });
+    if (path.endsWith('/value-realization/summary')) return json(route, { success: true, summary: { generatedAt: '2026-07-23T12:00:00.000Z', currencies: [], counts: {} } });
+    if (path.endsWith('/value-realization/items')) return json(route, { success: true, page: { items: [], hasMore: false } });
+    if (path.endsWith('/value-realization/trend')) return json(route, { success: true, points: [] });
+    if (path.endsWith('/value-realization/destinations')) return json(route, { success: true, destinations: [] });
     if (path.endsWith('/budgets')) {
       return json(route, { success: true, budgets: [] });
     }
@@ -452,6 +720,33 @@ async function mockApi(
     if (path.endsWith('/agent/tenant-rules')) return json(route, { success: true, rules: [] });
     if (path.endsWith('/agent/context-traces')) return json(route, { success: true, traces: [] });
     if (path.endsWith('/telegram/links')) return json(route, { success: true, links: [] });
+    if (path.endsWith('/telegram/self-link-code')) {
+      return json(route, {
+        success: true,
+        code: 'link-code-e2e',
+        expiresAt: '2026-07-24T00:00:00.000Z',
+        startCommand: '/start link-code-e2e',
+        deepLink: 'https://t.me/FinOpsTestBot?start=link-code-e2e',
+      });
+    }
+    if (path.endsWith('/outbound-messages/preferences')) {
+      return json(route, {
+        success: true,
+        preferences: {
+          id: 'preferences-1',
+          tenantId: tenantTwo ? 'tenant-2' : 'tenant-1',
+          userId: 'user-1',
+          emailEnabled: true,
+          telegramEnabled: false,
+          operationalAlerts: true,
+          recommendationAlerts: true,
+          financialAlerts: true,
+          executiveSummaries: true,
+          createdAt: '2026-07-23T12:00:00.000Z',
+          updatedAt: '2026-07-23T12:00:00.000Z',
+        },
+      });
+    }
     if (path.endsWith('/outbound-messages/status')) {
       return json(route, {
         success: true,
@@ -526,7 +821,10 @@ async function mockApi(
       }, 504);
     }
     if (path.endsWith('/recommendations/rec-1/execution-plans/latest')) {
-      return json(route, { success: true, executionPlan: null });
+      return json(route, { success: true, executionPlan: options.recommendationForReview ? approvedExecutionPlan() : null });
+    }
+    if (path.endsWith('/recommendations/rec-1/decisions') && request.method() === 'POST') {
+      return json(route, { success: true, recommendation: { ...reviewRecommendation(), status: 'APPROVED' }, executionPlan: approvedExecutionPlan(), learning: { status: 'PENDING' } });
     }
     if (path.endsWith('/recommendations/rec-1/savings-measurements/readiness')) {
       return json(route, {
@@ -569,6 +867,31 @@ async function mockApi(
   });
 }
 
+function reviewRecommendation() {
+  return {
+    id: 'rec-1', cloudAccountId: 'account-1', type: 'RIGHTSIZING', status: 'PENDING', severity: 'MEDIUM',
+    title: 'Oportunidad auditada de prueba', description: 'Recomendación enlazada a un plan aprobado.',
+    evidence: { candidateId: 'candidate-1' }, estimatedMonthlySavings: 10, currency: 'USD',
+    createdAt: '2026-07-23T12:00:00.000Z', updatedAt: '2026-07-23T12:00:00.000Z',
+  };
+}
+
+function approvedExecutionPlan() {
+  return {
+    id: 'execution-plan-e2e-1', recommendationId: 'rec-1', generatedByUserId: 'technician-1',
+    model: 'gpt-5.6-luna', auditorModel: 'gpt-5.6-luna',
+    content: {
+      summary: 'Plan auditado para revisión del cliente', scope: { resource: 'compute-test' },
+      prerequisites: ['Confirmar ventana de mantenimiento.'], steps: ['Revisar consumo.'],
+      validation: ['Comprobar disponibilidad.'], risks: ['Interrupción temporal.'],
+      rollback: ['Restaurar el tamaño anterior.'], successCriteria: ['La aplicación sigue disponible.'],
+      estimatedSavings: { amount: 10, currency: 'USD' },
+    },
+    auditReport: { verdict: 'APPROVED', score: 95, checks: [], blockingIssues: [], requiredChanges: [] },
+    auditVerdict: 'APPROVED', auditScore: 95, createdAt: '2026-07-23T12:00:00.000Z',
+  };
+}
+
 function costOpportunity(isStale: boolean) {
   return {
     id: isStale ? 'stale-opportunity' : 'fresh-opportunity',
@@ -587,7 +910,7 @@ function costOpportunity(isStale: boolean) {
   };
 }
 
-function session(role: 'ADMIN' | 'CLIENT_VIEWER', tenantId: string, accessToken: string) {
+function session(role: ApiRole, tenantId: string, accessToken: string) {
   const tenants = [
     { id: 'tenant-1', name: 'Tenant Uno', slug: 'tenant-uno', accessRole: 'HOME', isCurrent: tenantId === 'tenant-1' },
     { id: 'tenant-2', name: 'Tenant Dos', slug: 'tenant-dos', accessRole: 'TECHNICIAN', isCurrent: tenantId === 'tenant-2' },

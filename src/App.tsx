@@ -195,9 +195,9 @@ availableTenants: response.availableTenants,
         setSelectedResourceType(id);
         setCurrentView('resource_detail');
       }} />;
-      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} apiRole={currentRole} onBack={() => setCurrentView('console')} />;
-      case 'chat': return <Chat role={currentRole} userId={authSession.user.id} tenantId={authSession.activeTenant.id} />;
-      case 'history': return <History />;
+      case 'resource_detail': return <ResourceDetail recommendationId={selectedResourceType || ''} apiRole={currentRole} onBack={() => setCurrentView(technicalRole ? 'console' : 'history')} />;
+      case 'chat': return <Chat key={`${authSession.user.id}:${authSession.activeTenant.id}:${currentRole}`} role={currentRole} userId={authSession.user.id} tenantId={authSession.activeTenant.id} />;
+      case 'history': return <History onOpenRecommendation={(id) => { setSelectedResourceType(id); setCurrentView('resource_detail'); }} />;
       case 'agent_settings': return technicalRole ? <AgentSettings
   role={currentRole}
   onOpenRecommendation={(recommendationId) => {
@@ -205,7 +205,7 @@ availableTenants: response.availableTenants,
     setCurrentView('resource_detail');
   }}
 /> : <Dashboard apiRole={currentRole} onOpenBudgets={() => setCurrentView('budgets')} onOpenAgentSettings={() => setCurrentView('agent_settings')} />;
-      case 'messaging': return <Messaging role={currentRole} />;
+      case 'messaging': return <Messaging role={currentRole} activeTenant={authSession.activeTenant} />;
 case 'ingesta': return <Ingesta canManage={canManageFinOps} onNavigate={setCurrentView} />;
       case 'metricas_tecnicas': return <MetricasTecnicas />;
 case 'budgets': return <Budgets canManage={canManageFinOps} onOpenAllocation={() => setCurrentView('cost_allocation')} />;

@@ -285,8 +285,19 @@ test.describe('FinOps app E2E', () => {
             },
             priority: 100, availableAt: '2026-09-26T09:00:00.000Z', createdAt: '2026-09-26T09:00:00.000Z',
             updatedAt: '2026-09-26T10:17:00.000Z',
+          }, {
+            id: 'focus-partial-ui-fixture', tenantId: 'tenant-fixture', tenantName: 'TAK QA', tenantSlug: 'tak-qa',
+            cloudConnectionId: 'connection-fixture', connectionName: 'OCI QA', providerCode: 'oci',
+            sourceType: 'BILLING_EXPORT', status: 'SUCCESS', dataOutcome: 'PARTIAL', attempts: 1, maxAttempts: 3,
+            targetStart: '2026-10-02T00:00:00.000Z', targetEnd: '2026-10-03T00:00:00.000Z',
+            resultSummary: {
+              warnings: ['OCI no devolvió archivos de Cost Reports FOCUS en la ubicación consultada. Verifica que los reportes estén habilitados y que la política permita leerlos; la ausencia de archivos no significa costo cero.'],
+              coverage: { billingSourceFallback: 'FOCUS_TO_PROVIDER_API' },
+            },
+            priority: 100, availableAt: '2026-10-03T00:00:00.000Z', createdAt: '2026-10-03T00:00:00.000Z',
+            updatedAt: '2026-10-03T00:00:00.000Z',
           }],
-          summary: { total: 1, pending: 0, running: 0, success: 0, failed: 1, cancelled: 0, skipped: 0 },
+          summary: { total: 2, pending: 0, running: 0, success: 1, failed: 1, cancelled: 0, skipped: 0 },
           hasMore: false,
         }),
       });
@@ -297,14 +308,22 @@ test.describe('FinOps app E2E', () => {
     await expect(page.getByText(/Lease vencido tras agotar reintentos · intento 3\/3/i)).toBeVisible();
     await expect(page.getByText(/la causa inicial no quedó registrada/i)).toBeVisible();
     await expect(page.getByText(/último avance: Consultando proveedor: 4 llamadas, 18 muestras/i)).toBeVisible();
+    await expect(page.getByText('Resultado: Datos parciales')).toBeVisible();
+    await expect(page.getByText(/la ausencia de archivos no equivale a costo cero/i)).toBeVisible();
 
     await page.locator('aside').getByRole('button', { name: 'Perfil y Seguridad', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Seguridad y Acceso' })).toBeVisible();
     await expect(page.getByText('No está activada para esta cuenta.')).toBeVisible();
 
+    let mfaSetupRequests = 0;
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname.endsWith('/auth/mfa/setup')) mfaSetupRequests += 1;
+    });
     let mfa = await enrollMfa(page);
+    expect(mfaSetupRequests).toBe(1);
     await disableMfa(page, mfa.secret, mfa.lastUsedStep);
     mfa = await enrollMfa(page);
+    expect(mfaSetupRequests).toBe(2);
     await disableMfa(page, mfa.secret, mfa.lastUsedStep);
 
   });

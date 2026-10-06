@@ -139,7 +139,7 @@ export function useResourceDetailController(recommendationId: string) {
       });
       setRecommendation(response.recommendation);
       setTimeline((await fetchRecommendationTimeline(token, recommendation.id)).timeline);
-      setDecisionLearningStatus('Decision guardada. Aprendizaje en cola.');
+      setDecisionLearningStatus('Decisión guardada. Aprendizaje en cola.');
       setDecisionMode(null);
       window.setTimeout(() => {
         void fetchRecommendationTimeline(token, recommendation.id)
