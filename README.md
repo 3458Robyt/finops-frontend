@@ -2,7 +2,7 @@
 
 Interfaz React para clientes, técnicos FinOps y administración maestra. Presenta costos, presupuestos, inventario, métricas técnicas, recomendaciones gobernadas, trazabilidad y chat contextual.
 
-> El proyecto sigue en desarrollo. El build correcto no sustituye pruebas autenticadas por rol, UAT del cliente ni aceptación de producción.
+> La aplicación requiere un backend FinOps compatible. El build del frontend no sustituye la validación integral de la API, la base de datos y los servicios externos.
 
 ## Requisitos y arranque
 
@@ -26,10 +26,8 @@ npm run test:e2e
 
 `npm run test:e2e:full` ejecuta el conjunto integrado y requiere el backend y fixtures de prueba aislados. No apunte pruebas E2E a una cuenta empresarial o al sitio público sin autorización.
 
-## Seguridad de entrega
+## Seguridad
 
 El navegador solo recibe credenciales de sesión de alcance limitado; la ingesta, cifrado de credenciales cloud y llamadas al proveedor IA ocurren en el backend. No comparta capturas, HAR, local storage ni trazas que puedan contener datos de una sesión.
 
-El backend asociado contiene las migraciones, API y guías técnicas. La documentación con datos reales de cuentas cloud se distribuye por separado y con acceso autorizado. La visibilidad pública del repositorio no otorga una licencia de reutilización.
-
-Release test scope and known limitations are recorded in [RELEASE_CHECKS.md](RELEASE_CHECKS.md).
+El backend asociado contiene las migraciones, API y guías técnicas. La documentación con datos reales de cuentas cloud se distribuye por separado y con acceso autorizado. La visibilidad pública del repositorio no otorga por sí sola una licencia de reutilización.

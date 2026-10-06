@@ -28,6 +28,10 @@ playwright-report-real/
 output/playwright/
 graphify-out/
 .graphify-*/
+.codex/
+.engram/
+.hallmark/
+.claude/
 public/screenshot-*.png
 public/logo-preview.html
 public/logo-rendered.png
